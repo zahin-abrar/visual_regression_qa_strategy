@@ -126,7 +126,7 @@ The test's default Android golden is:
 baselines/android/pixel10-api37/long_headline.png
 ```
 
-This reviewed golden is present locally. Its source was Capture A, a native Appium outer-card screenshot reviewed for its complete boundary and repeatability, then explicitly approved for promotion. Repository commit status has not been checked. Android/device profiles use separate directories; do not reuse this image for iOS or a different device/rendering profile.
+This reviewed golden is committed in the repository. Its source was Capture A, a native Appium outer-card screenshot reviewed for its complete boundary and repeatability, then explicitly approved for promotion. Android/device profiles use separate directories; do not reuse this image for iOS or a different device/rendering profile.
 
 The test captures the Appium element screenshot to `artifacts/android/<profile>/long_headline.actual.png`, then compares it to the golden. The full-screen context PNG is diagnostic only and is not compared because items such as the status-bar clock can change. The default policy counts a pixel as changed when any RGB channel differs by **more than 12**, and passes only if no more than **0.2%** of pixels are changed. Different dimensions always fail. The test writes a red-overlay diff and comparison JSON when it reaches comparison; thresholds can be overridden with environment variables, but changing them is not a substitute for investigating a mismatch.
 
@@ -173,5 +173,5 @@ Useful read-only checks include `adb devices -l`, `adb shell getprop sys.boot_co
 - There is no native iOS execution, iOS baseline, or verified CI pipeline.
 - The card screenshot target resolves the ready element's direct parent based on the current UiAutomator2 hierarchy. Bounds checks guard the captured relationship, but a future app/accessibility-tree change may require inspection and a new reviewed golden.
 - Snapshot consistency depends on matching app build, emulator resolution/density, font scale, theme, assets and rendering environment.
-- The golden currently exists locally; Git tracking/commit status is unverified.
+- The approved Android golden is committed at `baselines/android/pixel10-api37/long_headline.png`.
 - Installation/build instructions marked above as documented setup steps were not all re-run end-to-end during this documentation task. Refer to the task history for exact verified command outcomes.

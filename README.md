@@ -15,7 +15,7 @@ The repository contains the Volksverpetzer application with a development-only d
 - The reviewed local Android golden was promoted and the visual test passed: **1 passed**. The comparison reported 0 of 1,271,636 changed pixels (0.0%).
 - The run produced a diff image and comparison-metrics JSON under `qa_visual/artifacts/android/pixel10-api37/`.
 
-The approved golden is at `qa_visual/baselines/android/pixel10-api37/long_headline.png`. It exists locally; Git tracking/commit status has not been verified. No CI pipeline, native iOS execution, or deliberate failing visual regression has been demonstrated.
+The approved Android golden is committed at `qa_visual/baselines/android/pixel10-api37/long_headline.png`. No CI pipeline, native iOS execution, or deliberate failing visual regression has been demonstrated.
 
 ## Architecture overview
 

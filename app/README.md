@@ -35,7 +35,7 @@ Official mobile app for Volksverpetzer (build with Expo + TypeScript).
 
 The app expects a `./.env` file in the project root for some minor configuration.
 
-See `.env.example` for reference.
+See `.env.sample` for reference.
 
 ## App variants
 

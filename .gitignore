@@ -26,6 +26,13 @@
 **/.claude/launch.json
 **/.claude/worktrees/
 
+# Local agent instructions and project-specific agent settings
+/AGENTS.md
+/CLAUDE.md
+/app/AGENTS.md
+/app/.claude/
+/app/.github/copilot-instructions.md
+
 # Generated test captures and reports
 **/artifacts/
 **/*.actual.png
