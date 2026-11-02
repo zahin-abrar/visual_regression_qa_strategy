@@ -1,0 +1,128 @@
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { View } from "react-native";
+
+import Typography from "#/components/ui/Typography";
+import UiPressable from "#/components/ui/UiPressable";
+import UiText from "#/components/ui/UiText";
+import { LINE_HEIGHTS } from "#/constants/FontSizes";
+import {
+  DEFAULT_IMAGE_ASPECT_RATIO,
+  POST_PADDING_HORIZONTAL,
+} from "#/constants/GlobalStyles";
+import { spacing } from "#/constants/Spacing";
+import { onShare as _onShare } from "#/helpers/Sharing";
+
+interface RedditImageSource {
+  url: string;
+  width: number;
+  height: number;
+}
+
+interface RedditPreviewImage {
+  source: RedditImageSource;
+  resolutions?: RedditImageSource[];
+}
+
+interface RedditProperties {
+  preview?: { images: RedditPreviewImage[]; enabled: boolean };
+  is_reddit_media_domain: boolean;
+  url_overridden_by_dest: string;
+  title: string;
+  created_utc: number;
+  permalink: string;
+  author: string;
+  crosspost_parent_list?: { author: string }[];
+  inView?: boolean;
+  thumbnail: string;
+}
+
+/**
+ * Renders Reddit Post with data from Reddit API (RedditProps)
+ */
+const RedditPost = (properties: RedditProperties) => {
+  const router = useRouter();
+  const img_dim = properties.preview?.images[0]?.source ?? {
+    width: 100,
+    height: 100,
+  };
+  const height_relation =
+    properties.is_reddit_media_domain && img_dim.width > 0
+      ? img_dim.height / img_dim.width
+      : DEFAULT_IMAGE_ASPECT_RATIO;
+  const size = properties.title.length > 100 ? 16 : 18;
+  const author =
+    properties.crosspost_parent_list?.[0]?.author ?? properties.author;
+  const inView = properties.inView ?? true;
+
+  const datebeautify = () => {
+    const date = new Date(properties.created_utc * 1000);
+    return (
+      date.getDate() + "." + (date.getMonth() + 1) + "." + date.getFullYear()
+    );
+  };
+  const date = datebeautify();
+
+  const onShare = async () => {
+    try {
+      await _onShare(properties.url_overridden_by_dest, {
+        location: "RedditPost",
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const imageUri = inView
+    ? properties.url_overridden_by_dest
+    : properties.thumbnail;
+
+  return (
+    <>
+      <UiPressable
+        accessibilityRole="button"
+        onPress={() =>
+          router.push({
+            pathname: "/image",
+            params: { uri: properties.url_overridden_by_dest },
+          })
+        }
+        onLongPress={onShare}
+      >
+        <View>
+          <Image
+            style={{
+              left: 0,
+              width: "100%",
+              aspectRatio: 1 / height_relation,
+            }}
+            source={{ uri: imageUri }}
+          />
+          <UiText
+            size={size === 16 ? "base" : "lg"}
+            bold
+            style={{
+              paddingHorizontal: POST_PADDING_HORIZONTAL,
+              lineHeight: size === 16 ? LINE_HEIGHTS.base : LINE_HEIGHTS.lg,
+              textAlign: "left",
+              paddingTop: spacing.xl,
+            }}
+          >
+            {properties.title}
+          </UiText>
+          <Typography
+            type="meta"
+            style={{
+              paddingHorizontal: POST_PADDING_HORIZONTAL,
+              paddingBottom: spacing.md,
+            }}
+          >
+            von {author} | {date}
+          </Typography>
+        </View>
+      </UiPressable>
+    </>
+  );
+};
+
+export default RedditPost;

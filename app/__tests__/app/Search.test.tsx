@@ -1,0 +1,272 @@
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import React from "react";
+
+import SearchScreen from "#/app/search";
+import { registerEvent } from "#/helpers/network/Analytics";
+
+// ── expo-router ──────────────────────────────────────────────────────────────
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: jest.fn(() => ({})),
+  useFocusEffect: jest.fn(),
+}));
+
+// ── Config / state deps used by SearchManager ────────────────────────────────
+jest.mock("#/constants/Config", () => ({
+  __esModule: true,
+  default: {
+    wpUrl: "https://example.com",
+    aiUrl: "https://ai.example.com",
+    algolia: { appId: "a", searchKey: "b", indexName: "c" },
+  },
+}));
+jest.mock("#/helpers/Achievements", () => ({
+  Achievements: { setAchievementValue: jest.fn() },
+}));
+jest.mock("#/helpers/network/Analytics", () => ({
+  registerEvent: jest.fn(),
+}));
+
+// ── Styling / colors ─────────────────────────────────────────────────────────
+jest.mock("#/hooks/useAppColorScheme", () => ({
+  useAppColorScheme: jest.fn(() => "light"),
+}));
+jest.mock("#/constants/Colors", () => ({
+  light: {
+    surface: "#E2F0F5",
+    primary: "#1B7194",
+    surfaceInput: "#BBB",
+    text: "#111",
+    onPrimary: "#FFF",
+    textMuted: "#888",
+  },
+  dark: {
+    surface: "#142228",
+    primary: "#3893C0",
+    surfaceInput: "#333",
+    text: "#F7F7F7",
+    onPrimary: "#FFF",
+    textMuted: "#666",
+  },
+}));
+jest.mock("#/constants/GlobalStyles", () => ({
+  globalStyles: { container: {}, content: {}, noBackground: {}, row: {} },
+}));
+
+// ── Heavy UI components ───────────────────────────────────────────────────────
+jest.mock("#/components/bars/NavBar", () => jest.fn(() => null));
+jest.mock("#/components/Icons", () => ({
+  SearchIcon: jest.fn(() => null),
+  SafetyIcon: jest.fn(() => null),
+}));
+
+// ── Search sub-components — expose testIDs for assertions ────────────────────
+
+// SearchHeader: expose a real TextInput so tests can type/submit, and surface
+// the showFaktenBot state so tests can assert which mode is active.
+jest.mock("#/screens/Search/components/SearchHeader", () =>
+  jest.fn(({ search, setSearch, setSearchParams, showFaktenBot }: any) => {
+    const { Text, TextInput, View } = require("react-native");
+    return (
+      <View>
+        <TextInput
+          testID="search-input"
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={() => setSearchParams(search)}
+          accessibilityLabel="Text input field"
+          accessibilityHint="Füge Text ein und drücke Enter um zu suchen"
+        />
+        {showFaktenBot && <Text testID="faktenbot-active">faktenbot</Text>}
+      </View>
+    );
+  }),
+);
+
+// UiEmptyState: forward testID so tests can assert which tutorial is shown.
+jest.mock("#/components/ui/UiEmptyState", () =>
+  jest.fn(({ children, testID }: any) => {
+    const { Text } = require("react-native");
+    return <Text testID={testID}>{children}</Text>;
+  }),
+);
+
+// AlgoliaSearchResults: expose testID + the search string being passed, and
+// resolve a fixed result count so SearchManager's analytics effect fires.
+jest.mock("#/screens/Search/components/AlgoliaSearch", () =>
+  jest.fn(({ searchString, onResultsLength }: any) => {
+    const { useEffect } = require("react");
+    const { Text } = require("react-native");
+    useEffect(() => {
+      onResultsLength(3);
+    }, [searchString, onResultsLength]);
+    return <Text testID="algolia-results">{searchString}</Text>;
+  }),
+);
+
+// WpSearch: never rendered in these tests (Algolia is configured), but its
+// import chain pulls in reanimated, so stub it.
+jest.mock("#/screens/Search/components/WpSearch", () => jest.fn(() => null));
+
+// AISearch: expose testID + the search string being passed, and resolve a
+// fixed result count so SearchManager's analytics effect fires.
+jest.mock("#/screens/Search/components/AISearch", () =>
+  jest.fn(({ search, setResultsLength }: any) => {
+    const { useEffect } = require("react");
+    const { Text } = require("react-native");
+    useEffect(() => {
+      setResultsLength(3);
+    }, [search, setResultsLength]);
+    return <Text testID="ai-results">{search}</Text>;
+  }),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("SearchScreen", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  describe("default state (Artikel tab)", () => {
+    it("shows the Artikel tab tutorial on initial render", async () => {
+      const { queryByTestId } = await render(<SearchScreen />);
+      expect(queryByTestId("tutorial-artikel")).not.toBeNull();
+      expect(queryByTestId("tutorial-ai")).toBeNull();
+    });
+
+    it("does not show FaktenBot header on initial render", async () => {
+      const { queryByTestId } = await render(<SearchScreen />);
+      expect(queryByTestId("faktenbot-active")).toBeNull();
+    });
+
+    it("typing alone does not show results", async () => {
+      const { getByTestId, queryByTestId } = await render(<SearchScreen />);
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      expect(queryByTestId("algolia-results")).toBeNull();
+      expect(queryByTestId("tutorial-artikel")).not.toBeNull();
+    });
+
+    it("shows Algolia results after submitting a 2+ character search", async () => {
+      const { getByTestId, queryByTestId } = await render(<SearchScreen />);
+      await fireEvent.changeText(getByTestId("search-input"), "co");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+      expect(queryByTestId("algolia-results")).not.toBeNull();
+      expect(queryByTestId("tutorial-artikel")).toBeNull();
+    });
+
+    it("passes the submitted search string to AlgoliaSearchResults", async () => {
+      const { getByTestId } = await render(<SearchScreen />);
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+      expect(getByTestId("algolia-results").props.children).toBe("corona");
+    });
+  });
+
+  describe("tab switching", () => {
+    it("switches to AI tab when pressing KI-Faktenbot button", async () => {
+      const { getByRole, queryByTestId } = await render(<SearchScreen />);
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      expect(queryByTestId("tutorial-ai")).not.toBeNull();
+      expect(queryByTestId("tutorial-artikel")).toBeNull();
+    });
+
+    it("activates FaktenBot header when on AI tab", async () => {
+      const { getByRole, queryByTestId } = await render(<SearchScreen />);
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      expect(queryByTestId("faktenbot-active")).not.toBeNull();
+    });
+
+    it("switches back to Artikel tab", async () => {
+      const { getByRole, queryByTestId } = await render(<SearchScreen />);
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      await fireEvent.press(getByRole("tab", { name: "Artikel" }));
+      expect(queryByTestId("tutorial-artikel")).not.toBeNull();
+      expect(queryByTestId("tutorial-ai")).toBeNull();
+    });
+  });
+
+  describe("AI tab", () => {
+    it("typing alone does not trigger AI search", async () => {
+      const { getByTestId, getByRole, queryByTestId } = await render(
+        <SearchScreen />,
+      );
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      expect(queryByTestId("ai-results")).toBeNull();
+      expect(queryByTestId("tutorial-ai")).not.toBeNull();
+    });
+
+    it("shows AI results after submitting", async () => {
+      const { getByTestId, getByRole, queryByTestId } = await render(
+        <SearchScreen />,
+      );
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+      expect(queryByTestId("ai-results")).not.toBeNull();
+    });
+
+    it("passes the submitted string to AISearch", async () => {
+      const { getByTestId, getByRole } = await render(<SearchScreen />);
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+      expect(getByTestId("ai-results").props.children).toBe("corona");
+    });
+  });
+
+  describe("analytics", () => {
+    it("registers a search event once Algolia results resolve", async () => {
+      const { getByTestId } = await render(<SearchScreen />);
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+
+      await waitFor(() =>
+        expect(registerEvent).toHaveBeenCalledWith(
+          "https://example.com",
+          "search",
+          {
+            search: "corona",
+            search_source: "app",
+            search_type: "standard",
+            result_count: 3,
+          },
+        ),
+      );
+    });
+
+    it("registers a search event once AI results resolve", async () => {
+      const { getByTestId, getByRole } = await render(<SearchScreen />);
+      await fireEvent.press(getByRole("tab", { name: "KI-Faktenbot" }));
+      await fireEvent.changeText(getByTestId("search-input"), "corona");
+      await fireEvent(getByTestId("search-input"), "submitEditing");
+
+      await waitFor(() =>
+        expect(registerEvent).toHaveBeenCalledWith(
+          "https://example.com",
+          "search",
+          {
+            search: "corona",
+            search_source: "app",
+            search_type: "ai",
+            result_count: 3,
+          },
+        ),
+      );
+    });
+  });
+
+  describe("without an AI backend", () => {
+    it("hides the KI-Faktenbot tab", async () => {
+      const Config = require("#/constants/Config").default;
+      const { aiUrl } = Config;
+      delete Config.aiUrl;
+      try {
+        const { queryByText, queryByTestId } = await render(<SearchScreen />);
+        expect(queryByText("KI-Faktenbot")).toBeNull();
+        expect(queryByTestId("tutorial-artikel")).not.toBeNull();
+      } finally {
+        Config.aiUrl = aiUrl;
+      }
+    });
+  });
+});

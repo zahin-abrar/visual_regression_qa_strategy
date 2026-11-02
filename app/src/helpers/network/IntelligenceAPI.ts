@@ -1,0 +1,91 @@
+import Config from "#/constants/Config";
+import {
+  FetchError,
+  createClient,
+  get as netGet,
+  post as netPost,
+} from "#/helpers/utils/networking";
+import type { AISearchResponse, HttpsUrl } from "#/types";
+
+/** Fetch client for AI with Referer header set */
+const intelligenceClient = createClient(Config.aiUrl, {
+  Referer: Config.aiUrl,
+});
+
+/**
+ * The IntelligenceAPI class provides methods for making HTTP requests and fetching data from an API.
+ */
+class IntelligenceAPI {
+  private static client = intelligenceClient; // using AI client with Referer header
+
+  /**
+   * POST request wrapper.
+   */
+  static post<T, D>(path: string, data: D, signal?: AbortSignal): Promise<T> {
+    return netPost<T, D>(
+      this.client,
+      path,
+      data,
+      undefined,
+      signal ? { signal } : undefined,
+    );
+  }
+
+  /**
+   * GET request wrapper
+   */
+  static get<T>(path: string, signal?: AbortSignal): Promise<T> {
+    return netGet<T>(this.client, path, signal ? { signal } : undefined);
+  }
+
+  /**
+   * Performs an AI search based on a query.
+   */
+  static async vectorSearch(
+    query: string,
+    signal?: AbortSignal,
+  ): Promise<AISearchResponse[]> {
+    const rawResponse = await this.post<
+      {
+        results: {
+          id: string;
+          title: string;
+          excerpt: string;
+          url: HttpsUrl;
+          distance: number;
+          rerank_score: number | null;
+        }[];
+      },
+      { query: string; n_results: number }
+    >("/api/vector-search/", { query, n_results: 20 }, signal);
+    return rawResponse.results.map((item) => ({
+      url: item.url,
+      text: item.excerpt,
+      title: item.title,
+    }));
+  }
+
+  /**
+   * Related articles for a URL. A URL the backend hasn't indexed (e.g.
+   * Prüfpunkt articles) answers 404, which just means "no recommendations".
+   */
+  static async recommendations(
+    url: HttpsUrl,
+    signal?: AbortSignal,
+  ): Promise<{ results: { url: string; title: string }[] }> {
+    try {
+      return await netGet<{ results: { url: string; title: string }[] }>(
+        this.client,
+        `/api/recommend/?url=${encodeURIComponent(url)}`,
+        { signal, silentStatuses: [404] },
+      );
+    } catch (error) {
+      if (error instanceof FetchError && error.status === 404) {
+        return { results: [] };
+      }
+      throw error;
+    }
+  }
+}
+
+export default IntelligenceAPI;

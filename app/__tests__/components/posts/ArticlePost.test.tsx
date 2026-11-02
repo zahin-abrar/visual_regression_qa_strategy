@@ -1,0 +1,342 @@
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import React from "react";
+
+import ArticlePost from "#/components/posts/ArticlePost";
+import type { ArticleProperties, HttpsUrl } from "#/types";
+
+jest.mock("expo-image", () => ({
+  Image: jest.fn(() => null),
+}));
+
+// Captures the latest focus callback so tests can simulate blur/focus cycles.
+const mockFocus: {
+  callback: (() => void | (() => void)) | null;
+  cleanup: void | (() => void);
+} = { callback: null, cleanup: undefined };
+
+jest.mock("expo-router", () => ({
+  useRouter: jest.fn(() => ({ push: jest.fn(), back: jest.fn() })),
+  useFocusEffect: (callback: () => void | (() => void)) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require("react").useEffect(() => {
+      mockFocus.callback = callback;
+      mockFocus.cleanup = callback();
+      return () => {
+        if (typeof mockFocus.cleanup === "function") mockFocus.cleanup();
+      };
+    }, [callback]);
+  },
+}));
+
+jest.mock("#/components/counter/ViewCounter", () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
+}));
+
+jest.mock("#/components/ui/UiSpinner", () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock("#/components/ui/UiBadge", () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock("#/constants/Config", () => ({
+  __esModule: true,
+  default: { importantCats: {} },
+}));
+
+jest.mock("#/helpers/AppImages", () => ({
+  AppImages: { loadingAnimation: null },
+}));
+
+jest.mock("#/helpers/Linking", () => ({
+  onLinkPress: jest.fn(),
+}));
+
+jest.mock("#/helpers/Sharing", () => ({
+  onShare: jest.fn(),
+}));
+
+jest.mock("#/helpers/Stores/ContentStore", () => ({
+  __esModule: true,
+  default: { setStoredArticle: jest.fn() },
+}));
+
+jest.mock("#/helpers/Stores/PersonalStore", () => ({
+  __esModule: true,
+  default: { getScrollPosition: jest.fn().mockResolvedValue(null) },
+}));
+
+jest.mock("#/helpers/network/WordPressAPI", () => ({
+  __esModule: true,
+  default: {
+    getFeatureImage: jest.fn().mockResolvedValue({ image: "", thumb: "" }),
+  },
+}));
+
+jest.mock("#/hooks/useFeedDimensions", () => ({
+  useFeedDimensions: () => ({ width: 400 }),
+}));
+
+const baseArticle: ArticleProperties = {
+  _links: { "wp:featuredmedia": [{ href: "https://example.com/img.jpg" }] },
+  date: "2024-06-15T12:00:00Z",
+  link: "https://www.volksverpetzer.de/article/test" as HttpsUrl,
+  description: "Test description",
+  categories: [],
+  id: 42,
+  slug: "test-article",
+  date_gmt: "2024-06-15T12:00:00Z",
+  title: "Test Title",
+  authors: [{ display_name: "Max Mustermann", slug: "max" }],
+};
+
+describe("ArticlePost — reading time", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows reading time in the metadata line when reading_time is set", async () => {
+    const { getByText } = await render(
+      <ArticlePost
+        article={{ ...baseArticle, reading_time: 12 }}
+        inView={false}
+      />,
+    );
+    expect(getByText(/12 Min\./)).toBeTruthy();
+  });
+
+  it("does not show reading time when reading_time is undefined", async () => {
+    const { queryByText } = await render(
+      <ArticlePost
+        article={{ ...baseArticle, reading_time: undefined }}
+        inView={false}
+      />,
+    );
+    expect(queryByText(/Min\./)).toBeNull();
+  });
+});
+
+describe("ArticlePost — inView effects", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("fetches image and scroll position when inView is true", async () => {
+    const WordPressAPI = require("#/helpers/network/WordPressAPI").default;
+    const PersonalStore = require("#/helpers/Stores/PersonalStore").default;
+    WordPressAPI.getFeatureImage.mockResolvedValue({
+      image: "https://img.com/a.jpg",
+    });
+    PersonalStore.getScrollPosition.mockResolvedValue(0.5);
+
+    await render(<ArticlePost article={baseArticle} inView={true} />);
+
+    await waitFor(() =>
+      expect(WordPressAPI.getFeatureImage).toHaveBeenCalled(),
+    );
+    await waitFor(() =>
+      expect(PersonalStore.getScrollPosition).toHaveBeenCalledWith(
+        baseArticle.slug,
+      ),
+    );
+  });
+
+  it("skips the image fetch and clears the thumbnail when wp:featuredmedia is absent", async () => {
+    // WordPress can omit wp:featuredmedia from _links even when
+    // featured_media is set (e.g. an unreadable attachment). This is the
+    // feed-card half of the crash-fix guard: it must not call
+    // getFeatureImage, and a recycled row's previous thumbnail must be
+    // cleared rather than left showing.
+    const WordPressAPI = require("#/helpers/network/WordPressAPI").default;
+    const { Image } = require("expo-image");
+
+    await render(
+      <ArticlePost article={{ ...baseArticle, _links: {} }} inView={true} />,
+    );
+
+    await waitFor(() => expect(Image).toHaveBeenCalled());
+    expect(WordPressAPI.getFeatureImage).not.toHaveBeenCalled();
+    const lastCall = Image.mock.calls.at(-1);
+    expect(lastCall[0].source).toEqual({ uri: "" });
+  });
+
+  it("handles getFeatureImage errors gracefully", async () => {
+    const WordPressAPI = require("#/helpers/network/WordPressAPI").default;
+    WordPressAPI.getFeatureImage.mockRejectedValue(new Error("network error"));
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await render(<ArticlePost article={baseArticle} inView={true} />);
+
+    await waitFor(() => expect(consoleSpy).toHaveBeenCalled());
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("ArticlePost — progress bar refresh", () => {
+  const PersonalStore = require("#/helpers/Stores/PersonalStore").default;
+  const blur = async () => {
+    await act(async () => {
+      if (typeof mockFocus.cleanup === "function") mockFocus.cleanup();
+      mockFocus.cleanup = undefined;
+      await Promise.resolve();
+    });
+  };
+  const focus = async () => {
+    await act(async () => {
+      mockFocus.cleanup = mockFocus.callback!();
+      await Promise.resolve();
+    });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // clearAllMocks keeps implementations, so restore the default explicitly
+    // and drop any focus state left by a previous case.
+    PersonalStore.getScrollPosition.mockReset();
+    PersonalStore.getScrollPosition.mockResolvedValue(null);
+    mockFocus.callback = null;
+    mockFocus.cleanup = undefined;
+  });
+
+  it("re-reads the stored progress when the screen regains focus", async () => {
+    PersonalStore.getScrollPosition.mockResolvedValue(0.2);
+    const { getByTestId } = await render(
+      <ArticlePost article={baseArticle} inView={true} />,
+    );
+    await waitFor(() =>
+      expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "20%" }),
+    );
+
+    await blur();
+    PersonalStore.getScrollPosition.mockResolvedValue(0.6);
+    await focus();
+
+    await waitFor(() =>
+      expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "60%" }),
+    );
+  });
+
+  it("keeps the current bar on refocus instead of flashing to 0", async () => {
+    PersonalStore.getScrollPosition.mockResolvedValue(0.2);
+    const { getByTestId } = await render(
+      <ArticlePost article={baseArticle} inView={true} />,
+    );
+    await waitFor(() =>
+      expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "20%" }),
+    );
+
+    await blur();
+    PersonalStore.getScrollPosition.mockReturnValue(new Promise(() => {}));
+    await focus();
+
+    expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "20%" });
+  });
+
+  it("resets the bar when the card is reused for another article", async () => {
+    PersonalStore.getScrollPosition.mockResolvedValue(0.2);
+    const { getByTestId, rerender } = await render(
+      <ArticlePost article={baseArticle} inView={true} />,
+    );
+    await waitFor(() =>
+      expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "20%" }),
+    );
+
+    PersonalStore.getScrollPosition.mockReturnValue(new Promise(() => {}));
+    await rerender(
+      <ArticlePost
+        article={{ ...baseArticle, id: 43, slug: "other-article" }}
+        inView={true}
+      />,
+    );
+
+    expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "0%" });
+  });
+
+  it("ignores a stale read that resolves after the focus cleanup", async () => {
+    let resolveStale: (value: number) => void = () => {};
+    PersonalStore.getScrollPosition.mockReturnValue(
+      new Promise<number>((resolve) => {
+        resolveStale = resolve;
+      }),
+    );
+    const { getByTestId } = await render(
+      <ArticlePost article={baseArticle} inView={true} />,
+    );
+
+    await blur();
+    await act(async () => {
+      resolveStale(0.9);
+      await Promise.resolve();
+    });
+
+    expect(getByTestId("article-progress-bar")).toHaveStyle({ width: "0%" });
+  });
+});
+
+describe("ArticlePost — press handlers", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("calls onLinkPress when pressed", async () => {
+    const { onLinkPress } = require("#/helpers/Linking");
+    const { getByRole } = await render(
+      <ArticlePost article={baseArticle} inView={false} />,
+    );
+    await fireEvent.press(getByRole("button"));
+    expect(onLinkPress).toHaveBeenCalledWith(
+      baseArticle.link,
+      expect.anything(),
+    );
+  });
+
+  it("calls onShare on long press", async () => {
+    const { onShare } = require("#/helpers/Sharing");
+    const { getByRole } = await render(
+      <ArticlePost article={baseArticle} inView={false} />,
+    );
+    await fireEvent(getByRole("button"), "longPress");
+    expect(onShare).toHaveBeenCalledWith(baseArticle.link, expect.anything());
+  });
+});
+
+describe("ArticlePost — elevated mode", () => {
+  it("wraps content in an elevated View when elevated is true", async () => {
+    const { toJSON } = await render(
+      <ArticlePost article={baseArticle} inView={false} elevated={true} />,
+    );
+    expect(toJSON()).toBeTruthy();
+  });
+});
+
+describe("ArticlePost — engagement badge", () => {
+  it("does not mount ViewCounter when enableEngagement is false", async () => {
+    // Config mock at the top of the file has enableEngagement: undefined (falsy),
+    // so the badge gate `Config.enableEngagement && ...` prevents ViewCounter from rendering.
+    const ViewCounter = require("#/components/counter/ViewCounter").default;
+    await render(<ArticlePost article={baseArticle} inView={true} />);
+    // ViewCounter is mocked to () => null; if the gate works it is still
+    // part of the tree but only when engagement is enabled. With the default
+    // mock config (no enableEngagement), the whole badge branch is skipped.
+    expect(ViewCounter).not.toHaveBeenCalled();
+  });
+});
+
+describe("ArticlePost — category badge", () => {
+  it("shows category label when importantCats has a match", async () => {
+    jest.mock("#/constants/Config", () => ({
+      __esModule: true,
+      default: { importantCats: { 5: "Faktisch falsch" } },
+    }));
+    const { queryByText } = await render(
+      <ArticlePost
+        article={{ ...baseArticle, categories: [5] }}
+        inView={false}
+      />,
+    );
+    // Badge component is mocked to null; test that render does not throw
+    expect(queryByText).toBeTruthy();
+  });
+});

@@ -1,0 +1,491 @@
+import * as Application from "expo-application";
+import { BlurTargetView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  StyleSheet,
+  View,
+} from "react-native";
+import type { View as ViewType } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
+
+import AnimatedHeader from "#/components/animations/AnimatedHeader";
+import AnimatedSuccess from "#/components/animations/AnimatedSuccess";
+import Typography from "#/components/ui/Typography";
+import UiButton from "#/components/ui/UiButton";
+import UiPressable from "#/components/ui/UiPressable";
+import UiText from "#/components/ui/UiText";
+import UiTextInput from "#/components/ui/UiTextInput";
+import TabScreenView from "#/components/views/TabScreenView";
+import { radii } from "#/constants/BorderRadius";
+import Colors from "#/constants/Colors";
+import Config from "#/constants/Config";
+import { INPUT_FONT_SIZE, globalStyles } from "#/constants/GlobalStyles";
+import { spacing } from "#/constants/Spacing";
+import { registerEvent } from "#/helpers/network/Analytics";
+import API from "#/helpers/network/ServerAPI";
+import { updateBadgeState } from "#/helpers/provider/BadgeProvider";
+import { FetchError } from "#/helpers/utils/networking";
+import { appName } from "#/helpers/utils/variant";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import { useTabBarClearance } from "#/hooks/useTabBarClearance";
+import type { ContactCategory } from "#/types";
+
+const MIN_MESSAGE_LENGTH = 10;
+
+const CATEGORIES: { key: ContactCategory; label: string }[] = [
+  { key: "app_feedback", label: "Feedback" },
+  { key: "report_fake", label: "Fake reporten" },
+  { key: "other", label: "Sonstiges" },
+];
+
+const CATEGORY_TEXTS: Record<
+  ContactCategory,
+  { titleLabel: string; titleHint: string; messageLabel: string }
+> = {
+  report_fake: {
+    titleLabel: "Link zum Fake",
+    titleHint: "Gib einen Link ein",
+    messageLabel: "Was ist daran falsch?",
+  },
+  app_feedback: {
+    titleLabel: "Betreff",
+    titleHint: "Gib einen Betreff ein",
+    messageLabel: "Dein Feedback",
+  },
+  other: {
+    titleLabel: "Betreff",
+    titleHint: "Gib einen Betreff ein",
+    messageLabel: "Deine Nachricht",
+  },
+};
+
+const CATEGORY_LABELS: Record<ContactCategory, string> = {
+  app_feedback: "App-Feedback",
+  report_fake: "Fake-Report",
+  other: "Sonstiges",
+};
+
+/**
+ * Builds a mailto: link for variants without a contact backend, carrying the
+ * same client metadata the server would attach to a request.
+ */
+const buildMailtoUrl = (
+  to: string,
+  category: ContactCategory,
+  title: string,
+  message: string,
+) => {
+  const client = [
+    appName,
+    Application?.nativeApplicationVersion ?? "",
+    Platform.OS,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  const subject = `${CATEGORY_LABELS[category]} | ${title}`;
+  const body = `${message}\n\n--\nApp: ${client}`;
+  return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+const isValidCategory = (value?: string): value is ContactCategory =>
+  value === "report_fake" || value === "app_feedback" || value === "other";
+
+const ContactScreen = () => {
+  const tabBarClearance = useTabBarClearance();
+
+  // Local state variables
+  const [buttonEnabled, setButtonEnabled] = useState(true);
+  const [animation, setAnimation] = useState(false);
+  const [error, setError] = useState("");
+  const [errorField, setErrorField] = useState<
+    "title" | "message" | "email" | null
+  >(null);
+  const [category, setCategory] = useState<ContactCategory>("app_feedback");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+
+  // Routing and dimensions
+  const parameters = useLocalSearchParams<{
+    url?: string;
+    index?: string;
+    category?: string;
+    title?: string;
+  }>();
+  const {
+    url: parameterUrl,
+    index,
+    category: parameterCategory,
+    title: parameterTitle,
+  } = parameters;
+  const scrollOffsetY = useRef(new Animated.Value(0)).current;
+  const resetTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  // Screen content behind the success overlay, blurred on Android 12+
+  const blurTargetRef = useRef<ViewType>(null);
+  const colorScheme = useAppColorScheme();
+  const {
+    error: errorColor,
+    surfaceInput,
+    primary,
+    surface: backgroundColor,
+    text: textColor,
+    textMuted,
+  } = Colors[colorScheme];
+  // Memoized local styles to avoid re-creating on every render
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        categoryContainer: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: spacing.sm,
+        },
+        categoryPill: {
+          backgroundColor: surfaceInput,
+          borderRadius: radii.full,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+        },
+        categoryPillActive: {
+          backgroundColor: primary,
+        },
+        categoryPillLabelInactive: {
+          color: textMuted,
+        },
+        errorText: {
+          color: errorColor,
+          paddingHorizontal: spacing.md,
+          textAlign: "center",
+        },
+        input: {
+          ...globalStyles.input,
+          backgroundColor: surfaceInput,
+          // Transparent by default so the error border causes no layout shift
+          borderColor: "transparent",
+          borderRadius: radii.xs,
+          borderWidth: 2,
+          // Explicit vertical + horizontal padding (overriding the shared
+          // input's paddingHorizontal: spacing.xxl) so the intent is unambiguous:
+          // tighter sides than the shared input.
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.md,
+          // Shared text size, applied to the actual TextInput (the shared
+          // input style is layout-only, since it's also used on container Views).
+          fontSize: INPUT_FONT_SIZE,
+        },
+        inputError: {
+          borderColor: errorColor,
+        },
+        submitButton: {
+          alignSelf: "center",
+        },
+      }),
+    [surfaceInput, errorColor, primary, textMuted],
+  );
+
+  // Populate initial fields on component mount or when params change
+  useEffect(() => {
+    const initialCategory = isValidCategory(parameterCategory)
+      ? parameterCategory
+      : parameterUrl
+        ? // A url without an explicit category means a fake report
+          "report_fake"
+        : undefined;
+    if (initialCategory) {
+      setCategory(initialCategory);
+    }
+    // A new navigation intent replaces both fields so nothing stale from a
+    // previous entry point (or an earlier draft) is submitted accidentally
+    if (parameterUrl) {
+      if (initialCategory === "report_fake" && parameterUrl.includes("http")) {
+        // The reported url is the title of a fake report
+        setTitle(parameterUrl);
+        setMessage(index ? `Absatz ${index}` : "");
+      } else {
+        // For feedback about an article, reference the article title in the
+        // subject and keep the full url in the text
+        setTitle(parameterTitle ? `Artikel: ${parameterTitle}` : "");
+        setMessage(
+          [parameterUrl, index ? `Absatz ${index}` : ""]
+            .filter(Boolean)
+            .join("\n") + "\n\n",
+        );
+      }
+    } else if (index) {
+      setMessage(`Absatz ${index}`);
+    }
+  }, [parameterUrl, index, parameterCategory, parameterTitle]);
+
+  // Cancel the pending success-reset when the screen unmounts
+  useEffect(() => () => clearTimeout(resetTimeout.current), []);
+
+  // Opening the tab dismisses its "new feature" badge
+  useFocusEffect(
+    useCallback(() => {
+      updateBadgeState({ contact: false });
+    }, []),
+  );
+
+  // Callback to handle the submit action
+  const showFieldError = useCallback(
+    (field: "title" | "message" | "email", errorMessage: string) => {
+      setErrorField(field);
+      setError(errorMessage);
+    },
+    [],
+  );
+
+  const clearError = useCallback(() => {
+    setError("");
+    setErrorField(null);
+  }, []);
+
+  const onSubmit = useCallback(async () => {
+    if (category === "report_fake") {
+      // Same rule as the server: the url must start with http:// or https://
+      if (!/^https?:\/\//i.test(title.trim())) {
+        showFieldError("title", "Bitte einen Link zum Fake eingeben");
+        return;
+      }
+    } else if (title.trim().length === 0) {
+      showFieldError("title", "Bitte einen Betreff eingeben");
+      return;
+    }
+    if (message.trim().length < MIN_MESSAGE_LENGTH) {
+      showFieldError(
+        "message",
+        `Bitte eine kurze Nachricht eingeben (mindestens ${MIN_MESSAGE_LENGTH} Zeichen)`,
+      );
+      return;
+    }
+    if (Config.contactEmail) {
+      // No contact backend: hand the message over to the user's mail app
+      try {
+        await Linking.openURL(
+          buildMailtoUrl(
+            Config.contactEmail,
+            category,
+            title.trim(),
+            message.trim(),
+          ),
+        );
+        clearError();
+        // openURL only means the mail app opened, not that a mail was sent, so
+        // this must not count as "Contact Submitted"
+        registerEvent(Config.wpUrl, "Contact Mail Opened", { category });
+      } catch {
+        setErrorField(null);
+        setError(
+          `Keine E-Mail-App gefunden. Bitte schreib uns direkt an ${Config.contactEmail}.`,
+        );
+      }
+      return;
+    }
+    if (email.trim() && !email.includes("@")) {
+      showFieldError("email", "Bitte eine gültige E-Mail-Adresse eingeben");
+      return;
+    }
+    setButtonEnabled(false);
+
+    try {
+      await API.postContact({
+        category,
+        title: title.trim(),
+        message: message.trim(),
+        // Omitted entirely when the optional field is left blank
+        ...(email.trim() ? { email: email.trim() } : {}),
+        app_variant: appName,
+        app_version: Application?.nativeApplicationVersion ?? "",
+        platform: Platform.OS,
+      });
+    } catch (error_) {
+      setErrorField(null);
+      setError(
+        error_ instanceof FetchError && error_.status === 429
+          ? "Zu viele Anfragen. Bitte warte eine Minute und versuche es dann erneut."
+          : "Senden fehlgeschlagen. Bitte versuche es später erneut.",
+      );
+      setButtonEnabled(true);
+      return;
+    }
+    registerEvent(Config.wpUrl, "Contact Submitted", {
+      category,
+    });
+
+    setAnimation(true);
+    setTitle("");
+    setMessage("");
+    setEmail("");
+    clearError();
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    clearTimeout(resetTimeout.current);
+    resetTimeout.current = setTimeout(() => {
+      setAnimation(false);
+      setButtonEnabled(true);
+    }, 5000);
+  }, [category, title, message, email, showFieldError, clearError]);
+
+  const HEADER_HEIGHT = 150;
+  const texts = CATEGORY_TEXTS[category];
+
+  return (
+    <TabScreenView>
+      <BlurTargetView ref={blurTargetRef} style={globalStyles.container}>
+        <AnimatedHeader
+          title="Kontakt"
+          scrollOffsetY={scrollOffsetY}
+          minHeight={100}
+          maxHeight={HEADER_HEIGHT}
+        />
+        <AnimatedSuccess
+          animated={animation}
+          subtitle="Deine Nachricht ist bei uns eingegangen!"
+          blurTargetRef={blurTargetRef}
+        />
+        <KeyboardAvoidingView
+          style={globalStyles.container}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView
+            style={{
+              flex: 1,
+              backgroundColor,
+            }}
+            contentContainerStyle={[
+              globalStyles.content,
+              {
+                paddingTop: HEADER_HEIGHT,
+                paddingBottom: tabBarClearance,
+                gap: spacing.xl,
+              },
+            ]}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollOffsetY } } }],
+              { useNativeDriver: false },
+            )}
+            scrollEventThrottle={16}
+          >
+            <View style={{ gap: spacing.md }}>
+              <Typography type="heading">Thema wählen:</Typography>
+              <View style={styles.categoryContainer}>
+                {CATEGORIES.map(({ key, label }) => (
+                  <UiPressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: category === key }}
+                    onPress={() => {
+                      setCategory(key);
+                      clearError();
+                    }}
+                    style={[
+                      styles.categoryPill,
+                      category === key && styles.categoryPillActive,
+                    ]}
+                  >
+                    <UiText
+                      style={[
+                        globalStyles.pillLabel,
+                        category === key
+                          ? globalStyles.whiteText
+                          : styles.categoryPillLabelInactive,
+                      ]}
+                    >
+                      {label}
+                    </UiText>
+                  </UiPressable>
+                ))}
+              </View>
+            </View>
+            <View style={{ gap: spacing.md }}>
+              <Typography type="heading">{texts.titleLabel}</Typography>
+              <UiTextInput
+                accessibilityLabel="Text input field"
+                accessibilityHint={texts.titleHint}
+                placeholder="..."
+                placeholderTextColor={textColor}
+                value={title}
+                onChangeText={(value) => {
+                  setTitle(value);
+                  if (errorField === "title") clearError();
+                }}
+                style={[
+                  styles.input,
+                  errorField === "title" && styles.inputError,
+                ]}
+              />
+            </View>
+            <View style={{ gap: spacing.md }}>
+              <Typography type="heading">{texts.messageLabel}</Typography>
+              <UiTextInput
+                accessibilityLabel="Text input field"
+                accessibilityHint="Gib deine Nachricht ein"
+                placeholder="..."
+                placeholderTextColor={textColor}
+                value={message}
+                onChangeText={(value) => {
+                  setMessage(value);
+                  if (errorField === "message") clearError();
+                }}
+                multiline
+                style={[
+                  styles.input,
+                  { height: 120 },
+                  errorField === "message" && styles.inputError,
+                ]}
+              />
+            </View>
+            {!Config.contactEmail && (
+              <View style={{ gap: spacing.md }}>
+                <Typography type="heading">
+                  E-Mail für Rückfragen (optional)
+                </Typography>
+                <UiTextInput
+                  accessibilityLabel="Text input field"
+                  accessibilityHint="Gib deine E-Mail-Adresse ein"
+                  placeholder="..."
+                  placeholderTextColor={textColor}
+                  value={email}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (errorField === "email") clearError();
+                  }}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  style={[
+                    styles.input,
+                    errorField === "email" && styles.inputError,
+                  ]}
+                />
+              </View>
+            )}
+            {error ? (
+              <UiText size="lg" bold style={styles.errorText}>
+                {error}
+              </UiText>
+            ) : undefined}
+            <UiButton
+              label={Config.contactEmail ? "E-Mail erstellen" : "Senden"}
+              variant="accent"
+              shape="pill"
+              disabled={!buttonEnabled}
+              onPress={onSubmit}
+              style={styles.submitButton}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </BlurTargetView>
+    </TabScreenView>
+  );
+};
+
+export default ContactScreen;

@@ -1,0 +1,373 @@
+import * as Application from "expo-application";
+import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, View } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
+
+import {
+  CodeIcon,
+  FeedIcon,
+  GiveIcon,
+  ImprintIcon,
+  InfoIcon,
+  LockIcon,
+  NotificationIcon,
+  SettingsIcon,
+  ThemeIcon,
+} from "#/components/Icons";
+import AnimatedHeader from "#/components/animations/AnimatedHeader";
+import UiDivider from "#/components/ui/UiDivider";
+import UiLink from "#/components/ui/UiLink";
+import UiPressable from "#/components/ui/UiPressable";
+import UiText from "#/components/ui/UiText";
+import Donate from "#/components/views/Donate";
+import SettingsList from "#/components/views/SettingsList";
+import TabScreenView from "#/components/views/TabScreenView";
+import Colors from "#/constants/Colors";
+import Config from "#/constants/Config";
+import { globalStyles } from "#/constants/GlobalStyles";
+import { iconSizes } from "#/constants/IconSizes";
+import { spacing } from "#/constants/Spacing";
+import { Achievements } from "#/helpers/Achievements";
+import Notifications from "#/helpers/Notifications";
+import PersonalStore from "#/helpers/Stores/PersonalStore";
+import SettingsStore from "#/helpers/Stores/SettingsStore";
+import { SettingsContext } from "#/helpers/provider/SettingsProvider";
+import { toast } from "#/helpers/toast";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import { useTabBarClearance } from "#/hooks/useTabBarClearance";
+import ApiUrlSetting from "#/screens/Settings/components/ApiUrlSetting";
+import BackupView from "#/screens/Settings/components/BackupView";
+import SettingsSection from "#/screens/Settings/components/SettingsSection";
+import ThemeSetting from "#/screens/Settings/components/ThemeSetting";
+import type { NotificationSettingType, SettingType } from "#/types";
+
+const EASTER_EGG_TAP_COUNT = 10;
+
+const SettingsScreen = () => {
+  const [token, setToken] = useState<string | undefined>();
+  const scrollOffsetY = useRef(new Animated.Value(0)).current;
+  const versionTapCountRef = useRef(0);
+  const router = useRouter();
+  const tabBarClearance = useTabBarClearance();
+
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettingType>(
+      SettingsStore.defaultNotificationSettings,
+    );
+  // Monotonic id for settings syncs: a sync only applies its full-object
+  // result to state if no newer sync started in the meantime — otherwise a
+  // slow, stale sync would visibly revert a newer optimistic toggle of a
+  // *different* switch.
+  const settingsSyncSeqRef = useRef(0);
+  const [notificationPermissionDenied, setNotificationPermissionDenied] =
+    useState(false);
+  const {
+    contentSettings,
+    setContentSettings,
+    advancedSettings,
+    setAdvancedSettings,
+  } = useContext(SettingsContext);
+  const colorScheme = useAppColorScheme();
+  const primary = Colors[colorScheme].primary;
+  const backgroundColor = Colors[colorScheme].surface;
+  const HEADER_HEIGHT = 150;
+
+  // Update content settings
+  const saveContentSetting = (
+    value: boolean,
+    key: string,
+    setting: SettingType,
+  ): void => {
+    const newSetting = { ...setting, value };
+    const updatedContentSettings = { ...contentSettings, [key]: newSetting };
+    setContentSettings(updatedContentSettings);
+  };
+
+  // Update advanced settings
+  const saveAdvancedSetting = (
+    value: boolean,
+    key: string,
+    setting: SettingType,
+  ): void => {
+    const newSetting = { ...setting, value };
+    const updatedAdvancedSettings = { ...advancedSettings, [key]: newSetting };
+    setAdvancedSettings(updatedAdvancedSettings);
+  };
+
+  const saveNotificationSetting = async (
+    value: boolean,
+    key: keyof NotificationSettingType,
+    setting: SettingType,
+  ): Promise<void> => {
+    const newSetting = { ...setting, value };
+    // Flip the switch immediately — the token fetch and server registration
+    // below can take seconds on a real device and must not block the UI.
+    // The sync's merged full-settings result is applied afterwards, but only
+    // if no newer sync started meanwhile (see settingsSyncSeqRef).
+    setNotificationSettings((previous) => ({ ...previous, [key]: newSetting }));
+    Haptics.selectionAsync();
+    const syncId = ++settingsSyncSeqRef.current;
+    try {
+      const { notificationSettings: updatedNotificationSettings } =
+        await Notifications.registerForPushNotifications({ [key]: newSetting });
+      if (syncId === settingsSyncSeqRef.current) {
+        setNotificationSettings(updatedNotificationSettings);
+      }
+    } catch (error) {
+      console.error("Failed to sync notification setting:", error);
+    }
+  };
+
+  useEffect(() => {
+    const getToken = async () => {
+      try {
+        const token = await Notifications.getToken();
+        setToken(token);
+      } catch (error) {
+        // getToken rethrows (no network, no Play Services, …) — the token
+        // line simply stays empty in that case.
+        console.error("Failed to get push token:", error);
+      }
+    };
+    getToken();
+  }, []);
+
+  // Re-check the OS permission whenever this tab regains focus (e.g. the
+  // user just came back from toggling it in the system Settings app), so the
+  // switches reflect reality rather than a request made once at mount. Also
+  // load the stored notification settings — without this the switches show
+  // the defaults, not what the user actually configured.
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const seqAtFocus = settingsSyncSeqRef.current;
+      SettingsStore.getNotificationSettings()
+        .then((storedSettings) => {
+          // Skip if a toggle sync started since focus — its optimistic state
+          // is newer than what storage held when this load began.
+          if (isActive && seqAtFocus === settingsSyncSeqRef.current) {
+            setNotificationSettings(storedSettings);
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to load notification settings:", error);
+        });
+      if (!Config.isFoss && Platform.OS !== "web") {
+        Notifications.getPermissions()
+          .then((permissions) => {
+            if (isActive) {
+              setNotificationPermissionDenied(permissions.status === "denied");
+            }
+          })
+          .catch((error) => {
+            console.error("Failed to check notification permission:", error);
+          });
+      }
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
+
+  return (
+    <TabScreenView>
+      <AnimatedHeader
+        title="Einstellungen"
+        scrollOffsetY={scrollOffsetY}
+        minHeight={100}
+        maxHeight={HEADER_HEIGHT}
+      />
+      <ScrollView
+        style={{
+          backgroundColor,
+          flex: 1,
+        }}
+        contentContainerStyle={[
+          globalStyles.content,
+          {
+            paddingTop: HEADER_HEIGHT,
+            paddingBottom: tabBarClearance,
+            gap: spacing.xl,
+            paddingHorizontal: 0,
+          },
+        ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollOffsetY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
+      >
+        <View>
+          <SettingsSection
+            icon={<FeedIcon color={primary} size={iconSizes.md} />}
+            title="Feed"
+            description="Was möchtest du in deinem Feed sehen?"
+          >
+            <SettingsList
+              saveSettings={saveContentSetting}
+              settings={contentSettings}
+            />
+          </SettingsSection>
+          {!Config.isFoss && (
+            <SettingsSection
+              icon={<NotificationIcon color={primary} size={iconSizes.md} />}
+              title="Benachrichtigungen"
+            >
+              <SettingsList
+                saveSettings={saveNotificationSetting}
+                settings={notificationSettings}
+                disabled={notificationPermissionDenied}
+                disabledMessage="Benachrichtigungen sind in den Systemeinstellungen deaktiviert. Tippe hier, um sie zu aktivieren."
+                onDisabledPress={() => Linking.openSettings()}
+              />
+            </SettingsSection>
+          )}
+          <SettingsSection
+            icon={<ThemeIcon color={primary} size={iconSizes.md} />}
+            title="Darstellung"
+            description="Wähle, ob die App hell oder dunkel angezeigt wird."
+          >
+            <ThemeSetting />
+          </SettingsSection>
+          <SettingsSection
+            icon={<SettingsIcon color={primary} size={iconSizes.md} />}
+            title="Erweitert"
+          >
+            <SettingsList
+              saveSettings={saveAdvancedSetting}
+              settings={advancedSettings}
+            />
+            {Config.isFoss && <ApiUrlSetting />}
+            {Config.enableEngagement && <BackupView />}
+          </SettingsSection>
+        </View>
+        <UiDivider paddingHorizontal={35} paddingVertical={5} />
+        <View style={styles.linksContainer}>
+          <UiLink
+            url={Config.aboutUrl}
+            icon={<InfoIcon color={primary} size={iconSizes.md} />}
+            text="Über uns"
+          />
+          <UiLink
+            url={Config.donations.support}
+            icon={<GiveIcon color={primary} size={iconSizes.md} />}
+            text="Unterstützen"
+          />
+          <UiLink
+            url={Config.dataProtectionUrl}
+            icon={<LockIcon color={primary} size={iconSizes.md} />}
+            text="Datenschutz"
+          />
+          <UiLink
+            url={Config.imprintUrl}
+            icon={<ImprintIcon color={primary} size={iconSizes.md} />}
+            text="Impressum"
+          />
+          <UiLink
+            url={Config.sourceUrl}
+            icon={<CodeIcon color={primary} size={iconSizes.md} />}
+            text="Quellcode"
+          />
+        </View>
+        <Donate showPicker={false} />
+        <View style={styles.infoContainer}>
+          <UiPressable
+            accessibilityRole="button"
+            onPress={() => router.push("/licenses")}
+          >
+            <UiText>Lizenzen</UiText>
+          </UiPressable>
+          <UiPressable
+            accessibilityRole="button"
+            onPress={() => {
+              toast.confirm(
+                "Intro zurücksetzen?",
+                "Drücke hier, um das Intro zurückzusetzen",
+                () => {
+                  PersonalStore.setOnboardingDone(false);
+                  PersonalStore.setLastSeenChangelogVersionCode(0);
+                  toast.success("Intro zurückgesetzt");
+                },
+              );
+            }}
+          >
+            <UiText>Intro zurücksetzen</UiText>
+          </UiPressable>
+          {!Config.isFoss && (
+            <UiPressable
+              accessibilityRole="button"
+              onPress={() => {
+                toast.confirm(
+                  "Benachrichtigungen zurücksetzen?",
+                  "Drücke hier, um sie zurückzusetzen",
+                  () => {
+                    Notifications.registerForPushNotifications();
+                    toast.success("Benachrichtigungen zurückgesetzt");
+                  },
+                );
+              }}
+            >
+              <UiText>Benachrichtigungen zurücksetzen</UiText>
+            </UiPressable>
+          )}
+          {Config.enableActions && (
+            <UiPressable
+              accessibilityRole="button"
+              onPress={() => {
+                toast.confirm(
+                  "Erfolge zurücksetzen?",
+                  "Drücke hier, um alle Erfolge zurückzusetzen",
+                  () => {
+                    Achievements.resetEverything();
+                    toast.success("Erfolge zurückgesetzt");
+                  },
+                );
+              }}
+            >
+              <UiText>Alle Erfolge zurücksetzen</UiText>
+            </UiPressable>
+          )}
+          <UiPressable
+            accessibilityRole="button"
+            onPress={() => {
+              versionTapCountRef.current += 1;
+              Haptics.selectionAsync();
+              if (versionTapCountRef.current >= EASTER_EGG_TAP_COUNT) {
+                versionTapCountRef.current = 0;
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+                router.push("/game/DesinformationMemory");
+              }
+            }}
+          >
+            <UiText selectable>
+              Versionskennung: {Application.nativeApplicationVersion}
+              &nbsp;-&nbsp;
+              {Application.nativeBuildVersion}
+              {Config.buildLabel && ` - ${Config.buildLabel}`}
+              {Config.isFoss && " - FOSS"}
+              {!Config.isFoss && `\nToken: ${token}`}
+            </UiText>
+          </UiPressable>
+        </View>
+      </ScrollView>
+    </TabScreenView>
+  );
+};
+
+const styles = StyleSheet.create({
+  linksContainer: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xl,
+  },
+  infoContainer: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xl,
+  },
+});
+
+export default SettingsScreen;

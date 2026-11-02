@@ -1,0 +1,245 @@
+import { Image } from "expo-image";
+import type { FC } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  ImageRequireSource,
+  LayoutChangeEvent,
+  TextStyle,
+} from "react-native";
+import { Platform, ScrollView, View, useWindowDimensions } from "react-native";
+import { Carousel } from "react-native-reanimated-carousel";
+import type { CarouselRef } from "react-native-reanimated-carousel";
+
+import { Logo } from "#/components/SvgIcons";
+import UiText from "#/components/ui/UiText";
+import { globalStyles } from "#/constants/GlobalStyles";
+import { spacing } from "#/constants/Spacing";
+import { isVolksverpetzer } from "#/helpers/utils/variant";
+import { useCorporateColor } from "#/hooks/useAppColorScheme";
+
+import Stepper from "./Stepper";
+
+export type OnBoardingData = {
+  id: number;
+  title: string;
+  description: string;
+  icon?: ImageRequireSource;
+  Component?: FC;
+  TopComponent?: FC | undefined;
+};
+
+interface FlatBoardProperties {
+  data: OnBoardingData[];
+  onFinish: (event: GestureResponderEvent) => void;
+  onStepChange?: (item: OnBoardingData, step: number) => void;
+  accentColor?: ColorValue;
+  buttonTitle?: string;
+  variant?: "standard" | "modern";
+  hideIndicator?: boolean;
+  headingStyle?: TextStyle;
+  descriptionStyle?: TextStyle;
+}
+
+interface SlideProps extends OnBoardingData {
+  width: number;
+  height: number;
+  headingStyle?: TextStyle;
+  descriptionStyle?: TextStyle;
+}
+
+const Slide = ({
+  title,
+  description,
+  icon,
+  Component,
+  TopComponent,
+  width,
+  height,
+  headingStyle,
+  descriptionStyle,
+}: SlideProps) => {
+  const corporate = useCorporateColor();
+  return (
+    <View style={{ flex: 1 }}>
+      {isVolksverpetzer && (
+        <View
+          style={{
+            height: 100,
+            marginTop: height / 20,
+            alignItems: "center",
+            width,
+          }}
+        >
+          <Logo color={corporate} />
+        </View>
+      )}
+      <UiText
+        size="xxl"
+        style={{
+          textAlign: "center",
+          width,
+          marginTop: isVolksverpetzer ? 0 : height / 20,
+          ...headingStyle,
+          paddingVertical: spacing.md,
+          color: corporate,
+        }}
+      >
+        {title}
+      </UiText>
+      <ScrollView
+        style={{ flex: 1, width }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: "center",
+          paddingBottom: 100,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={globalStyles.centered}>
+          {icon && (
+            <Image
+              style={{ height: height / 3, width: height / 3 }}
+              source={icon}
+            />
+          )}
+          {TopComponent && height > 600 && (
+            <View
+              style={[
+                globalStyles.centered,
+                { height: "auto", paddingVertical: spacing.xl, width: 200 },
+              ]}
+            >
+              <TopComponent />
+            </View>
+          )}
+          <UiText
+            size="lg"
+            style={{
+              paddingVertical: spacing.md,
+              ...descriptionStyle,
+              textAlign: "center",
+              paddingHorizontal: spacing.xxxl,
+            }}
+          >
+            {description.replace("\n", "").replaceAll(/\s+/g, " ").trim()}
+          </UiText>
+        </View>
+        {Component && height > 600 && (
+          <View style={{ width: 300, height: "auto" }}>
+            <Component />
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+const MemoSlide = React.memo(Slide);
+
+const FlatBoard = (properties: FlatBoardProperties) => {
+  const [step, setStep] = useState(0);
+  const targetStepRef = useRef(0);
+  const { height, width } = useWindowDimensions();
+  const [containerHeight, setContainerHeight] = useState(height);
+  const {
+    data,
+    onFinish,
+    onStepChange,
+    accentColor,
+    buttonTitle,
+    headingStyle,
+    descriptionStyle,
+  } = properties;
+  const carouselRef = useRef<CarouselRef>(null);
+
+  // Keep the latest data/callback in refs so the step effect below always
+  // sees fresh values without re-firing when the parent re-renders with new
+  // prop identities while the step stays the same.
+  const dataRef = useRef(data);
+  const onStepChangeRef = useRef(onStepChange);
+  useEffect(() => {
+    dataRef.current = data;
+    onStepChangeRef.current = onStepChange;
+  });
+
+  useEffect(() => {
+    const item = dataRef.current[step];
+    if (item) onStepChangeRef.current?.(item, step);
+  }, [step]);
+
+  const nextStep = () => {
+    const next = Math.min(targetStepRef.current + 1, data.length - 1);
+    targetStepRef.current = next;
+    setStep(next);
+    carouselRef.current?.scrollTo({ index: next, animated: true });
+  };
+
+  const previousStep = () => {
+    const prev = Math.max(targetStepRef.current - 1, 0);
+    targetStepRef.current = prev;
+    setStep(prev);
+    carouselRef.current?.scrollTo({ index: prev, animated: true });
+  };
+
+  const onSnapToItem = (index: number) => {
+    targetStepRef.current = index;
+    setStep(index);
+  };
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    setContainerHeight(e.nativeEvent.layout.height);
+  };
+
+  // On web the first render happens before the window is measured, and the
+  // carousel throws on width 0; the dimensions update triggers a re-render
+  if (!width) return null;
+
+  return (
+    <View style={{ flex: 1 }} onLayout={onLayout} testID="flatboard-container">
+      {Platform.OS === "web" ? (
+        // The reanimated carousel doesn't paint its items reliably on web;
+        // the stepper drives navigation via the step state anyway, so web
+        // only loses the swipe gesture
+        <View style={{ flex: 1 }}>
+          <MemoSlide
+            {...data[step]}
+            width={width}
+            height={containerHeight}
+            headingStyle={headingStyle}
+            descriptionStyle={descriptionStyle}
+          />
+        </View>
+      ) : (
+        <Carousel
+          ref={carouselRef}
+          style={{ width, height: containerHeight }}
+          data={data}
+          loop={false}
+          onSnapToItem={onSnapToItem}
+          renderItem={({ item }) => (
+            <MemoSlide
+              {...item}
+              width={width}
+              height={containerHeight}
+              headingStyle={headingStyle}
+              descriptionStyle={descriptionStyle}
+            />
+          )}
+        />
+      )}
+      <Stepper
+        step={step}
+        data={data}
+        onFinish={onFinish}
+        accentColor={accentColor}
+        previousStep={previousStep}
+        nextStep={nextStep}
+        buttonTitle={buttonTitle}
+      />
+    </View>
+  );
+};
+
+export default React.memo(FlatBoard);

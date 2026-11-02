@@ -1,0 +1,204 @@
+import { useRouter } from "expo-router";
+import type { PropsWithChildren, ReactNode } from "react";
+import React, { useMemo } from "react";
+import { Animated, View } from "react-native";
+import type { ViewStyle } from "react-native";
+
+import { HeartIcon } from "#/components/Icons";
+import UiHeaderGradient, {
+  HEADER_FADE_HEIGHT,
+} from "#/components/ui/UiHeaderGradient";
+import UiPressable from "#/components/ui/UiPressable";
+import Colors from "#/constants/Colors";
+import { fontFamily } from "#/constants/FontFamily";
+import {
+  CONTENT_HORIZONTAL_PADDING,
+  CONTENT_MAX_WIDTH,
+} from "#/constants/GlobalStyles";
+import { iconSizes } from "#/constants/IconSizes";
+import { layers } from "#/constants/Layers";
+import { spacing } from "#/constants/Spacing";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+
+/**
+ * Props for the AnimatedHeader component.
+ * @property title - The header title text.
+ * @property hideSupportHeart - If true, hides the support heart icon.
+ * @property scrollOffsetY - Animated.Value tracking vertical scroll offset.
+ * @property maxHeight - Header height when fully expanded.
+ * @property minHeight - Header height when collapsed.
+ */
+interface AnimatedHeaderProperties extends PropsWithChildren {
+  title?: ReactNode;
+  hideSupportHeart?: boolean;
+  scrollOffsetY: Animated.Value;
+  maxHeight: number;
+  minHeight: number;
+}
+
+const gradientContainerStyle: ViewStyle = {
+  width: "100%",
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "flex-end",
+  paddingBottom: HEADER_FADE_HEIGHT,
+};
+
+const TITLE_EXPANDED_HEIGHT = 66;
+
+/**
+ * AnimatedHeader renders a collapsible header bar that shrinks and fades
+ * based on scroll position. It accepts an optional title (string or node)
+ * and optional children rendered below it.
+ */
+const AnimatedHeader = (properties: AnimatedHeaderProperties) => {
+  const {
+    hideSupportHeart,
+    scrollOffsetY,
+    title,
+    maxHeight,
+    minHeight,
+    children,
+  } = properties;
+
+  const colorScheme = useAppColorScheme();
+  const corporate = Colors[colorScheme].primary;
+  const router = useRouter();
+
+  // Calculate scroll distance only when props change
+  const H_SCROLL_DISTANCE = useMemo(
+    () => maxHeight - minHeight,
+    [maxHeight, minHeight],
+  );
+
+  // Interpolate animated values and memoize the resulting animated values.
+  const headerScrollHeight = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, H_SCROLL_DISTANCE],
+        outputRange: [maxHeight, minHeight],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY, H_SCROLL_DISTANCE, maxHeight, minHeight],
+  );
+
+  const titleHeight = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, H_SCROLL_DISTANCE],
+        outputRange: [TITLE_EXPANDED_HEIGHT, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY, H_SCROLL_DISTANCE],
+  );
+
+  const headerFontSize = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, H_SCROLL_DISTANCE],
+        outputRange: [45, 30],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY, H_SCROLL_DISTANCE],
+  );
+
+  const titleOpacity = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, H_SCROLL_DISTANCE * 0.5],
+        outputRange: [1, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY, H_SCROLL_DISTANCE],
+  );
+
+  // Memoize style objects to avoid recreations.
+  const animatedViewStyle = useMemo(
+    () => ({
+      position: "absolute" as const,
+      left: 0,
+      right: 0,
+      overflow: "hidden" as const,
+      backgroundColor: "transparent" as const,
+      height: headerScrollHeight,
+      width: "100%" as const,
+      zIndex: layers.sticky,
+    }),
+    [headerScrollHeight],
+  );
+
+  const titleTextStyle = useMemo(
+    () => ({
+      paddingBottom: spacing.md,
+      fontFamily: fontFamily.bold,
+      zIndex: layers.raised,
+      fontSize: headerFontSize,
+      color: corporate,
+    }),
+    [headerFontSize, corporate],
+  );
+
+  return (
+    <Animated.View style={animatedViewStyle}>
+      <UiHeaderGradient style={gradientContainerStyle}>
+        {!hideSupportHeart && (
+          <UiPressable
+            accessibilityRole="button"
+            onPress={() => {
+              router.push("/support");
+            }}
+            style={{ position: "absolute", top: 20, right: "10%" }}
+          >
+            <HeartIcon color={corporate} size={iconSizes.lg} />
+          </UiPressable>
+        )}
+        {title &&
+          (typeof title === "string" ? (
+            <Animated.View
+              style={
+                children
+                  ? {
+                      height: titleHeight,
+                      overflow: "hidden",
+                      justifyContent: "flex-end",
+                    }
+                  : null
+              }
+            >
+              <Animated.Text
+                style={[
+                  titleTextStyle,
+                  children ? { opacity: titleOpacity } : null,
+                ]}
+              >
+                {title}
+              </Animated.Text>
+            </Animated.View>
+          ) : (
+            <Animated.View style={{ opacity: titleOpacity, flex: 1 }}>
+              {title}
+            </Animated.View>
+          ))}
+        <View
+          style={{
+            // alignSelf overrides the gradient container's alignItems:
+            // "center", which would otherwise shrink this wrapper (and any
+            // width: "100%" child inside it, like the home search bar) to
+            // its content's size instead of the header's width. maxWidth +
+            // auto margins then cap that to the feed's own content column
+            // instead of the full window, matching globalStyles.content.
+            alignSelf: "stretch",
+            width: "100%",
+            maxWidth: CONTENT_MAX_WIDTH,
+            marginHorizontal: "auto",
+            paddingHorizontal: CONTENT_HORIZONTAL_PADDING,
+          }}
+        >
+          {children}
+        </View>
+      </UiHeaderGradient>
+    </Animated.View>
+  );
+};
+
+export default React.memo(AnimatedHeader);

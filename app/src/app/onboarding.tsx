@@ -1,0 +1,306 @@
+import Constants from "expo-constants";
+import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
+import { openBrowserAsync } from "expo-web-browser";
+import { useContext, useEffect, useRef, useState } from "react";
+import { AppState, Platform, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { FeedIcon, NotificationIcon, SafetyIcon } from "#/components/Icons";
+import Typography from "#/components/ui/Typography";
+import UiPressable from "#/components/ui/UiPressable";
+import UiText from "#/components/ui/UiText";
+import SettingsList from "#/components/views/SettingsList";
+import Colors from "#/constants/Colors";
+import Config from "#/constants/Config";
+import { iconSizes } from "#/constants/IconSizes";
+import { spacing } from "#/constants/Spacing";
+import Notifications from "#/helpers/Notifications";
+import PersonalStore from "#/helpers/Stores/PersonalStore";
+import SettingsStore from "#/helpers/Stores/SettingsStore";
+import { registerEvent } from "#/helpers/network/Analytics";
+import { updateBadgeState } from "#/helpers/provider/BadgeProvider";
+import { SettingsContext } from "#/helpers/provider/SettingsProvider";
+import { isVolksverpetzer } from "#/helpers/utils/variant";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import FlatBoard from "#/screens/Onboarding/components/Flatboard";
+import type { OnBoardingData } from "#/screens/Onboarding/components/Flatboard";
+import type { NotificationSettingType, SettingType } from "#/types";
+
+import WelcomeVVP from "#assets/images/welcome.webp";
+
+const NOTIFICATION_STEP_ID = 7;
+
+// SettingsList has no padding of its own; keep the onboarding layout's.
+const SETTINGS_LIST_STYLE = { padding: spacing.xl };
+
+const Onboarding = () => {
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettingType>(
+      SettingsStore.defaultNotificationSettings,
+    );
+  const appName = Constants.expoConfig.name;
+  const { contentSettings, setContentSettings } = useContext(SettingsContext);
+  const colorScheme = useAppColorScheme();
+  const backgroundColor = Colors[colorScheme].background;
+  const corporate = Colors[colorScheme].primary;
+  const { bottom } = useSafeAreaInsets();
+  const router = useRouter();
+
+  const isFoss = Config.isFoss ?? false;
+  const hasRequestedNotificationPermission = useRef(false);
+  // Furthest step the user has reached, so "Onboarding Step" fires once per
+  // step on forward progress only — swiping back and forth doesn't re-count.
+  // Starts at -1 (not 0) so the first slide's mount-time onStepChange(item, 0)
+  // also passes the guard instead of being silently skipped.
+  const furthestStepRef = useRef(-1);
+
+  useEffect(() => {
+    registerEvent(Config.wpUrl, "Onboarding Started");
+  }, []);
+
+  const isOnNotificationStepRef = useRef(false);
+  // Monotonic id for settings syncs: a sync only applies its full-object
+  // result to state if no newer sync (toggle or permission request) started
+  // in the meantime — otherwise a slow, stale sync would visibly revert a
+  // newer optimistic toggle of a *different* switch.
+  const settingsSyncSeqRef = useRef(0);
+  const [notificationPermissionDenied, setNotificationPermissionDenied] =
+    useState(false);
+
+  const onStepChange = (item: OnBoardingData, step: number) => {
+    if (step > furthestStepRef.current) {
+      furthestStepRef.current = step;
+      registerEvent(Config.wpUrl, "Onboarding Step", {
+        step,
+        stepId: item.id,
+      });
+    }
+    isOnNotificationStepRef.current = item.id === NOTIFICATION_STEP_ID;
+    if (item.id !== NOTIFICATION_STEP_ID) return;
+    if (hasRequestedNotificationPermission.current) return;
+    hasRequestedNotificationPermission.current = true;
+
+    const syncId = ++settingsSyncSeqRef.current;
+    Notifications.requestPermissionAndApplyDefaults()
+      .then(({ status, notificationSettings: updatedNotificationSettings }) => {
+        if (syncId === settingsSyncSeqRef.current) {
+          setNotificationSettings(updatedNotificationSettings);
+        }
+        setNotificationPermissionDenied(status === "denied");
+      })
+      .catch((error) => {
+        // Allow a retry when the user revisits this step — otherwise a
+        // transient failure would leave the switches un-initialized for
+        // the rest of the session.
+        hasRequestedNotificationPermission.current = false;
+        console.error("Failed to request notification permission:", error);
+      });
+  };
+
+  // If the user backgrounds the app to flip the OS permission in system
+  // Settings (via the disabled-message deep link) and comes back while still
+  // on the notification step, re-check the outcome so the switches unlock
+  // without waiting for a remount. Only re-checks, never re-prompts.
+  // Skipped on web: there is no notification module there, getPermissions
+  // reports a stub "denied", and reacting to it would falsely lock the
+  // switches whenever the browser tab loses and regains visibility.
+  useEffect(() => {
+    if (isFoss || Platform.OS === "web") return;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      if (!hasRequestedNotificationPermission.current) return;
+      if (!isOnNotificationStepRef.current) return;
+
+      Notifications.getPermissions()
+        .then((permissions) => {
+          setNotificationPermissionDenied(permissions.status === "denied");
+        })
+        .catch((error) => {
+          console.error("Failed to re-check notification permission:", error);
+        });
+    });
+    return () => subscription.remove();
+  }, [isFoss]);
+
+  const agreeToTerms = async () => {
+    registerEvent(Config.wpUrl, "Onboarding Completed");
+    await PersonalStore.setOnboardingDone();
+    updateBadgeState({ personal: false, action: true });
+    router.replace("/");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Permission was already requested on the notification step; if granted,
+    // make sure the token/server registration is in sync (fire-and-forget so
+    // it doesn't block the home screen). Skipped when not granted, because
+    // registerForPushNotifications would re-request permission and show a
+    // second OS dialog on Android right after the user just denied.
+    if (!isFoss) {
+      Notifications.getPermissions()
+        .then((permissions) =>
+          permissions.granted
+            ? Notifications.registerForPushNotifications()
+            : undefined,
+        )
+        .catch((error) => {
+          console.error("Failed to register for push notifications:", error);
+        });
+    }
+  };
+
+  const saveContentSetting = (
+    value: boolean,
+    key: string,
+    setting: SettingType,
+  ): void => {
+    const newSetting = { ...setting, value };
+    const updatedContentSettings = { ...contentSettings, [key]: newSetting };
+    setContentSettings(updatedContentSettings);
+  };
+
+  const saveNotificationSetting = async (
+    value: boolean,
+    key: keyof NotificationSettingType,
+    setting: SettingType,
+  ): Promise<void> => {
+    const newSetting = { ...setting, value };
+    // Flip the switch immediately — the token fetch and server registration
+    // below can take seconds on a real device and must not block the UI.
+    // The sync's merged full-settings result is applied afterwards, but only
+    // if no newer sync started meanwhile (see settingsSyncSeqRef).
+    setNotificationSettings((previous) => ({ ...previous, [key]: newSetting }));
+    Haptics.selectionAsync();
+    const syncId = ++settingsSyncSeqRef.current;
+    try {
+      const { notificationSettings: updatedNotificationSettings } =
+        await Notifications.registerForPushNotifications({ [key]: newSetting });
+      if (syncId === settingsSyncSeqRef.current) {
+        setNotificationSettings(updatedNotificationSettings);
+      }
+    } catch (error) {
+      console.error("Failed to sync notification setting:", error);
+    }
+  };
+
+  const data = [
+    {
+      id: 1,
+      title: "Willkommen",
+      description: `Willkommen bei der ${appName}-App!`,
+      icon: isVolksverpetzer ? WelcomeVVP : undefined,
+    },
+    {
+      id: 3,
+      title: "Welche Inhalte möchtest du sehen?",
+      description: `Du kannst deinen Feed jederzeit individuell anpassen. `,
+      Component: () => (
+        <View>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: spacing.xxxl,
+            }}
+          >
+            <FeedIcon color={corporate} size={iconSizes.sm} />
+            <Typography type="heading">Feed-Einstellungen</Typography>
+          </View>
+          <SettingsList
+            saveSettings={saveContentSetting}
+            settings={contentSettings}
+            style={SETTINGS_LIST_STYLE}
+          />
+        </View>
+      ),
+    },
+    ...(!isFoss
+      ? [
+          {
+            id: NOTIFICATION_STEP_ID,
+            title: "Push-Benachrichtigungen",
+            description: `Benachrichtigungen halten dich auf dem Laufenden, können dich aber auch ablenken. Wähle die aus, die dich wirklich interessieren.`,
+            Component: () => (
+              <View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: spacing.xxxl,
+                  }}
+                >
+                  <NotificationIcon color={corporate} size={iconSizes.sm} />
+                  <UiText
+                    bold
+                    size="lg"
+                    style={{
+                      textAlign: "left",
+                    }}
+                  >
+                    Benachrichtigungen
+                  </UiText>
+                </View>
+                <SettingsList
+                  saveSettings={saveNotificationSetting}
+                  settings={notificationSettings}
+                  disabled={notificationPermissionDenied}
+                  disabledMessage="Benachrichtigungen sind deaktiviert. Tippe hier, um sie in den Einstellungen zu aktivieren."
+                  onDisabledPress={() => Linking.openSettings()}
+                  style={SETTINGS_LIST_STYLE}
+                />
+              </View>
+            ),
+          },
+        ]
+      : []),
+    {
+      id: 8,
+      title: "Prio: Datenschutz",
+      description: `Unser Versprechen: Wir geben uns alle Mühe, den Datenkraken so wenig zu überliefern wie möglich. Du brauchst keine Accounts, wir tracken dich nicht persönlich. Mit der Nutzung stimmst du unserer Datenschutzerklärung zu.`,
+      TopComponent: () => <SafetyIcon color={corporate} size={iconSizes.xl} />,
+      Component: () => (
+        <UiPressable
+          accessibilityRole="button"
+          onPress={() => {
+            openBrowserAsync(Constants.expoConfig.extra.dataProtectionUrl);
+          }}
+        >
+          <UiText
+            size="xl"
+            style={{
+              color: corporate,
+              textAlign: "center",
+              padding: spacing.huge,
+            }}
+          >
+            Datenschutzerklärung
+          </UiText>
+        </UiPressable>
+      ),
+    },
+  ];
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        paddingBottom: bottom,
+        backgroundColor,
+      }}
+    >
+      <FlatBoard
+        data={data}
+        onFinish={agreeToTerms}
+        onStepChange={onStepChange}
+        accentColor={corporate}
+        buttonTitle="Los geht's"
+        hideIndicator
+        variant="standard"
+      />
+    </View>
+  );
+};
+
+export default Onboarding;

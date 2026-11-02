@@ -1,0 +1,116 @@
+import { act, fireEvent, render } from "@testing-library/react-native";
+import React from "react";
+
+import ImageRenderer from "#/screens/Home/components/article/renderer/ImageRenderer";
+
+const mockPush = jest.fn();
+
+jest.mock("expo-image", () => ({
+  Image: jest.fn(() => null),
+}));
+
+jest.mock("expo-router", () => ({
+  useRouter: jest.fn(() => ({ push: mockPush })),
+}));
+
+jest.mock("@native-html/render", () => ({
+  useInternalRenderer: jest.fn(() => ({
+    rendererProps: { source: { uri: "https://example.com/article-image.jpg" } },
+  })),
+}));
+
+jest.mock("#/components/ui/UiPressable", () => {
+  const { TouchableOpacity } = require("react-native");
+  return jest.fn(({ children, onPress, ...rest }: any) => (
+    <TouchableOpacity testID="image-pressable" onPress={onPress} {...rest}>
+      {children}
+    </TouchableOpacity>
+  ));
+});
+
+jest.mock("#/hooks/useAppColorScheme", () => ({
+  useAppColorScheme: jest.fn(() => "light"),
+}));
+
+jest.mock("#/constants/Colors", () => ({
+  __esModule: true,
+  default: {
+    light: { background: "#ffffff" },
+    dark: { background: "#000000" },
+  },
+}));
+
+jest.mock("#/hooks/useFeedDimensions", () => ({
+  useFeedDimensions: jest.fn(() => ({ width: 321 })),
+}));
+
+const baseRenderProps = {
+  TDefaultRenderer: jest.fn(() => null),
+  renderIndex: 0,
+  tnode: {},
+} as any;
+
+describe("ImageRenderer", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("renders without crashing", async () => {
+    const { toJSON } = await render(<ImageRenderer {...baseRenderProps} />);
+    expect(toJSON()).not.toBeNull();
+  });
+
+  it("navigates to /image with the uri on press", async () => {
+    const { getByTestId } = await render(
+      <ImageRenderer {...baseRenderProps} />,
+    );
+    await fireEvent.press(getByTestId("image-pressable"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/image",
+      params: { uri: "https://example.com/article-image.jpg" },
+    });
+  });
+
+  it("renders the image with the uri from renderer props", async () => {
+    const { Image } = jest.requireMock("expo-image");
+    await render(<ImageRenderer {...baseRenderProps} />);
+    const [props] = Image.mock.calls[0];
+    expect(props.source.uri).toBe("https://example.com/article-image.jpg");
+  });
+
+  it("updates aspect ratio after image loads", async () => {
+    const { Image } = jest.requireMock("expo-image");
+    await render(<ImageRenderer {...baseRenderProps} />);
+    const [firstProps] = Image.mock.calls[0];
+    expect(firstProps.onLoad).toBeDefined();
+    await act(async () => {
+      firstProps.onLoad({ source: { width: 800, height: 400 } });
+      await Promise.resolve();
+    });
+  });
+
+  it("keeps the fallback ratio when onLoad reports a zero-width image, instead of an invalid aspectRatio", async () => {
+    const { Image } = jest.requireMock("expo-image");
+    await render(<ImageRenderer {...baseRenderProps} />);
+    const [initialProps] = Image.mock.calls[0];
+    const initialAspectRatio = initialProps.style.aspectRatio;
+    expect(Number.isFinite(initialAspectRatio)).toBe(true);
+
+    await act(async () => {
+      initialProps.onLoad({ source: { width: 0, height: 400 } });
+      await Promise.resolve();
+    });
+
+    const [lastCallProps] = Image.mock.calls.at(-1);
+    expect(lastCallProps.style.aspectRatio).toBe(initialAspectRatio);
+  });
+
+  // Regression guard: sizing off the window width instead of the article's
+  // content-column width made images overflow their container on wide/
+  // desktop web viewports, where the column is narrower than the window.
+  // See this PR.
+  it("sizes the image from the content column width, not the window width", async () => {
+    const { Image } = jest.requireMock("expo-image");
+    await render(<ImageRenderer {...baseRenderProps} />);
+    const [props] = Image.mock.calls[0];
+    expect(props.style.width).toBe(321);
+  });
+});

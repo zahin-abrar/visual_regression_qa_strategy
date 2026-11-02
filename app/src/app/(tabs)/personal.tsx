@@ -1,0 +1,112 @@
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Animated, StyleSheet, View } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
+
+import { LinkIcon, StarIcon } from "#/components/Icons";
+import AnimatedHeader from "#/components/animations/AnimatedHeader";
+import UiTabIconLabel from "#/components/ui/UiTabIconLabel";
+import UiTabView from "#/components/ui/UiTabView";
+import TabScreenView from "#/components/views/TabScreenView";
+import Colors from "#/constants/Colors";
+import { globalStyles } from "#/constants/GlobalStyles";
+import { iconSizes } from "#/constants/IconSizes";
+import { spacing } from "#/constants/Spacing";
+import { updateBadgeState } from "#/helpers/provider/BadgeProvider";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import MyFavs from "#/screens/PersonalTab/components/MyFavs";
+import MySources from "#/screens/PersonalTab/components/MySources";
+
+const PersonalTab = () => {
+  const [activeTab, setActiveTab] = useState<"favs" | "sources">("favs");
+  useFocusEffect(
+    useCallback(() => {
+      updateBadgeState({ personal: false });
+    }, []),
+  );
+
+  const scrollOffsetY = useRef(new Animated.Value(0)).current;
+  const colorScheme = useAppColorScheme();
+  const backgroundColor = Colors[colorScheme].surface;
+
+  const HEADER_HEIGHT = 220;
+  const HEADER_MIN_HEIGHT = 140;
+
+  const labelOpacity = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, (HEADER_HEIGHT - HEADER_MIN_HEIGHT) * 0.5],
+        outputRange: [1, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY],
+  );
+
+  const labelHeight = useMemo(
+    () =>
+      scrollOffsetY.interpolate({
+        inputRange: [0, (HEADER_HEIGHT - HEADER_MIN_HEIGHT) * 0.5],
+        // The expanded height must match the label's line height, or the
+        // overflow-hidden wrapper clips the text
+        outputRange: [
+          StyleSheet.flatten(globalStyles.pillLabel).lineHeight ?? 19,
+          0,
+        ],
+        extrapolate: "clamp",
+      }),
+    [scrollOffsetY],
+  );
+
+  return (
+    <TabScreenView>
+      <AnimatedHeader
+        title="Sammlung"
+        scrollOffsetY={scrollOffsetY}
+        minHeight={HEADER_MIN_HEIGHT}
+        maxHeight={HEADER_HEIGHT}
+      >
+        <View style={{ width: "100%" }}>
+          <UiTabView width={200} style={{ alignSelf: "center" }}>
+            <UiTabIconLabel
+              icon={(color) => <StarIcon size={iconSizes.md} color={color} />}
+              label="Favoriten"
+              isActive={activeTab === "favs"}
+              onPress={() => setActiveTab("favs")}
+              style={{ paddingVertical: spacing.md }}
+              animatedLabelHeight={labelHeight}
+              animatedLabelOpacity={labelOpacity}
+            />
+            <UiTabIconLabel
+              icon={(color) => <LinkIcon size={iconSizes.md} color={color} />}
+              label="Quellen"
+              isActive={activeTab === "sources"}
+              onPress={() => setActiveTab("sources")}
+              style={{ paddingVertical: spacing.md }}
+              animatedLabelHeight={labelHeight}
+              animatedLabelOpacity={labelOpacity}
+            />
+          </UiTabView>
+        </View>
+      </AnimatedHeader>
+      <ScrollView
+        style={{
+          flex: 1,
+          backgroundColor,
+        }}
+        contentContainerStyle={[
+          globalStyles.content,
+          { paddingTop: HEADER_HEIGHT },
+        ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollOffsetY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
+      >
+        {activeTab === "favs" ? <MyFavs /> : <MySources />}
+      </ScrollView>
+    </TabScreenView>
+  );
+};
+
+export default PersonalTab;

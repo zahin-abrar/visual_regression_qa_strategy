@@ -1,0 +1,59 @@
+# dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# IDE
+.idea/
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# config
+.claude/settings.local.json
+.claude/launch.json
+.claude/worktrees/
+google-services*
+
+# debug
+npm-debug.*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+
+# local env files
+.env*.local
+.env
+
+# tests
+coverage/
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+/Volksverpetzer.app
+/Mimikama.app
+# store metadata push (generated in CI)
+/build/
+/store.config.json
+/vendor/bundle/

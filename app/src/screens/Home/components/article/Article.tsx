@@ -1,0 +1,408 @@
+import { useRouter } from "expo-router";
+import type { RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type {
+  GestureResponderEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from "react-native";
+import { Animated, ScrollView, View, useWindowDimensions } from "react-native";
+
+import NavBar from "#/components/bars/NavBar";
+import BackToTopButton from "#/components/buttons/BackToTopButton";
+import ReadingProgressBar from "#/components/progress/ReadingProgressBar";
+import Footer from "#/components/views/Footer";
+import Colors from "#/constants/Colors";
+import Config from "#/constants/Config";
+import { globalStyles } from "#/constants/GlobalStyles";
+import { Achievements } from "#/helpers/Achievements";
+import { onLinkPress } from "#/helpers/Linking";
+import { onShare } from "#/helpers/Sharing";
+import Statistics from "#/helpers/Statistics";
+import PersonalStore from "#/helpers/Stores/PersonalStore";
+import { registerEvent } from "#/helpers/network/Analytics";
+import { registerViews } from "#/helpers/network/Engagement";
+import { findSecondaryWpFeed } from "#/helpers/utils/feeds";
+import { stripVisualComposerShortcodes } from "#/helpers/utils/posts";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import { useBackToTop } from "#/hooks/useBackToTop";
+import {
+  ScrollViewportContext,
+  createScrollViewport,
+} from "#/hooks/useNearViewport";
+import type { ArticleProperties, HttpsUrl } from "#/types";
+
+import Body from "./Body";
+import Header from "./Header";
+import Recommended from "./Recommended";
+
+// How long a deep-link anchor keeps re-aligning the view as async content
+// (images, embeds) resizes the article above it. Ends early on the first user
+// scroll; this is the hard cap for platforms/inputs that don't signal that.
+const ANCHOR_ALIGN_WINDOW_MS = 4000;
+
+interface ArticleScreenProperties {
+  article: ArticleProperties;
+  /** Decoded URL fragment of the deep link (e.g. "quellen") to scroll to. */
+  anchor?: string;
+}
+
+/**
+ * Renders an Article from WordPress API Data in Route Param Props
+ *
+ * Handles scrolling by rendering a progress bar and saving scroll position
+ * to local storage. Also triggers "FullRead" analytics event when user
+ * scrolls 70% down the article.
+ *
+ * @param {ArticleProperties} properties - Article data from WordPress API
+ * @returns
+ */
+const ArticleScreen = (properties: ArticleScreenProperties) => {
+  const { article, anchor } = properties;
+  const scrollOffsetY = useRef(new Animated.Value(0)).current;
+  const scrollProgress = useRef(new Animated.Value(0)).current;
+  const scrollReference = useRef<ScrollView>(null);
+  // Ref to the ScrollView's inner content view; anchor positions are
+  // measured against it (see scrollToAnchor).
+  const innerViewReference = useRef<View>(null);
+  const router = useRouter();
+  const colorScheme = useAppColorScheme();
+  const backToTop = useBackToTop();
+  // Matches --vvp-accent, the progress-bar color used on the crowdfunding site.
+  const progressColor = Colors[colorScheme].accent;
+  const backgroundColor = Colors[colorScheme].background;
+
+  const fullRead = useRef(false);
+  const savedPosition = useRef(0);
+  // Whether the saved reading position was restored — or no longer should
+  // be, because the reader or a deep-link anchor already moved the view.
+  const positionRestoreHandled = useRef(false);
+  // Bumped whenever the reader (or an anchor) moves the view, so a restore
+  // whose storage read is still in flight knows not to apply its result.
+  const restoreGeneration = useRef(0);
+  // Scroll offset when the saved position started loading; any movement
+  // away from it before the restore lands is the reader's.
+  const restoreReadOffset = useRef<number>(undefined);
+  const lastScrollOffset = useRef(0);
+  const cancelPositionRestore = () => {
+    positionRestoreHandled.current = true;
+    restoreGeneration.current++;
+  };
+  // Body renders long articles in chunks; until the last one is in, the
+  // content height (and thus any scroll progress) is only partial.
+  const bodyRendered = useRef(false);
+  // Refs to rendered headers by their HTML id, registered by HeaderRenderer.
+  // Used both for in-article anchor links and for deep links with a fragment.
+  const headerReferences = useRef<Record<string, RefObject<View>>>({});
+  // The anchor still waiting to be aligned. Content height keeps changing
+  // while images load in, so we re-align on every content size change until
+  // the user takes over scrolling (a one-shot scroll would land wrong).
+  const pendingAnchor = useRef(anchor);
+  const anchorAlignTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const mounted = useRef(true);
+  const slug = article.slug;
+  const article_image = article.imageUrl;
+  const article_title = article.title;
+  const rawContent = article.content?.rendered ?? "";
+  // Memoized: long articles run to ~1 MB of HTML, and this screen re-renders
+  // on every back-to-top visibility toggle while scrolling.
+  const article_content = useMemo(
+    () =>
+      stripVisualComposerShortcodes(rawContent).replace(
+        /<style>.*<\/style>/s,
+        "",
+      ),
+    [rawContent],
+  );
+  const article_link = article.link;
+  const _date = new Date(article.date);
+  const { width, height: windowHeight } = useWindowDimensions();
+  // Lets article content (e.g. embedded article cards) defer work until the
+  // reader scrolls near it.
+  const viewport = useMemo(
+    () => createScrollViewport(innerViewReference, windowHeight),
+    // Only the initial height matters; scroll events report the real one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const maxWidth = 700;
+  const date =
+    _date.getDate() + "." + (_date.getMonth() + 1) + "." + _date.getFullYear();
+
+  /**
+   * Scrolls to the header element registered under the given anchor id.
+   * No-op when the id doesn't match a rendered header (e.g. the target
+   * element isn't an h2), matching the behavior of in-article anchor links.
+   * @param id The decoded HTML id of the target header
+   * @returns Whether the header is rendered
+   */
+  // useCallback (not just an extracted binding) is load-bearing here: this
+  // project doesn't run the React Compiler (no "reactCompiler" experiment in
+  // app.config.ts), so nothing else gives these a stable identity across
+  // renders. Body's `renderers` prop is rebuilt from handleAnchorPress /
+  // handleLinkPress on every render, and @native-html/render can
+  // remount custom-rendered elements (like the WebView inside an embedded
+  // iframe) when that prop's identity changes — visible as a reload/
+  // black-frame flash on an embedded video every time Article re-renders.
+  const scrollToAnchor = useCallback((id: string) => {
+    const headerNode = headerReferences.current[id]?.current;
+    const scrollView = scrollReference.current;
+    // On the new architecture measureLayout must receive the host component
+    // ref itself — the node handle from getInnerViewNode() is rejected with
+    // "must be called with a ref to a native component".
+    const innerView = innerViewReference.current;
+    if (!headerNode || !scrollView || !innerView) return false;
+    headerNode.measureLayout(innerView, (_x, y) => {
+      scrollView.scrollTo({ y, animated: false });
+    });
+    return true;
+  }, []);
+
+  /**
+   * Scrolls to the anchor now if it's rendered, and keeps re-aligning on it
+   * as content above it resizes (or, for an anchor in a not yet rendered
+   * part of the body, once it renders) until the reader scrolls.
+   */
+  const alignToAnchor = useCallback(
+    (id: string) => {
+      pendingAnchor.current = id;
+      // Jumping to an anchor replaces resuming the saved reading position.
+      positionRestoreHandled.current = true;
+      restoreGeneration.current++;
+      scrollToAnchor(id);
+      // Bound the auto-align window. It normally ends when the user starts
+      // scrolling, but react-native-web never fires onScrollBeginDrag for
+      // wheel scrolling, so without this the anchor would stay pending
+      // forever on web — permanently suppressing read tracking and snapping
+      // the view back on every late image load. Images settle well within
+      // this window.
+      clearTimeout(anchorAlignTimeout.current);
+      anchorAlignTimeout.current = setTimeout(() => {
+        pendingAnchor.current = undefined;
+      }, ANCHOR_ALIGN_WINDOW_MS);
+    },
+    [scrollToAnchor],
+  );
+
+  const handleAnchorPress = useCallback(
+    (id: string) => {
+      positionRestoreHandled.current = true;
+      restoreGeneration.current++;
+      // A tapped in-article anchor supersedes a deep-link anchor; otherwise
+      // the next content resize would snap back to it.
+      pendingAnchor.current = undefined;
+      // A target further down may not be rendered yet (Body renders it
+      // next); align on it once it is.
+      if (!scrollToAnchor(id)) alignToAnchor(id);
+    },
+    [scrollToAnchor, alignToAnchor],
+  );
+
+  const handleBodyRendered = useCallback(() => {
+    bodyRendered.current = true;
+  }, []);
+
+  const handleLinkPress = useCallback(
+    (_event: GestureResponderEvent, href: HttpsUrl) =>
+      onLinkPress(href, router, article_link),
+    [router, article_link],
+  );
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(anchorAlignTimeout.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    // A deep link to the already-open article updates the params on the
+    // existing screen instance instead of remounting it — re-arm the pending
+    // anchor and jump right away (no-op if the headers aren't laid out yet;
+    // onContentSizeChange picks it up then).
+    if (anchor) alignToAnchor(anchor);
+  }, [anchor, alignToAnchor]);
+
+  useEffect(() => {
+    registerViews(article_link);
+    Statistics.countArticleRead();
+    // Adoption signal for secondary WordPress feeds (currently only Prüfpunkt):
+    // emit a distinct, countable event on the primary site so feed engagement
+    // can be tracked alongside the rest of the app's analytics.
+    const secondaryFeed = findSecondaryWpFeed(
+      article_link,
+      Config.wpUrl,
+      Config.feeds?.wp,
+    );
+    if (secondaryFeed?.sourceName) {
+      registerEvent(Config.wpUrl, "Pruefpunkt View", {
+        source: secondaryFeed.sourceName,
+        url: article_link,
+      });
+    }
+  }, [article_link]);
+
+  /**
+   * Restores the reading position saved in storage, once per article and
+   * only once the whole body is rendered — the saved position is a fraction
+   * of the full content height. Skipped when the reader (or a deep-link
+   * anchor) moved the view first.
+   * @param contentHeight The scroll view's full content height
+   */
+  const restoreScrollPosition = (contentHeight: number) => {
+    if (positionRestoreHandled.current) return;
+    positionRestoreHandled.current = true;
+    const generation = restoreGeneration.current;
+    restoreReadOffset.current = lastScrollOffset.current;
+    PersonalStore.getScrollPosition(slug).then((progress) => {
+      restoreReadOffset.current = undefined;
+      if (!mounted.current || progress > 0.8) return;
+      // The reader moved the view while the position was being read.
+      if (generation !== restoreGeneration.current) return;
+      if (pendingAnchor.current) return;
+      savedPosition.current = progress;
+      scrollReference.current?.scrollTo({
+        y: contentHeight * progress,
+        animated: false,
+      });
+    });
+  };
+
+  /**
+   * Called during scrolling to update scroll progress and trigger analytics.
+   * Tracks scroll progress and marks article as fully read when user scrolls 70% down.
+   * Also triggers "FullRead" analytics event and reader achievement.
+   * @param event ScrollEvent containing contentOffset.y and contentSize.height
+   */
+  const scrollListener = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    backToTop.onScroll(event);
+    const offset = event.nativeEvent.contentOffset.y;
+    lastScrollOffset.current = offset;
+    // Reading moves the view before the saved position could be restored:
+    // drop the restore. onScrollBeginDrag covers touch scrolling, but
+    // react-native-web never fires it for wheel/trackpad scrolling. The only
+    // programmatic scrolls before the restore are anchor jumps, which cancel
+    // it themselves.
+    const movedBeforeRestore = !positionRestoreHandled.current && offset > 1;
+    const movedDuringRead =
+      restoreReadOffset.current !== undefined &&
+      Math.abs(offset - restoreReadOffset.current) > 1;
+    if (movedBeforeRestore || movedDuringRead) cancelPositionRestore();
+    viewport.update(
+      event.nativeEvent.contentOffset.y,
+      event.nativeEvent.layoutMeasurement.height,
+    );
+    const progress =
+      event.nativeEvent.contentOffset.y / event.nativeEvent.contentSize.height;
+    scrollProgress.setValue(progress * 1.1 * width);
+    // While the view is still auto-aligned on a deep-link anchor the scroll
+    // events are programmatic, not reading: don't count a FullRead, don't
+    // grant achievements, and don't clobber the saved reading position.
+    // Likewise while the body is still rendering: progress against a partial
+    // content height would overstate how far the reader got.
+    if (pendingAnchor.current || !bodyRendered.current) return;
+    if (progress > 0.7 && !fullRead.current) {
+      fullRead.current = true;
+      registerEvent(article_link, "FullRead");
+      Achievements.setAchievementValue("reader", true);
+    }
+    if (Math.abs(progress - savedPosition.current) > 0.02) {
+      savedPosition.current = progress;
+      PersonalStore.setScrollPosition(progress, slug);
+    }
+  };
+
+  return (
+    <View style={globalStyles.container}>
+      <ReadingProgressBar
+        progress={scrollProgress}
+        height={4}
+        color={progressColor}
+        style={{ position: "absolute" }}
+      />
+      <View style={globalStyles.container}>
+        <ScrollView
+          testID="article-scroll"
+          style={{
+            backgroundColor,
+          }}
+          contentContainerStyle={[globalStyles.content]}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollOffsetY } } }],
+            { useNativeDriver: false, listener: scrollListener },
+          )}
+          ref={scrollReference}
+          innerViewRef={innerViewReference}
+          scrollEventThrottle={16}
+          onContentSizeChange={(_width, contentHeight) => {
+            // Re-align the pending anchor whenever async content (images,
+            // embeds, further body chunks) resizes the article above it.
+            if (pendingAnchor.current) {
+              scrollToAnchor(pendingAnchor.current);
+            } else if (bodyRendered.current) {
+              restoreScrollPosition(contentHeight);
+            }
+          }}
+          onScrollBeginDrag={() => {
+            // The user took over — stop snapping back to the anchor, and
+            // don't yank them to the saved position anymore.
+            pendingAnchor.current = undefined;
+            cancelPositionRestore();
+          }}
+        >
+          <View style={{ paddingBottom: 100 }}>
+            <Header
+              article={article}
+              article_image={article_image}
+              article_link={article_link}
+              article_title={article_title}
+              date={date}
+              slug={slug}
+            />
+            <ScrollViewportContext.Provider value={viewport}>
+              <Body
+                article_content={article_content}
+                article_title={article_title}
+                slug={slug}
+                article_link={article_link}
+                maxWidth={maxWidth}
+                width={width}
+                headerRefs={headerReferences}
+                onAnchorPress={handleAnchorPress}
+                onLinkPress={handleLinkPress}
+                anchor={anchor}
+                onRendered={handleBodyRendered}
+              />
+            </ScrollViewportContext.Provider>
+            <Recommended article_link={article_link}></Recommended>
+            <Footer
+              article_link={article_link}
+              article_title={article_title}
+              onShare={onShare}
+            />
+          </View>
+        </ScrollView>
+        <BackToTopButton
+          visible={backToTop.visible}
+          onPress={() => {
+            // Back-to-top is explicit user navigation — it must win over a
+            // still-pending deep-link anchor.
+            pendingAnchor.current = undefined;
+            cancelPositionRestore();
+            scrollReference.current?.scrollTo({ y: 0, animated: true });
+          }}
+        />
+      </View>
+      <NavBar
+        link={article_link}
+        shareable={[{ url: article_link, title: article_title }]}
+        contentFavIdentifier={slug}
+        contentType="article"
+      />
+    </View>
+  );
+};
+
+export default ArticleScreen;

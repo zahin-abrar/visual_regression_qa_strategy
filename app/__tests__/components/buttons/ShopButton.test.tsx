@@ -1,0 +1,86 @@
+import { describe, expect, it, jest } from "@jest/globals";
+import { fireEvent, render } from "@testing-library/react-native";
+import { Linking } from "react-native";
+
+import ShopButton from "#/components/buttons/ShopButton";
+import Config from "#/constants/Config";
+import { registerEvent } from "#/helpers/network/Analytics";
+
+jest.mock("#/components/ui/UiButton", () => {
+  const { Pressable } = require("react-native");
+  return jest.fn(({ onPress, accessibilityLabel, accessibilityHint }: any) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      onPress={onPress}
+    />
+  ));
+});
+
+jest.mock("#/helpers/network/Analytics", () => ({
+  registerEvent: jest.fn(),
+}));
+
+jest.mock("react-native/Libraries/Linking/Linking", () => ({
+  __esModule: true,
+  default: { openURL: jest.fn() },
+}));
+
+jest.mock("#/helpers/AppImages", () => ({
+  AppImages: { shopButton: "shop-button" },
+}));
+
+jest.mock("#/constants/Config", () => ({
+  __esModule: true,
+  default: {
+    wpUrl: "https://www.volksverpetzer.de",
+    donations: {
+      shop: "https://shop.volksverpetzer.de",
+    },
+  },
+}));
+
+describe("ShopButton", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Config as any).donations.shop = "https://shop.volksverpetzer.de";
+  });
+
+  it("renders an accessible button when shop URL is configured", async () => {
+    const { getByRole } = await render(<ShopButton />);
+    expect(getByRole("button")).toBeTruthy();
+  });
+
+  it("returns null when no shop URL is configured", async () => {
+    (Config as any).donations.shop = undefined;
+    const { queryByRole } = await render(<ShopButton />);
+    expect(queryByRole("button")).toBeNull();
+  });
+
+  it("opens the shop URL when pressed", async () => {
+    const { getByRole } = await render(<ShopButton />);
+    await fireEvent.press(getByRole("button"));
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      "https://shop.volksverpetzer.de",
+    );
+  });
+
+  it("tracks analytics against article_link when provided", async () => {
+    const articleLink = "https://www.volksverpetzer.de/artikel/test" as const;
+    const { getByRole } = await render(
+      <ShopButton article_link={articleLink} />,
+    );
+    await fireEvent.press(getByRole("button"));
+    expect(registerEvent).toHaveBeenCalledWith(articleLink, "Shop");
+  });
+
+  it("falls back to wpUrl for analytics when article_link is omitted", async () => {
+    const { getByRole } = await render(<ShopButton />);
+    await fireEvent.press(getByRole("button"));
+    expect(registerEvent).toHaveBeenCalledWith(
+      "https://www.volksverpetzer.de",
+      "Shop",
+    );
+  });
+});

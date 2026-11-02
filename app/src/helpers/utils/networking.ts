@@ -1,0 +1,369 @@
+import * as Application from "expo-application";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
+
+import type { HttpsUrl } from "#/types";
+
+export type FetchHeaders = Record<string, string>;
+
+export type FetchRequestConfig = {
+  method?: string;
+  headers?: FetchHeaders;
+  params?: Record<string, string | number | boolean | null | undefined>;
+  data?: unknown;
+  responseType?: "json" | "text";
+  signal?: AbortSignal;
+};
+
+export type FetchResponse<T> = {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  url: string;
+  ok: boolean;
+};
+
+export type FetchClient = {
+  request: <T>(
+    config: FetchRequestConfig & { url: string },
+  ) => Promise<FetchResponse<T>>;
+};
+
+export class FetchError extends Error {
+  status: number;
+  statusText: string;
+  url: string;
+  body: unknown;
+
+  constructor(
+    message: string,
+    info: { status: number; statusText: string; url: string; body: unknown },
+  ) {
+    super(message);
+    this.name = "FetchError";
+    this.status = info.status;
+    this.statusText = info.statusText;
+    this.url = info.url;
+    this.body = info.body;
+  }
+}
+
+function buildUrl(
+  baseURL: HttpsUrl,
+  url: string,
+  params?: FetchRequestConfig["params"],
+): string {
+  let finalUrl: URL;
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    finalUrl = new URL(url);
+  } else {
+    // Append to the base's path rather than resolving against it:
+    // new URL("/proxy", "https://host/api") would drop "/api", which breaks
+    // app servers mounted under a path (see helpers/apiUrl.ts).
+    const base = new URL(baseURL);
+    const basePath = base.pathname.replace(/\/+$/, "");
+    finalUrl = new URL(`${basePath}/${url.replace(/^\/+/, "")}`, base.origin);
+  }
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null) continue;
+      finalUrl.searchParams.set(key, String(value));
+    }
+  }
+  return finalUrl.toString();
+}
+
+/**
+ * Cache-defeating request headers for endpoints behind aggressive CDN
+ * caches. Empty on web: these headers aren't CORS-safelisted and would
+ * force a failing preflight; requests carry a timestamp param instead.
+ *
+ * Read `Platform.OS` inside the function rather than at module scope, so
+ * it reflects the platform at call time instead of whatever it was when
+ * this module first loaded (matches how `baseHeaders` is computed fresh
+ * per `createClient()` call).
+ */
+export function getCacheBusterHeaders(): FetchHeaders {
+  return Platform.OS === "web"
+    ? {}
+    : {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      };
+}
+
+/**
+ * Create a fetch client with default headers.
+ *
+ * The User-Agent will look like this:
+ * YourApp/1.2.3 (android; Android 14; Pixel 7)
+ * YourApp/1.2.3 (ios; iOS 17.3; iPhone 15 Pro)
+ *
+ * @param baseURL Base URL for requests, or a getter resolved on every request
+ *   (for base URLs the user can change at runtime)
+ * @param extraHeaders Additional headers merged into every request
+ */
+export function createClient(
+  baseURL: HttpsUrl | (() => HttpsUrl),
+  extraHeaders: FetchHeaders = {},
+): FetchClient {
+  const baseHeaders: FetchHeaders = {
+    // On web these defaults must not be sent: User-Agent is a forbidden
+    // header there, and the others aren't CORS-safelisted, so they would
+    // turn every GET into a preflighted request that the WP/proxy
+    // endpoints reject. Browsers handle caching via response headers.
+    ...(Platform.OS !== "web" && {
+      "Content-Type": "application/json",
+      "User-Agent": `${Constants.expoConfig?.slug}/${Application?.nativeApplicationVersion} (${Platform.OS}; ${Device.osName} ${Device.osVersion}; ${Device.modelName})`,
+      ...getCacheBusterHeaders(),
+    }),
+    ...extraHeaders,
+  };
+
+  return {
+    request: async <T>({
+      url,
+      method = "GET",
+      headers,
+      params,
+      data,
+      responseType = "json",
+      signal,
+    }: FetchRequestConfig & { url: string }): Promise<FetchResponse<T>> => {
+      const requestUrl = buildUrl(
+        typeof baseURL === "function" ? baseURL() : baseURL,
+        url,
+        params,
+      );
+      const mergedHeaders: FetchHeaders = {
+        ...baseHeaders,
+        ...headers,
+      };
+
+      const init: RequestInit = { method, headers: mergedHeaders, signal };
+
+      if (data !== undefined && method.toUpperCase() !== "GET") {
+        if (
+          typeof data === "string" ||
+          data instanceof FormData ||
+          data instanceof ArrayBuffer ||
+          ArrayBuffer.isView(data)
+        ) {
+          init.body = data as BodyInit;
+        } else {
+          init.body = JSON.stringify(data);
+          // The JSON content type is a base header on native only
+          if (!mergedHeaders["Content-Type"]) {
+            mergedHeaders["Content-Type"] = "application/json";
+          }
+        }
+      }
+
+      const response = await fetch(requestUrl, init);
+      const rawText = await response.text();
+
+      let parsed: unknown;
+      if (responseType === "text") {
+        parsed = rawText;
+      } else if (rawText.length === 0) {
+        parsed = null;
+      } else {
+        try {
+          parsed = JSON.parse(rawText);
+        } catch {
+          parsed = rawText;
+        }
+      }
+
+      if (!response.ok) {
+        throw new FetchError(`Request failed with status ${response.status}`, {
+          status: response.status,
+          statusText: response.statusText,
+          url: requestUrl,
+          body: parsed,
+        });
+      }
+
+      return {
+        data: parsed as T,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        url: requestUrl,
+        ok: true,
+      };
+    },
+  };
+}
+
+/**
+ * Fetch with timeout using AbortController.
+ */
+export async function fetchWithTimeout<T>(
+  client: FetchClient,
+  path: string,
+  config: FetchRequestConfig = {},
+  abortTime?: number,
+  suppressErrorLog = false,
+): Promise<FetchResponse<T>> {
+  const controller = new AbortController();
+  const externalSignal = config.signal;
+  const onExternalAbort = () => controller.abort();
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener("abort", onExternalAbort, {
+        once: true,
+      });
+    }
+  }
+
+  const id = setTimeout(() => controller.abort(), abortTime ?? 60_000);
+  try {
+    return await client.request<T>({
+      url: path,
+      ...config,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (!controller.signal.aborted && !suppressErrorLog) {
+      console.error(error);
+      console.error(path);
+    }
+    throw error;
+  } finally {
+    clearTimeout(id);
+    if (externalSignal) {
+      externalSignal.removeEventListener("abort", onExternalAbort);
+    }
+  }
+}
+
+/**
+ * Type guard for URLs that use the https scheme.
+ */
+export const isHttpsUrl = (url: string): url is HttpsUrl =>
+  url.startsWith("https://");
+
+const GET_RETRY_ATTEMPTS = 2;
+const GET_RETRY_DELAY_MS = 500;
+
+/**
+ * Resolves after `ms`, or immediately once `signal` aborts — so a caller
+ * cancelling between retries (e.g. a screen unmounting) doesn't have to wait
+ * out the rest of the backoff. Resolving (rather than rejecting) on abort is
+ * deliberate: the next loop iteration's fetchWithTimeout call will see the
+ * signal is already aborted and fail fast on its own.
+ */
+const delay = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(id);
+      resolve();
+    };
+    const id = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+
+/**
+ * Shape-based check (matches FetcherUtilities.isAbortError) rather than
+ * `instanceof Error` — a DOMException/cancellation error isn't guaranteed to
+ * be an Error instance in every environment, and this must not miss one.
+ */
+const isAbortError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: string; code?: string };
+  return (
+    maybeError.name === "AbortError" ||
+    maybeError.name === "CanceledError" ||
+    maybeError.code === "ERR_CANCELED"
+  );
+};
+
+/**
+ * Whether a failed GET is worth retrying: transient server errors (5xx) and
+ * plain network failures (fetch throws a TypeError, e.g. offline/DNS/timeout
+ * right at the socket level). Client errors (4xx) and deliberate aborts are
+ * not retried since a retry wouldn't change the outcome.
+ */
+function isRetryableGetError(error: unknown): boolean {
+  if (error instanceof FetchError) return error.status >= 500;
+  return error instanceof TypeError;
+}
+
+/**
+ * GET request wrapper. Accepts optional config and abortTime. Retries
+ * transient failures a couple of times with a short delay — GET is safe to
+ * retry since it has no side effects, unlike POST.
+ *
+ * fetchWithTimeout's own per-attempt error logging is suppressed here so a
+ * transient failure that succeeds on retry doesn't spam the log; get() logs
+ * exactly once, only for a genuine final failure.
+ *
+ * `silentStatuses` lists HTTP statuses the caller expects and handles itself
+ * (e.g. 404 for "nothing found"); those still throw but aren't logged.
+ */
+export async function get<T>(
+  client: FetchClient,
+  path: string,
+  config: FetchRequestConfig & { silentStatuses?: number[] } = {},
+  abortTime?: number,
+): Promise<T> {
+  const { silentStatuses = [], ...requestConfig } = config;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetchWithTimeout<T>(
+        client,
+        path,
+        { method: "GET", ...requestConfig },
+        abortTime,
+        true,
+      );
+      return response.data;
+    } catch (error) {
+      const willRetry =
+        attempt < GET_RETRY_ATTEMPTS && isRetryableGetError(error);
+      if (!willRetry) {
+        const isSilent =
+          error instanceof FetchError && silentStatuses.includes(error.status);
+        if (!isAbortError(error) && !isSilent) {
+          console.error(error);
+          console.error(path);
+        }
+        throw error;
+      }
+      await delay(GET_RETRY_DELAY_MS * (attempt + 1), requestConfig.signal);
+    }
+  }
+}
+
+/**
+ * POST request wrapper.
+ */
+export async function post<T, D>(
+  client: FetchClient,
+  path: string,
+  data: D,
+  abortTime?: number,
+  config: FetchRequestConfig = {},
+): Promise<T> {
+  const response = await fetchWithTimeout<T>(
+    client,
+    path,
+    { method: "POST", data, ...config },
+    abortTime,
+  );
+  return response.data;
+}

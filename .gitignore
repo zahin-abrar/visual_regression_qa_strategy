@@ -1,0 +1,67 @@
+# Local project context and execution logs
+/.project-private/
+/debug-logs/
+/docs/AGENT_TASK_HISTORY.md
+
+# Environment files; reviewed templates may be committed
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+
+# Dependencies and Python environments
+**/node_modules/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+
+# Expo and local tooling state
+**/.expo/
+**/.expo-shared/
+**/.idea/
+**/.vscode/
+**/.claude/settings.local.json
+**/.claude/launch.json
+**/.claude/worktrees/
+
+# Generated test captures and reports
+**/artifacts/
+**/*.actual.png
+**/*.context.png
+**/*.diff.png
+**/*.comparison.json
+**/failure-*.png
+**/failure-*.xml
+**/*.log
+
+# Native build outputs and local Android tree
+/app/android/
+**/.gradle/
+**/.cxx/
+**/build/
+**/dist/
+**/coverage/
+*.apk
+*.aab
+
+# Credentials and signing material
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.key
+*.pem
+**/google-services*.json
+**/credentials*.json
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+*.tmp
+*.bak

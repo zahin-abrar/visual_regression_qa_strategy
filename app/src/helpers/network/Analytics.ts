@@ -1,0 +1,179 @@
+import * as Application from "expo-application";
+import { Dimensions, Platform } from "react-native";
+
+import type { AnnouncementEntry } from "#/constants/Announcements";
+import Config from "#/constants/Config";
+import { resolveAnalyticsSite } from "#/helpers/utils/analyticsSite";
+import { parseInlineMarkdown } from "#/helpers/utils/inlineMarkdown";
+import { createClient, post } from "#/helpers/utils/networking";
+
+const plausibleClient = createClient("https://plausible.io");
+
+/**
+ * Every event name the app reports to Plausible. Kept as a closed union so the
+ * set of events stays a single, discoverable catalog and typos (e.g.
+ * "pageview" vs "pageviews") are caught at compile time. Add new names here.
+ */
+export type AnalyticsEvent =
+  | "pageviews"
+  | "favorite"
+  | "Share"
+  | "FullRead"
+  | "search"
+  | "Shop"
+  | "Steady"
+  | "DonateConversion"
+  | "Outbound Link: Click"
+  | "Contact Submitted"
+  | "Contact Mail Opened"
+  | "Pruefpunkt View"
+  | "Post Interaction"
+  | "Onboarding Started"
+  | "Onboarding Step"
+  | "Onboarding Completed"
+  | "Announcement Shown"
+  | "Announcement Action"
+  | "Announcement Dismissed";
+
+/**
+ * Props that registerEvent always sets on every event. Callers must not pass
+ * these keys: the base props are spread after `...properties` so they always
+ * win at runtime, meaning a caller's reserved key (e.g. the OS `platform`)
+ * would be silently dropped. The type guard below rejects these keys for
+ * narrow literal types to surface the mistake at the call site rather than
+ * letting it become a confusing no-op.
+ */
+type ReservedPropKey =
+  "platform" | "OSversion" | "appVersion" | "appBuild" | "buildLabel" | "width";
+
+/**
+ * Custom event properties: any keys/values, except that any reserved base-prop
+ * key present in `T` is forced to `never`, making it a compile error to pass
+ * one. A plain `Record & { reserved?: never }` would not work — the open index
+ * signature lets the reserved key through — so the rejection is keyed off the
+ * caller's inferred `T`.
+ */
+export type EventProps<T extends Record<string, unknown>> = T & {
+  [K in Extract<keyof T, ReservedPropKey>]: never;
+};
+
+/**
+ * Sends an event to Plausible Analytics
+ * @param permalink - Link of the current Resource
+ * @param event - Event Name
+ * @param properties - Additional properties (reserved base-prop keys are rejected)
+ * @param utm_campaign - UTM campaign (default: "app")
+ * @param utm_source - UTM source (default: "app")
+ * @returns Promise<void>
+ */
+const registerEvent = async <T extends Record<string, unknown>>(
+  permalink: string,
+  event: AnalyticsEvent,
+  properties?: EventProps<T>,
+  utm_campaign = "app",
+  utm_source = "app",
+): Promise<void> => {
+  if (!Config.enableAnalytics) return;
+  // Skip beta store builds so pre-release testing traffic doesn't distort the
+  // real user analytics. Production builds set no buildLabel.
+  if (Config.buildLabel === "beta") return;
+  // Fall back to the primary site when no resource link is provided (e.g. an
+  // outbound link tapped without article context), so the event URL and site
+  // are always well-formed instead of "undefined?...".
+  const resource = permalink || Config.wpUrl;
+  const payload = {
+    name: event,
+    url: `${resource}?utm_source=${utm_source}&utm_medium=app&utm_campaign=${utm_campaign}`,
+    referrer: "de.volksverpetzer.app",
+    domain: resolveAnalyticsSite(resource),
+    props: {
+      // Caller props are spread first so the base props below always win:
+      // the EventProps type rejects reserved keys for narrow literals, but a
+      // widened `Record<string, unknown>` (e.g. Sharing's `...properties`)
+      // slips past the type guard, so this ordering is what actually
+      // guarantees base props can never be overwritten at runtime.
+      ...properties,
+      platform: Platform.OS,
+      OSversion: Platform.Version,
+      appVersion: Application?.nativeApplicationVersion,
+      appBuild: Application?.nativeBuildVersion,
+      // Marks non-production store builds so traffic can be segmented in Plausible.
+      // Note: "beta" builds are skipped entirely above (no events sent).
+      // Production builds set no buildLabel, so we default to "production" for consistency.
+      buildLabel: Config.buildLabel ?? "production",
+      width: Dimensions.get("window").width,
+    },
+  };
+  try {
+    await post<unknown, typeof payload>(plausibleClient, "/api/event", payload);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+type PostPlatform = "youtube" | "tiktok" | "instagram" | "bluesky" | "podcast";
+type PostAction = "play" | "open";
+
+/**
+ * Records a real interaction with a social post in the feed, beyond the fav and
+ * share buttons that are already tracked: playing a video, opening a thread, or
+ * expanding a card. All such interactions share one Plausible event so feed
+ * engagement can be compared across post types, broken down by the
+ * `post_platform` and `action` props. The key is `post_platform` rather than
+ * `platform` to avoid overwriting the OS `platform` prop set by registerEvent.
+ */
+const registerPostInteraction = (
+  permalink: string,
+  postPlatform: PostPlatform,
+  action: PostAction,
+): Promise<void> =>
+  registerEvent(permalink, "Post Interaction", {
+    post_platform: postPlatform,
+    action,
+  });
+
+type AnnouncementEvent =
+  "Announcement Shown" | "Announcement Action" | "Announcement Dismissed";
+
+const ANNOUNCEMENT_TITLE_MAX_LENGTH = 80;
+
+/**
+ * Human-readable label for an announcement in Plausible, where the bare id is
+ * hard to recognize: the first line of its message with the markdown
+ * stripped, truncated.
+ */
+const announcementTitle = ({ message }: AnnouncementEntry): string => {
+  const firstLine = parseInlineMarkdown(message.split("\n")[0])
+    .map((token) => token.content)
+    .join("")
+    .trim();
+  return firstLine.length > ANNOUNCEMENT_TITLE_MAX_LENGTH
+    ? `${firstLine.slice(0, ANNOUNCEMENT_TITLE_MAX_LENGTH - 1).trimEnd()}…`
+    : firstLine;
+};
+
+/**
+ * Records the lifecycle of an in-feed announcement card (see
+ * #/constants/Announcements): shown, its action taken (button or an inline
+ * link), or dismissed via "Alles klar!". Separate event names (rather than one
+ * event with an action prop) so each can be a Plausible goal and Shown →
+ * Action can be a funnel. `announcement_id` is the stable key to break them
+ * down by; `announcement_title` makes the card recognizable in the dashboard.
+ */
+const registerAnnouncementEvent = (
+  event: AnnouncementEvent,
+  announcement: AnnouncementEntry,
+  properties: { source?: "button" | "link" } = {},
+): Promise<void> =>
+  registerEvent("", event, {
+    announcement_id: announcement.id,
+    announcement_title: announcementTitle(announcement),
+    ...properties,
+  });
+
+export {
+  announcementTitle,
+  registerAnnouncementEvent,
+  registerEvent,
+  registerPostInteraction,
+};

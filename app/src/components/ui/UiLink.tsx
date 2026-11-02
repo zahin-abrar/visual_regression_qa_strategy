@@ -1,0 +1,63 @@
+import * as Linking from "expo-linking";
+import * as MailComposer from "expo-mail-composer";
+import * as WebBrowser from "expo-web-browser";
+import type { ReactElement } from "react";
+import { View } from "react-native";
+
+import { ExternalLinkIcon } from "#/components/Icons";
+import Typography from "#/components/ui/Typography";
+import UiPressable from "#/components/ui/UiPressable";
+import Colors from "#/constants/Colors";
+import { globalStyles } from "#/constants/GlobalStyles";
+import { spacing } from "#/constants/Spacing";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+
+interface UiLinkProperties {
+  url: string;
+  text: string;
+  icon: ReactElement;
+}
+
+const UiLink = (properties: UiLinkProperties) => {
+  const colorScheme = useAppColorScheme();
+  const openLink = () => {
+    if ("mailto:" === properties.url.slice(0, 7)) {
+      MailComposer.isAvailableAsync().then((isAvailable) => {
+        if (isAvailable) {
+          MailComposer.composeAsync({
+            recipients: [properties.url.slice(7)],
+          });
+        } else {
+          Linking.openURL(properties.url);
+        }
+      });
+    } else {
+      WebBrowser.openBrowserAsync(properties.url);
+    }
+  };
+
+  return (
+    <UiPressable
+      accessibilityRole="button"
+      onPress={() => openLink()}
+      style={[
+        globalStyles.row,
+        {
+          paddingVertical: spacing.md,
+          justifyContent: "flex-start",
+          alignItems: "flex-start",
+          gap: spacing.md,
+        },
+      ]}
+    >
+      {properties.icon && <View style={{ width: 24 }}>{properties.icon}</View>}
+      <Typography type="heading">{properties.text}</Typography>
+      <ExternalLinkIcon
+        color={Colors[colorScheme].textMuted}
+        style={{ marginLeft: "auto" }}
+      />
+    </UiPressable>
+  );
+};
+
+export default UiLink;

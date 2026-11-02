@@ -1,0 +1,246 @@
+import { fireEvent, render } from "@testing-library/react-native";
+import React from "react";
+
+import { getTagStyles } from "#/helpers/utils/articleTagStyles";
+import SearchResultItem from "#/screens/Search/components/SearchResultItem";
+
+jest.mock("@native-html/render", () => jest.fn(() => null));
+
+jest.mock("html-entities", () => ({
+  decode: jest.fn((s: string) => s),
+}));
+
+jest.mock("#/components/ui/UiText", () => {
+  const { Text } = require("react-native");
+  return jest.fn(({ children, testID }: any) => (
+    <Text testID={testID ?? "heading"}>{children}</Text>
+  ));
+});
+
+jest.mock("#/components/ui/UiCard", () => {
+  const { View } = require("react-native");
+  return jest.fn(({ children }: any) => (
+    <View testID="ui-card">{children}</View>
+  ));
+});
+
+jest.mock("#/components/ui/UiPressable", () => {
+  const { Pressable } = require("react-native");
+  return jest.fn(
+    ({
+      children,
+      onPress,
+      accessibilityRole,
+      accessibilityState,
+      testID,
+    }: any) => (
+      <Pressable
+        testID={testID ?? "pressable"}
+        onPress={onPress}
+        accessibilityRole={accessibilityRole}
+        accessibilityState={accessibilityState}
+      >
+        {children}
+      </Pressable>
+    ),
+  );
+});
+
+jest.mock("#/hooks/useAppColorScheme", () => ({
+  useAppColorScheme: jest.fn(() => "light"),
+}));
+
+jest.mock("#/constants/Colors", () => ({
+  __esModule: true,
+  default: {
+    light: { text: "#111111" },
+    dark: { text: "#f7f7f7" },
+  },
+}));
+
+jest.mock("#/helpers/utils/articleTagStyles", () => ({
+  getTagStyles: jest.fn(() => ({})),
+}));
+
+describe("SearchResultItem", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("clamps the excerpt to maxLines without adding a toggle", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <SearchResultItem title="T" text="<p>Test</p>" maxLines={5} />,
+    );
+    const style = getByTestId("excerpt-clamp").props.style;
+    expect(style.overflow).toBe("hidden");
+    expect(style.maxHeight).toBeGreaterThan(0);
+    expect(queryByTestId("excerpt-toggle")).toBeNull();
+  });
+
+  it("renders inside a plain View when onPress is not provided", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <SearchResultItem title="Test Title" text="<p>Test</p>" />,
+    );
+    expect(getByTestId("ui-card")).toBeTruthy();
+    expect(queryByTestId("pressable")).toBeNull();
+  });
+
+  it("renders inside a UiPressable when onPress is provided", async () => {
+    const onPress = jest.fn();
+    const { getByTestId } = await render(
+      <SearchResultItem
+        title="Test Title"
+        text="<p>Test</p>"
+        onPress={onPress}
+      />,
+    );
+    expect(getByTestId("pressable")).toBeTruthy();
+  });
+
+  it("calls onPress when the pressable is tapped", async () => {
+    const onPress = jest.fn();
+    const { getByTestId } = await render(
+      <SearchResultItem
+        title="Test Title"
+        text="<p>Test</p>"
+        onPress={onPress}
+      />,
+    );
+    await fireEvent.press(getByTestId("pressable"));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the title as a Heading", async () => {
+    const { getByTestId } = await render(
+      <SearchResultItem title="My Title" text="<p>content</p>" />,
+    );
+    expect(getByTestId("heading").props.children).toBe("My Title");
+  });
+
+  it("renders no Heading when title is empty", async () => {
+    const { queryByTestId } = await render(
+      <SearchResultItem title="" text="<p>content</p>" />,
+    );
+    expect(queryByTestId("heading")).toBeNull();
+  });
+
+  describe("collapsible", () => {
+    it("does not show a toggle when the excerpt fits in the collapsed height, and unmounts the measurer", async () => {
+      const { queryByTestId } = await render(
+        <SearchResultItem title="Title" text="<p>short</p>" collapsible />,
+      );
+      await fireEvent(
+        queryByTestId("excerpt-measurer", { includeHiddenElements: true })!,
+        "layout",
+        { nativeEvent: { layout: { height: 40 } } },
+      );
+      expect(queryByTestId("excerpt-toggle")).toBeNull();
+      // The measurer only needs to run once, not for the card's lifetime.
+      expect(
+        queryByTestId("excerpt-measurer", { includeHiddenElements: true }),
+      ).toBeNull();
+    });
+
+    it("folds the <p> tag's paddingBottom into the collapsed height instead of ignoring it", async () => {
+      // Regression test: collapsedHeight used to read a `padding` shorthand
+      // key that getTagStyles no longer emits for `p` (it's paddingLeft/
+      // paddingRight/paddingBottom now), silently treating it as 0 and
+      // clamping ~20px too short. With the real paddingBottom (20) folded
+      // in, a measured height of 120 — between the old buggy threshold
+      // (4*27=108) and the correct one (108+20=128) — must NOT be flagged
+      // as truncated.
+      jest.mocked(getTagStyles).mockReturnValueOnce({
+        p: { paddingBottom: 20 },
+      } as ReturnType<typeof getTagStyles>);
+
+      const { queryByTestId } = await render(
+        <SearchResultItem title="Title" text="<p>content</p>" collapsible />,
+      );
+      await fireEvent(
+        queryByTestId("excerpt-measurer", { includeHiddenElements: true })!,
+        "layout",
+        { nativeEvent: { layout: { height: 120 } } },
+      );
+      expect(queryByTestId("excerpt-toggle")).toBeNull();
+    });
+
+    it("shows a 'Mehr lesen' toggle once the excerpt overflows, exposes accessibilityState, and expands on tap", async () => {
+      const { queryByTestId, getByTestId, getByText } = await render(
+        <SearchResultItem title="Title" text="<p>long</p>" collapsible />,
+      );
+      await fireEvent(
+        getByTestId("excerpt-measurer", { includeHiddenElements: true }),
+        "layout",
+        {
+          nativeEvent: { layout: { height: 500 } },
+        },
+      );
+      expect(getByText("Mehr lesen")).toBeTruthy();
+      expect(getByTestId("excerpt-toggle").props.accessibilityState).toEqual({
+        expanded: false,
+      });
+
+      await fireEvent.press(getByTestId("excerpt-toggle"));
+      expect(getByText("Weniger anzeigen")).toBeTruthy();
+      expect(getByTestId("excerpt-toggle").props.accessibilityState).toEqual({
+        expanded: true,
+      });
+      // The measurer is only needed until the first measurement lands.
+      expect(queryByTestId("excerpt-measurer")).toBeNull();
+    });
+
+    it("does not trigger the card's onPress when the toggle is tapped", async () => {
+      const onPress = jest.fn();
+      const { getByTestId } = await render(
+        <SearchResultItem
+          title="Title"
+          text="<p>long</p>"
+          collapsible
+          onPress={onPress}
+        />,
+      );
+      await fireEvent(
+        getByTestId("excerpt-measurer", { includeHiddenElements: true }),
+        "layout",
+        {
+          nativeEvent: { layout: { height: 500 } },
+        },
+      );
+
+      await fireEvent.press(getByTestId("excerpt-toggle"));
+
+      expect(onPress).not.toHaveBeenCalled();
+    });
+
+    it("resets the expanded/truncated state when the text changes", async () => {
+      const { getByTestId, queryByTestId, getByText, rerender } = await render(
+        <SearchResultItem title="Title" text="<p>long</p>" collapsible />,
+      );
+      await fireEvent(
+        getByTestId("excerpt-measurer", { includeHiddenElements: true }),
+        "layout",
+        {
+          nativeEvent: { layout: { height: 500 } },
+        },
+      );
+      await fireEvent.press(getByTestId("excerpt-toggle"));
+      expect(getByText("Weniger anzeigen")).toBeTruthy();
+
+      // Simulate the list item being recycled for a different result.
+      await rerender(
+        <SearchResultItem title="Title" text="<p>new text</p>" collapsible />,
+      );
+
+      expect(queryByTestId("excerpt-toggle")).toBeNull();
+      expect(
+        getByTestId("excerpt-measurer", { includeHiddenElements: true }),
+      ).toBeTruthy();
+    });
+
+    it("does not render a toggle when collapsible is not set", async () => {
+      const { queryByTestId } = await render(
+        <SearchResultItem title="Title" text="<p>content</p>" />,
+      );
+      expect(queryByTestId("excerpt-measurer")).toBeNull();
+      expect(queryByTestId("excerpt-toggle")).toBeNull();
+    });
+  });
+});

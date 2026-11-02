@@ -1,0 +1,165 @@
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { decode } from "html-entities";
+import { View } from "react-native";
+import { Hyperlink } from "react-native-hyperlink";
+
+import Typography from "#/components/ui/Typography";
+import UiPressable from "#/components/ui/UiPressable";
+import UiSpace from "#/components/ui/UiSpace";
+import UiText from "#/components/ui/UiText";
+import Colors from "#/constants/Colors";
+import { LINE_HEIGHTS } from "#/constants/FontSizes";
+import {
+  POST_PADDING_HORIZONTAL,
+  globalStyles,
+} from "#/constants/GlobalStyles";
+import { spacing } from "#/constants/Spacing";
+import { onLinkPress } from "#/helpers/Linking";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import {
+  DISPLAY_TEXT_EXCERPT,
+  DISPLAY_TEXT_FULL,
+  DISPLAY_TEXT_NONE,
+  type HttpsUrl,
+  type MastodonPostProperties,
+} from "#/types";
+
+type MastodonPostScreenProperties = MastodonPostProperties & {
+  inView?: boolean;
+};
+
+/**
+ * Renders a Mastodon Post
+ */
+const MastodonPost = (properties: MastodonPostScreenProperties) => {
+  const { displayText = DISPLAY_TEXT_EXCERPT, ...post } = properties;
+  const { account, content, answers, created_at, uri } = post;
+  const router = useRouter();
+  const colorScheme = useAppColorScheme();
+  const linkColor = Colors[colorScheme].linkText;
+  const grey = Colors[colorScheme].textMuted;
+  const htmlPattern = /<[^>]+>/g;
+  const fulltext = decode(
+    content.replaceAll("</p>", "\n").replaceAll(htmlPattern, ""),
+  );
+  // excerpt without breaking word with max length of 300
+  const words = fulltext.split(" ");
+  let excerpt = "";
+  for (const word of words) {
+    if (excerpt.length + word.length + 1 < 300) {
+      excerpt += (excerpt ? " " : "") + word;
+    } else {
+      break;
+    }
+  }
+  return (
+    <UiPressable
+      accessibilityRole="button"
+      onPress={() => router.push(`/bsky/${post.id}`)}
+      style={{ flex: 1 }}
+      disabled={displayText === DISPLAY_TEXT_FULL}
+    >
+      <Hyperlink
+        linkStyle={{ color: linkColor }}
+        style={{ flex: 1 }}
+        onPress={(url: HttpsUrl) => {
+          onLinkPress(url, router, uri);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            paddingHorizontal: POST_PADDING_HORIZONTAL,
+            paddingTop: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              justifyContent: "flex-start",
+              width: "100%",
+            }}
+          >
+            <Image
+              source={{ uri: account.avatar }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+            />
+            <View style={{ marginLeft: spacing.md }}>
+              <Typography type="heading">
+                &nbsp;{account.display_name}&nbsp;
+              </Typography>
+              <UiText size="sm" style={{ color: grey }}>
+                &nbsp;@{account.acct}&nbsp;
+              </UiText>
+            </View>
+          </View>
+          <UiSpace size={spacing.xl} />
+          {displayText !== DISPLAY_TEXT_NONE && (
+            <Typography type="body">
+              {displayText === DISPLAY_TEXT_FULL ? fulltext : excerpt}
+            </Typography>
+          )}
+          {displayText === DISPLAY_TEXT_EXCERPT &&
+            excerpt.length < fulltext.length && (
+              <UiText
+                size="lg"
+                style={{
+                  lineHeight: LINE_HEIGHTS.lg,
+                  color: linkColor,
+                  marginBottom: spacing.xl,
+                }}
+              >
+                Mehr Lesen
+              </UiText>
+            )}
+          {displayText !== DISPLAY_TEXT_FULL && (
+            <View style={globalStyles.row}>
+              <UiText
+                size="lg"
+                style={{ lineHeight: LINE_HEIGHTS.lg, color: grey }}
+              >
+                {new Date(created_at).toLocaleTimeString("de-DE", {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                })}
+              </UiText>
+              {answers && answers.length > 0 && (
+                <UiText
+                  size="lg"
+                  style={{ lineHeight: LINE_HEIGHTS.lg, color: linkColor }}
+                >
+                  Thread 1 von {answers.length + 1}
+                </UiText>
+              )}
+            </View>
+          )}
+          {displayText === DISPLAY_TEXT_FULL &&
+            answers &&
+            answers.length > 0 && <UiSpace size={spacing.md} />}
+          {displayText === DISPLAY_TEXT_FULL &&
+            answers &&
+            answers.length > 0 &&
+            answers.map((answer, index) => {
+              const fullText = decode(
+                answer.content
+                  .replaceAll("</p>", "\n")
+                  .replaceAll(htmlPattern, ""),
+              );
+              return (
+                <Typography key={String(index)} type="body">
+                  {fullText}
+                </Typography>
+              );
+            })}
+        </View>
+      </Hyperlink>
+    </UiPressable>
+  );
+};
+
+export default MastodonPost;

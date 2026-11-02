@@ -1,0 +1,448 @@
+diff --git a/assets/images/qa/fixture-cover.png b/assets/images/qa/fixture-cover.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..88f3080633633374bcf75789f652e630faddb86c
+GIT binary patch
+literal 11416
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/src/app/(tabs)/home.tsx b/src/app/(tabs)/home.tsx
+index 95bcc8b..7f87c3c 100644
+--- a/src/app/(tabs)/home.tsx
++++ b/src/app/(tabs)/home.tsx
+@@ -22,6 +22,8 @@ import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+ import type { FeedProperties } from "#/screens/Home/components/Feed";
+ import Feed from "#/screens/Home/components/Feed";
+ import Fetcher from "#/screens/Home/fetchers/FeedFetcher";
++import { qaFeedFetcher } from "#/screens/Home/fixtures/qaFeed";
++import { qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+ 
+ /**
+  * HomeScreen is the main feed view. It fetches multiple social feeds
+@@ -49,6 +51,11 @@ const HomeScreen = () => {
+   });
+ 
+   useEffect(() => {
++    if (qaFixtureEnabled) {
++      // No WordPress, Instagram or other home-feed requests in fixture mode.
++      setFeedProperties({ fetchers: [{ fetcher: qaFeedFetcher }] });
++      return;
++    }
+     const enabled = getEnabledFeeds(Config.feeds);
+     setFeedProperties({
+       fetchers: enabled
+@@ -97,7 +104,7 @@ const HomeScreen = () => {
+         <Feed
+           {...feedprops}
+           key={0}
+-          showAnnouncements
++          showAnnouncements={!qaFixtureEnabled}
+           style={{ paddingTop: HEADER_HEIGHT, gap: spacing.xl }}
+           onScroll={Animated.event(
+             [{ nativeEvent: { contentOffset: { y: scrollOffsetY } } }],
+diff --git a/src/app/_layout.tsx b/src/app/_layout.tsx
+index ec9dd95..504206e 100644
+--- a/src/app/_layout.tsx
++++ b/src/app/_layout.tsx
+@@ -35,6 +35,7 @@ import { toastConfig } from "#/helpers/toastConfig";
+ import { isDarkMode } from "#/helpers/utils/color";
+ import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+ import { useNotificationObserver } from "#/hooks/useNotificationObserver";
++import { qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+ 
+ // Hide warning for new native event emitter
+ LogBox.ignoreLogs(["new NativeEventEmitter"]);
+@@ -109,6 +110,7 @@ const RootLayout = () => {
+   useEffect(() => {
+     (async () => {
+       try {
++        if (qaFixtureEnabled) return; // Avoid permission/changelog popups in screenshots.
+         const onboardingDone = await PersonalStore.isOnboardingDone();
+         if (!onboardingDone) return;
+ 
+diff --git a/src/components/posts/ArticlePost.tsx b/src/components/posts/ArticlePost.tsx
+index 5d03c18..77a9aa5 100644
+--- a/src/components/posts/ArticlePost.tsx
++++ b/src/components/posts/ArticlePost.tsx
+@@ -34,6 +34,10 @@ import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+ import { useFeedDimensions } from "#/hooks/useFeedDimensions";
+ import type { ArticleProperties, ImageCredit } from "#/types";
+ 
++import { QA_ARTICLE_SLUG, qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
++
++import QaFixtureCover from "#assets/images/qa/fixture-cover.png";
++
+ import ImageCreditBadge from "./ImageCreditBadge";
+ 
+ // Define the component props type.
+@@ -54,12 +58,14 @@ interface ArticlePostScreenProperties {
+  */
+ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+   const { article, inView, elevated = false } = properties;
++  const isQaArticle = qaFixtureEnabled && article.slug === QA_ARTICLE_SLUG;
+ 
+   // Local state.
+   const [imageUrl, setImgURL] = useState("");
+   const [imageCredit, setImageCredit] = useState<ImageCredit | undefined>();
+   const [scrollProgress, setScrollProgress] = useState<DimensionValue>("0%");
+   const [viewCount, setViewCount] = useState<number | null>(null);
++  const [qaCoverLoaded, setQaCoverLoaded] = useState(false);
+ 
+   // Hooks and derived values.
+   const colorScheme = useAppColorScheme();
+@@ -81,6 +87,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+   // that would flash the bar to 0 before the stored value comes back.
+   useEffect(() => {
+     setScrollProgress("0%");
++    setQaCoverLoaded(false);
+   }, [article.slug]);
+ 
+   // Retrieve and set scroll progress when inView. Runs on every screen focus
+@@ -88,7 +95,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+   // navigating back to the feed.
+   useFocusEffect(
+     useCallback(() => {
+-      if (!inView) return;
++      if (!inView || isQaArticle) return;
+       let cancelled = false;
+       PersonalStore.getScrollPosition(article.slug).then((progress) => {
+         if (cancelled || progress === null) return;
+@@ -97,7 +104,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+       return () => {
+         cancelled = true;
+       };
+-    }, [inView, article.slug]),
++    }, [inView, article.slug, isQaArticle]),
+   );
+ 
+   // Fetch the feature image when the article is in view.
+@@ -108,6 +115,8 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+     setImgURL("");
+     setImageCredit(undefined);
+ 
++    if (isQaArticle) return; // Bundled fixture cover; never request remote media.
++
+     // The featured-media link can be absent even when featured_media is set
+     // — e.g. WordPress omits it when the attachment isn't readable via the
+     // REST API. Just skip the image fetch rather than throwing.
+@@ -126,13 +135,13 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+     } catch (error) {
+       console.error(error);
+     }
+-  }, [article]);
++  }, [article, isQaArticle]);
+ 
+   useEffect(() => {
+-    if (inView) {
++    if (inView && !isQaArticle) {
+       getImages();
+     }
+-  }, [inView, getImages]);
++  }, [inView, getImages, isQaArticle]);
+ 
+   // Reset per-article state when this row is recycled for a different article,
+   // so a previously-hidden (0-view) badge re-mounts and refetches, and the old
+@@ -219,6 +228,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+ 
+   const content = (
+     <UiPressable
++      testID={isQaArticle && qaCoverLoaded ? "qa-article-card-ready" : undefined}
+       accessibilityRole="button"
+       style={{ padding: 0, flex: 1 }}
+       onPress={handlePress}
+@@ -230,11 +240,14 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+         <View style={{ position: "relative" }}>
+           <Image
+             style={imageStyle}
+-            source={{ uri: imageUrl }}
+-            placeholder={AppImages.loadingAnimation}
++            source={isQaArticle ? QaFixtureCover : { uri: imageUrl }}
++            onLoad={() => {
++              if (isQaArticle) setQaCoverLoaded(true);
++            }}
++            placeholder={isQaArticle ? undefined : AppImages.loadingAnimation}
+             contentFit="cover"
+           />
+-          {!imageUrl && !AppImages.loadingAnimation && (
++          {!isQaArticle && !imageUrl && !AppImages.loadingAnimation && (
+             <UiSpinner
+               containerStyle={{
+                 position: "absolute",
+@@ -259,7 +272,12 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+             paddingHorizontal: POST_PADDING_HORIZONTAL,
+           }}
+         >
+-          <Typography type="cardTitle">{article.title}</Typography>
++          <Typography
++            type="cardTitle"
++            testID={isQaArticle ? "qa-article-title" : undefined}
++          >
++            {article.title}
++          </Typography>
+           <Typography type="meta">{authorDateText}</Typography>
+         </View>
+         <UiSpace size={spacing.md} />
+@@ -275,7 +293,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
+             </UiText>
+           </UiBadge>
+         )}
+-        {inView && Config.enableEngagement && viewCount !== 0 && (
++        {inView && !isQaArticle && Config.enableEngagement && viewCount !== 0 && (
+           <UiBadge position="topRight" variant="accent">
+             <ViewCounter
+               url={article.link}
+diff --git a/src/hooks/useNotificationObserver.ts b/src/hooks/useNotificationObserver.ts
+index c9785cb..4d43d6c 100644
+--- a/src/hooks/useNotificationObserver.ts
++++ b/src/hooks/useNotificationObserver.ts
+@@ -7,6 +7,7 @@ import { Platform } from "react-native";
+ 
+ import { redirectSystemPath } from "#/app/+native-intent";
+ import Config from "#/constants/Config";
++import { qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+ 
+ /**
+  * Hook to handle initial and response-based notification redirects.
+@@ -16,7 +17,7 @@ import Config from "#/constants/Config";
+ export const useNotificationObserver = () => {
+   useEffect(() => {
+     // Skip on web and FOSS builds — FCM is not available
+-    if (Platform.OS === "web" || Config.isFoss) return;
++    if (Platform.OS === "web" || Config.isFoss || qaFixtureEnabled) return;
+ 
+     let isMounted = true;
+     let Notifications: typeof ExpoNotifications | null = null;
+diff --git a/src/screens/Home/fixtures/qaFeed.ts b/src/screens/Home/fixtures/qaFeed.ts
+new file mode 100644
+index 0000000..eacbe25
+--- /dev/null
++++ b/src/screens/Home/fixtures/qaFeed.ts
+@@ -0,0 +1,40 @@
++import type { FeedFetcherProperties } from "#/screens/Home/components/Feed";
++import { WordPressFetcher } from "#/screens/Home/fetchers/WordPressFetcher";
++import { QA_ARTICLE_SLUG } from "./qaScenario";
++import type { LoadArticlePostProperties, Post } from "#/types";
++
++/** Synthetic content, not an actual publication or real WordPress response. */
++const qaArticle: LoadArticlePostProperties = {
++  _links: {}, // No WordPress featured-media network request
++  id: 910001,
++  slug: QA_ARTICLE_SLUG,
++  date: "2026-10-12T09:00:00",
++  date_gmt: "2026-10-12T09:00:00",
++  link: "https://example.org/qa-long-headline/",
++  title: {
++    rendered:
++      "QA-FIXTUR: Ein absichtlich sehr langer Nachrichtenartikel-Titel prüft den Zeilenumbruch auf kleinen Smartphone-Bildschirmen",
++  },
++  description: "",
++  yoast_head_json: {
++    description:
++      "Synthetische Testdaten für einen stabilen visuellen Vergleich – keine echten Nachrichten.",
++  },
++  categories: [],
++  authors: [{ display_name: "QA Redaktion", slug: "qa-redaktion" }],
++  reading_time: 4,
++};
++
++/** Uses the production WordPress mapping and real ArticlePost component. */
++export const qaFeedFetcher = async ({
++  page = 1,
++}: FeedFetcherProperties = {}): Promise<Post<unknown>[]> => {
++  if (page !== 1) return [];
++  const post = WordPressFetcher.mapArticleToPost(qaArticle, 0);
++  // Engagement/share widgets make unrelated network calls in this app.
++  // The test scenario focuses on the article card itself, not engagement.
++  post.shareable = undefined;
++  post.contentFavIdentifier = undefined;
++  post.contentType = undefined;
++  return [post];
++};
+diff --git a/src/screens/Home/fixtures/qaScenario.ts b/src/screens/Home/fixtures/qaScenario.ts
+new file mode 100644
+index 0000000..9228eda
+--- /dev/null
++++ b/src/screens/Home/fixtures/qaScenario.ts
+@@ -0,0 +1,7 @@
++/**
++ * Bounded screenshot-feasibility scenario; never activates in release builds.
++ * Set EXPO_PUBLIC_QA_SCENARIO=long_headline before starting Metro.
++ */
++export const QA_ARTICLE_SLUG = "qa-long-headline";
++export const qaFixtureEnabled =
++  __DEV__ && process.env.EXPO_PUBLIC_QA_SCENARIO === "long_headline";

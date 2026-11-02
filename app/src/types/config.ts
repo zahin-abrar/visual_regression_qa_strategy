@@ -1,0 +1,61 @@
+import type { colorSchemeType } from "./colors";
+import type { FeedsConfig } from "./feeds";
+import type { NotificationSettingType } from "./settings";
+
+export type HttpsUrl = `https://${string}`;
+
+/**
+ * Represents the extra configuration of the app as defined in the app.json
+ */
+export interface ExtraConfigType {
+  instagramAppId?: string;
+  apiUrl: HttpsUrl;
+  aiUrl?: HttpsUrl; // enables the AI fact-check search tab when set
+  algolia?: { appId: string; searchKey: string; indexName: string }; // Algolia article search; falls back to WordPress search when unset
+  hiddenNotifications?: (keyof NotificationSettingType)[]; // notification types this variant doesn't offer: not shown in settings and always off
+  flatPermalinks?: boolean; // articles live at /{slug}/ instead of /{category}/{slug}/, so a single path segment is looked up as an article
+  authorBase?: string; // path segment of the site's author archives, used only when the API gives no author link (default "author"; "autor" on mimikama.org)
+  contactEmail?: string; // when set, the contact form composes an email to this address instead of posting to the server
+  dataProtectionUrl: HttpsUrl;
+  imprintUrl: HttpsUrl;
+  eas: {
+    projectId: string;
+  };
+  wpUrl: HttpsUrl; // URL to the primary WordPress site
+  analyticsUrl?: HttpsUrl; // URL to the analytics site
+  aboutUrl: HttpsUrl; // URL to the about page
+  sourceUrl: HttpsUrl; // URL to the source code repository
+  colorScheme: colorSchemeType; // color scheme for the app is defined with type colorSchemeType
+  assets: {
+    splash: string;
+    icon: string;
+    iconMono: string;
+  };
+  feeds: FeedsConfig; // feeds configuration
+  enableActions: boolean; // enables actions tab
+  enableAnalytics: boolean; // enables analytics collection and analytics UI
+  enableEngagement: boolean; // enables engagement features (favorites, views, shares, link tracking, and related UI)
+  about: string; // URL to about page
+  themeColor: string; // special color for the app
+  donations: {
+    account: {
+      bank: string; // Bank name
+      holder: string; // Account holder
+      IBAN: string; // IBAN number
+      note: string; // Verwendungszweck
+    };
+    steady: HttpsUrl; // URL to Steady donation
+    paypal: `https://www.paypal.com/donate/?hosted_button_id${string}`; // URL to paypal donation
+    paypalEmail: string; // email for paypal donations
+    paypalMatrix: { amount: number; url: HttpsUrl }[]; // predefined amounts for paypal donations
+    support: HttpsUrl; // URL to support page
+    shop?: HttpsUrl;
+    platformPay: boolean; // enables Apple Pay and Google Pay
+    merchantIdentifier?: string; // required for Apple Pay, can be obtained from Apple Developer Account
+    stripePublishableKey?: string; // Stripe publishable key for payment processing
+  };
+  importantCats: Record<number, string>;
+  audioCdnUrl?: HttpsUrl; // Base URL for AI-generated article audio (e.g. https://audio.example.com/audio)
+  isFoss?: boolean; // true when built as a FOSS variant (Stripe and other proprietary modules are excluded)
+  buildLabel?: string; // optional label (e.g. "beta") shown on the settings screen to mark non-production store builds
+}

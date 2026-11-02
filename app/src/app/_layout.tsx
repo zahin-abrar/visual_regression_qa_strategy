@@ -1,0 +1,212 @@
+import {
+  SourceSans3_400Regular,
+  SourceSans3_400Regular_Italic,
+  SourceSans3_700Bold,
+  SourceSans3_700Bold_Italic,
+  useFonts,
+} from "@expo-google-fonts/source-sans-3";
+import LucideFont from "@react-native-vector-icons/lucide/fonts/Lucide.ttf";
+import { Stack, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
+import { type PropsWithChildren, useEffect, useState } from "react";
+import { LogBox, Platform, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import type { ToastConfig } from "react-native-toast-message";
+import Toast from "react-native-toast-message";
+
+import ChangelogModal from "#/components/popups/ChangelogModal";
+import StripeWrapper from "#/components/providers/StripeWrapper";
+import UiSpinner from "#/components/ui/UiSpinner";
+import Changelog from "#/constants/Changelog";
+import Colors from "#/constants/Colors";
+import { fontFamily } from "#/constants/FontFamily";
+import NotificationManager from "#/helpers/Notifications";
+import PersonalStore from "#/helpers/Stores/PersonalStore";
+import { AudioProvider } from "#/helpers/provider/AudioProvider";
+import { BadgeProvider } from "#/helpers/provider/BadgeProvider";
+import { SettingsProvider } from "#/helpers/provider/SettingsProvider";
+import { toastConfig } from "#/helpers/toastConfig";
+import { isDarkMode } from "#/helpers/utils/color";
+import { useAppColorScheme } from "#/hooks/useAppColorScheme";
+import { useNotificationObserver } from "#/hooks/useNotificationObserver";
+import { qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+
+// Hide warning for new native event emitter
+LogBox.ignoreLogs(["new NativeEventEmitter"]);
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
+
+const SECONDARY_BG_SCREENS = new Set(["action", "support"]);
+
+/**
+ * Manages the background color for the app shell — including the notch/status bar
+ * area — based on the current screen and color scheme. Lives inside all providers
+ * so a forced light/dark theme is respected.
+ */
+const AppFrame = ({ children }: PropsWithChildren) => {
+  const colorScheme = useAppColorScheme();
+  const insets = useSafeAreaInsets();
+  const segments = useSegments() as string[];
+
+  const isSecondaryBg = segments.some((s) => SECONDARY_BG_SCREENS.has(s));
+  const backgroundColor = isSecondaryBg
+    ? Colors[colorScheme].surface
+    : Colors[colorScheme].background;
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    SystemUI.setBackgroundColorAsync(backgroundColor).catch((error) => {
+      console.warn("Failed to set system background color", error);
+    });
+  }, [backgroundColor]);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        paddingTop: insets.top,
+        backgroundColor,
+      }}
+    >
+      <StatusBar style={isDarkMode(colorScheme) ? "light" : "dark"} />
+      {children}
+    </View>
+  );
+};
+
+/**
+ * Wraps Toast so its bottom offset clears the Android nav bar, matching the
+ * padding approach used by BottomSheetModal/ChangelogModal.
+ */
+const AppToast = ({ config }: { config: ToastConfig }) => {
+  const insets = useSafeAreaInsets();
+  return <Toast config={config} bottomOffset={40 + insets.bottom} />;
+};
+
+const RootLayout = () => {
+  useNotificationObserver();
+
+  const [loaded] = useFonts({
+    [fontFamily.regular]: SourceSans3_400Regular,
+    [fontFamily.italic]: SourceSans3_400Regular_Italic,
+    [fontFamily.bold]: SourceSans3_700Bold,
+    [fontFamily.boldItalic]: SourceSans3_700Bold_Italic,
+    // The icon font is bundled natively by the vector-icons config plugin,
+    // but on web it has to be registered explicitly
+    ...(Platform.OS === "web" && { Lucide: LucideFont }),
+  });
+
+  const [showChangelog, setShowChangelog] = useState(false);
+
+  // On first mount: read onboarding state once, then gate both notification
+  // permission request and changelog display on it.
+  useEffect(() => {
+    (async () => {
+      try {
+        if (qaFixtureEnabled) return; // Avoid permission/changelog popups in screenshots.
+        const onboardingDone = await PersonalStore.isOnboardingDone();
+        if (!onboardingDone) return;
+
+        await NotificationManager.checkAndRequestOnLaunch();
+
+        if (Changelog.notes) {
+          const lastSeen =
+            await PersonalStore.getLastSeenChangelogVersionCode();
+          if (lastSeen < Changelog.versionCode) {
+            setShowChangelog(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error during post-onboarding startup checks:", error);
+      }
+    })();
+  }, []);
+
+  const dismissChangelog = async () => {
+    setShowChangelog(false);
+    await PersonalStore.setLastSeenChangelogVersionCode(Changelog.versionCode);
+  };
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return <UiSpinner size="large" />;
+  }
+
+  // Create the main app content
+  const appContent = (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SettingsProvider>
+          <BadgeProvider>
+            <AudioProvider>
+              <AppFrame>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    gestureEnabled: true,
+                  }}
+                >
+                  <Stack.Screen name="(tabs)" options={{ title: "Home" }} />
+                  <Stack.Screen
+                    name="[category]/[slug]"
+                    options={{ title: "Artikel" }}
+                  />
+                  <Stack.Screen
+                    name="insta/[post_id]"
+                    options={{ title: "Artikel" }}
+                  />
+                  <Stack.Screen
+                    name="podcast/[id]"
+                    options={{ title: "Podcast" }}
+                  />
+                  <Stack.Screen name="search" options={{ title: "Suche" }} />
+                  <Stack.Screen
+                    name="+not-found"
+                    options={{ title: "Nicht gefunden" }}
+                  />
+                  <Stack.Screen
+                    name="support"
+                    options={{ title: "Unterstutzen" }}
+                  />
+                  <Stack.Screen
+                    name="licenses"
+                    options={{ title: "Lizenzen" }}
+                  />
+                </Stack>
+                <AppToast config={toastConfig} />
+                <ChangelogModal
+                  isVisible={showChangelog}
+                  onClose={dismissChangelog}
+                />
+              </AppFrame>
+            </AudioProvider>
+          </BadgeProvider>
+        </SettingsProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
+
+  return <StripeWrapper>{appContent}</StripeWrapper>;
+};
+
+/**
+ * Sets the default screen of the stack when deep linking
+ * @see https://docs.expo.dev/router/advanced/router-settings/#initialroutename
+ */
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
+
+export default RootLayout;

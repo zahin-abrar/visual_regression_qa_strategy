@@ -1,0 +1,134 @@
+import type { Post, SafeFetchFunction } from "#/types";
+
+const FetcherUtilities = {
+  isAbortError(error: unknown): boolean {
+    if (!error || typeof error !== "object") return false;
+    const maybeError = error as { name?: string; code?: string };
+    return (
+      maybeError.name === "AbortError" ||
+      maybeError.name === "CanceledError" ||
+      maybeError.code === "ERR_CANCELED"
+    );
+  },
+
+  /**
+   * Safely fetches data from a fetch function.
+   * @param fetchFunction The fetch function to use.
+   * @param fetcher The name of the fetcher.
+   * @returns The fetched data, or an empty array if an error occurs.
+   */
+  async safeFetch<T>(
+    fetchFunction: SafeFetchFunction<T>,
+    fetcher: string,
+  ): Promise<T[]> {
+    try {
+      return await fetchFunction();
+    } catch (error) {
+      if (FetcherUtilities.isAbortError(error)) {
+        return [];
+      }
+      console.error("Fetch error in " + fetcher + " :", error);
+      return [];
+    }
+  },
+
+  /**
+   * Sorts posts by datetime.
+   * @param a The first post to compare.
+   * @param b The second post to compare.
+   * @returns A negative number if the first post is older than the second post, a positive number if the first post is newer than the second post, or zero if the posts are equal.
+   */
+  sortByDatetime(a: Post<unknown>, b: Post<unknown>): number {
+    return b.datetime?.localeCompare(a.datetime);
+  },
+
+  /**
+   * Sorts posts by priority.
+   * @param a The first post to compare.
+   * @param b The second post to compare.
+   * @returns The difference in priority between the two posts, or the result of sortByDatetime if the priorities are equal.
+   */
+  sortByPriority(a: Post<unknown>, b: Post<unknown>): number {
+    return b.priority - a.priority || FetcherUtilities.sortByDatetime(a, b);
+  },
+
+  /**
+   * Removes duplicate posts from an array of posts.
+   * @param _posts The array of posts to remove duplicates from.
+   * @returns The array of posts with duplicates removed.
+   */
+  removeDuplicates(_posts: Post<unknown>[]): Post<unknown>[] {
+    const ids = new Set();
+    return _posts.filter((post: Post<unknown>) => {
+      if (post?.id === undefined || post.datetime === undefined) {
+        console.warn("Post without id or datetime", post);
+        return false;
+      }
+      const id = post.id;
+      return ids.has(id) ? false : ids.add(id);
+    });
+  },
+
+  async fetchAndProcessPosts(
+    fetchers: {
+      fetcher: (
+        properties: Record<string, unknown>,
+      ) => Promise<Post<unknown>[]>;
+      props?: Record<string, unknown>;
+    }[],
+    fetcherProperties: {
+      page?: number;
+      param?: string;
+      signal?: AbortSignal;
+    } = {},
+    oldPosts: Post<unknown>[] = [],
+    options: { prioSort?: boolean; cutoffDate?: boolean } = {},
+  ): Promise<Post<unknown>[]> {
+    try {
+      const data = await Promise.all(
+        fetchers.map((item) => {
+          const itemProperties = { ...item.props, ...fetcherProperties };
+          return item.fetcher(itemProperties);
+        }),
+      );
+
+      let allPosts = data.flat();
+
+      if (options.cutoffDate !== false) {
+        const sortedFeeds = data
+          .filter((_posts) => _posts.sort !== undefined && _posts.length > 0)
+          .map((_posts) => _posts.sort(FetcherUtilities.sortByDatetime));
+
+        const minDate =
+          sortedFeeds
+            .map((_posts) => _posts[_posts.length - 1])
+            .sort(FetcherUtilities.sortByDatetime)[0]?.datetime ??
+          "1970-01-01T00:00:00+0000";
+
+        // Always keep each feed's newest post so that low-frequency feeds
+        // (e.g. Prüfpunkt) are not entirely hidden by the cutoff of busier feeds.
+        const newestPerFeed = new Set(sortedFeeds.map((_posts) => _posts[0]));
+
+        allPosts = allPosts.filter(
+          (post) =>
+            newestPerFeed.has(post) ||
+            post.datetime?.localeCompare(minDate) >= 0,
+        );
+      }
+
+      return FetcherUtilities.removeDuplicates([...allPosts, ...oldPosts]).sort(
+        options.prioSort
+          ? FetcherUtilities.sortByPriority
+          : FetcherUtilities.sortByDatetime,
+      );
+    } catch (error) {
+      if (FetcherUtilities.isAbortError(error)) {
+        return oldPosts;
+      }
+      console.error("Error processing posts:", error);
+      return [];
+    }
+  },
+};
+
+export default FetcherUtilities;

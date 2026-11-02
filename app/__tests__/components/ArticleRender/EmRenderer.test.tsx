@@ -1,0 +1,71 @@
+import { describe, expect, it, jest } from "@jest/globals";
+import type { InternalRendererProps, TText } from "@native-html/render";
+import { render } from "@testing-library/react-native";
+
+import EmRenderer from "#/screens/Home/components/article/renderer/EmRenderer";
+
+jest.mock("@native-html/render", () => {
+  const ReactInFactory = require("react");
+  const { View } = require("react-native");
+  return {
+    useInternalRenderer: () => ({
+      rendererProps: { style: {} },
+      Renderer: ({ style }: any) =>
+        ReactInFactory.createElement(View, { testID: "em-text", style }),
+    }),
+  };
+});
+
+const makeProps = (parentFontFamily?: string): InternalRendererProps<TText> =>
+  ({
+    tnode: {
+      parent: parentFontFamily
+        ? { styles: { nativeTextFlow: { fontFamily: parentFontFamily } } }
+        : null,
+    },
+  }) as unknown as InternalRendererProps<TText>;
+
+const getFontFamily = (style: unknown): string | undefined => {
+  const styles = Array.isArray(style) ? style : [style];
+  return styles.map((s: any) => s?.fontFamily).find(Boolean);
+};
+
+const getFontStyle = (style: unknown): string | undefined => {
+  const styles = Array.isArray(style) ? style : [style];
+  return styles.map((s: any) => s?.fontStyle).find(Boolean);
+};
+
+describe("EmRenderer font family", () => {
+  it("uses SourceSansProBoldItalic when parent is SourceSansProBold", async () => {
+    const { getByTestId } = await render(
+      EmRenderer(makeProps("SourceSansProBold")) as React.ReactElement,
+    );
+    expect(getFontFamily(getByTestId("em-text").props.style)).toBe(
+      "SourceSansProBoldItalic",
+    );
+    // Cancels the engine's UA-default italic for <em>, which would
+    // otherwise stack a synthetic oblique on top of this already-italic
+    // font file and shrink glyph widths on Android — see EmRenderer.tsx.
+    expect(getFontStyle(getByTestId("em-text").props.style)).toBe("normal");
+  });
+
+  it("uses SourceSansProItalic when parent has a non-bold font", async () => {
+    const { getByTestId } = await render(
+      EmRenderer(makeProps("SourceSansPro")) as React.ReactElement,
+    );
+    expect(getFontFamily(getByTestId("em-text").props.style)).toBe(
+      "SourceSansProItalic",
+    );
+    expect(getFontStyle(getByTestId("em-text").props.style)).toBe("normal");
+  });
+
+  it("uses SourceSansProItalic when parent has no font family", async () => {
+    const { getByTestId } = await render(
+      EmRenderer(makeProps()) as React.ReactElement,
+    );
+    expect(getFontFamily(getByTestId("em-text").props.style)).toBe(
+      "SourceSansProItalic",
+    );
+    expect(getFontStyle(getByTestId("em-text").props.style)).toBe("normal");
+  });
+});
