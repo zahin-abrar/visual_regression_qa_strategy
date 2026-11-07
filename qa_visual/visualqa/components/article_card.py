@@ -11,10 +11,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 class ArticleCard:
     READY_ID = "qa-article-card-ready"
+    # no_image readiness follows text layout, not image onLoad.
+    NO_IMAGE_READY_ID = "qa-article-no-image-ready"
     TITLE_ID = "qa-article-title"
 
-    def __init__(self, driver):
+    def __init__(self, driver, ready_id: str | None = None):
         self.driver = driver
+        if ready_id is not None:
+            self.READY_ID = ready_id
 
     def _find_test_id(self, test_id: str):
         # React Native testIDs may be exposed with or without the package prefix.
@@ -92,6 +96,13 @@ class ArticleCard:
                 f"Ready article card found but testID={self.TITLE_ID} is missing; inspect page-source XML"
             )
         return element.text or element.get_attribute("text") or ""
+
+    def image_views_in_card(self) -> list:
+        """Native ImageView descendants of the outer card (expo-image renders as ImageView)."""
+        return self.driver.find_elements(
+            AppiumBy.XPATH,
+            f'//*[@resource-id="{self.READY_ID}"]/..//android.widget.ImageView',
+        )
 
     def capture_screenshot(self) -> bytes:
         """Return a screenshot of the ready element's containing card view."""

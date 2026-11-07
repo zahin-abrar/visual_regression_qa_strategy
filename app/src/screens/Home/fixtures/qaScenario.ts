@@ -1,11 +1,13 @@
 /** Development-only launch selection. No event listener or persisted selection. */
 export const QA_ARTICLE_SLUG = "qa-long-headline";
+/** Synthetic article whose featured media is intentionally absent (not a broken URL). */
+export const QA_NO_IMAGE_SLUG = "qa-no-image";
 
 export const qaScenarios = Object.freeze({
   long_headline: { captureSupported: true },
   breaking_news: { captureSupported: true },
   dark_article: { captureSupported: true },
-  no_image: { captureSupported: false },
+  no_image: { captureSupported: true },
   empty_feed: { captureSupported: false },
 });
 export type QaScenarioId = keyof typeof qaScenarios;
@@ -57,6 +59,17 @@ export let qaActiveScenario: QaScenarioId | undefined;
 export function getQaThemeOverride(): "light" | "dark" | undefined {
   if (!__DEV__ || !qaFixtureEnabled || !qaActiveScenario) return undefined;
   return qaActiveScenario === "dark_article" ? "dark" : "light";
+}
+/**
+ * Explicit QA media contract for synthetic articles. `undefined` means the
+ * article is not a QA fixture and keeps normal production rendering.
+ */
+export type QaArticleMedia = "bundled-cover" | "none";
+export function getQaArticleMedia(slug: string): QaArticleMedia | undefined {
+  if (!__DEV__ || !qaFixtureEnabled) return undefined;
+  if (slug === QA_ARTICLE_SLUG) return "bundled-cover";
+  if (slug === QA_NO_IMAGE_SLUG && qaActiveScenario === "no_image") return "none";
+  return undefined;
 }
 let initialization: Promise<QaSelection> | undefined;
 

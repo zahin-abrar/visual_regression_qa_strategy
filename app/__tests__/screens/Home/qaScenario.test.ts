@@ -12,7 +12,7 @@ describe("QA cold-launch selection", () => {
   test("no authorized input is normal", () => {
     expect(resolveQaSelection(true, null)).toEqual({ status: "normal", source: "none" });
   });
-  test.each(["no_image", "empty_feed"])(
+  test.each(["empty_feed"])(
     "%s cannot fall back to long_headline", (id) => {
       expect(resolveQaSelection(true, `vvpapp:///home?qa_scenario=${id}`, "long_headline"))
         .toEqual({ status: "unsupported", id, source: "launch" });
@@ -81,8 +81,15 @@ test("breaking selection wins over legacy headline fixture", () => {
     .toEqual({ status: "normal", source: "disabled" });
 });
 
+test("no_image is an explicit capture-supported launch selection and stays release-disabled", () => {
+  expect(resolveQaSelection(true, "vvpapp:///home?qa_scenario=no_image", "long_headline"))
+    .toEqual({ status: "active", id: "no_image", source: "launch" });
+  expect(resolveQaSelection(false, "vvpapp:///home?qa_scenario=no_image", "no_image"))
+    .toEqual({ status: "normal", source: "disabled" });
+});
+
 test("theme overrides are immutable-launch, development-only and absent for normal launches", async () => {
-  for (const [id, theme] of [["dark_article", "dark"], ["long_headline", "light"], ["breaking_news", "light"], ["none", undefined], ["no_image", undefined]]) {
+  for (const [id, theme] of [["dark_article", "dark"], ["long_headline", "light"], ["breaking_news", "light"], ["none", undefined], ["no_image", "light"], ["empty_feed", undefined]]) {
     jest.resetModules();
     const scenario = require("#/screens/Home/fixtures/qaScenario") as typeof import("#/screens/Home/fixtures/qaScenario");
     expect(scenario.getQaThemeOverride()).toBeUndefined();

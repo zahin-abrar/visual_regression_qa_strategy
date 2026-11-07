@@ -1,8 +1,8 @@
 # Android visual regression demo
 
-This runner captures three deterministic visual scenarios in the real Volksverpetzer React Native application. The `long_headline` fixture feeds synthetic article data through the app's normal React Native components; Appium/UiAutomator2 captures the rendered outer article card from Android. Pillow compares that PNG with a reviewed golden.
+This runner captures four deterministic visual scenarios in the real Volksverpetzer React Native application. The `long_headline` fixture feeds synthetic article data through the app's normal React Native components; Appium/UiAutomator2 captures the rendered outer article card from Android. Pillow compares that PNG with a reviewed golden.
 
-`long_headline`, `breaking_news` and `dark_article` each have an explicitly human-approved Android reference and passing local native comparisons. The implemented demo is Android only. There is no executed iOS test or verified CI pipeline.
+`long_headline`, `breaking_news`, `dark_article` and `no_image` each have an explicitly human-approved Android reference and passing local native comparisons. The implemented demo is Android only. There is no executed iOS test or verified CI pipeline.
 
 ## Implemented structure
 
@@ -114,8 +114,8 @@ before mounting the app providers and feed. The URL query `qa_scenario` override
 `EXPO_PUBLIC_QA_SCENARIO`; absent URL selection retains that environment fallback.
 `qa_scenario=none` explicitly disables the fallback. Without either selection the
 normal application runs. Release builds bypass the gate and ignore QA selections.
-`long_headline`, `breaking_news` and `dark_article` are capture-supported. The two future scenarios
-(`no_image`, `empty_feed`) show an unavailable
+`long_headline`, `breaking_news`, `dark_article` and `no_image` are capture-supported. The remaining future scenario
+(`empty_feed`) shows an unavailable
 screen; unknown/empty/duplicate selections show an invalid-selection screen.
 Neither state mounts the feed or emits article-ready identifiers.
 
@@ -344,7 +344,7 @@ Useful read-only checks include `adb devices -l`, `adb shell getprop sys.boot_co
 
 ## Scope and limitations
 
-- Android `long_headline`, `breaking_news` and `dark_article` have approved references and passing local native comparisons on Pixel_10/API 37. `no_image` and `empty_feed` remain unsupported.
+- Android `long_headline`, `breaking_news` and `dark_article` have approved references and passing local native comparisons on Pixel_10/API 37. `no_image` (a development-only, challenge-scoped absent-media variation; no production-wide optional-media support is claimed) also has an approved reference and passing comparisons. `empty_feed` remains unsupported.
 - There is no native iOS execution, iOS baseline, or verified CI pipeline.
 - The card screenshot target resolves the ready element's direct parent based on the current UiAutomator2 hierarchy. Bounds checks guard the captured relationship, but a future app/accessibility-tree change may require inspection and a new reviewed golden.
 - Snapshot consistency depends on matching app build, emulator resolution/density, font scale, theme, assets and rendering environment.
@@ -421,3 +421,61 @@ Each includes actual/context/diff/comparison JSON and logs; dark runs additional
 include capture metadata and hierarchy. Repeatability metrics are in the ignored
 root `debug-logs/exec028/` directory (gitignored, local to the original author's checkout; not present in a fresh clone). These are local Android results, not CI or
 native iOS execution.
+
+## No-image: approved Android reference
+
+`qa_scenario=no_image` (EXEC-029) feeds a second synthetic WordPress article with the
+same title, author, date and summary as `long_headline`, but **genuinely absent featured
+media**: no `wp:featuredmedia` link, no `imageUrl`, and a distinct slug `qa-no-image`.
+An explicit, development-only QA media contract (`getQaArticleMedia` in
+`app/src/screens/Home/fixtures/qaScenario.ts`) maps that slug to `"none"` only while
+`no_image` is the active launch scenario; it returns `undefined` for every production
+article and in release builds.
+
+The real `ArticlePost` then omits its image wrapper (no image, placeholder, spinner or
+reserved height). Readiness is `qa-article-no-image-ready`, set from the text block's
+`onLayout`, never from image `onLoad`. Production articles keep the unchanged image path.
+This is a challenge-scoped QA adaptation, **not** verified upstream VVP support for
+image-less teaser cards and not a general optional-media change.
+
+The test (`tests/test_no_image.py`) asserts the exact scenario identity, effective light
+theme, exact title, text-layout readiness, stable bounds, **zero native `ImageView`
+descendants inside the outer card**, and that the image-bearing ready marker is absent.
+
+```powershell
+$env:VVP_QA_LAUNCH_URL = 'exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=no_image'
+.\.venv\Scripts\python.exe -m pytest .\tests\test_no_image.py -m visual -v -s
+Remove-Item Env:VVP_QA_LAUNCH_URL
+```
+
+EXEC-029 produced two byte-identical 1028 × 711 RGBA native captures. On November 7,
+2026 the human reviewed the candidate and its full-screen context and explicitly approved
+only SHA-256 `AC5BD84B93778F4773B3A38ABD391A89483295446A2E096DD59E21CA288B3012`. The
+apparent lack of outer padding in the PNG is intentional: the golden is an **element
+screenshot of the outer card only**, while the diagnostic `no_image.context.png` (never
+compared, because the status bar is dynamic) shows the surrounding feed margins.
+
+EXEC-030 copied those exact bytes to `baselines/android/pixel10-api37/no_image.png`
+(no regeneration). Two independent `no_image` cold-launch comparisons then passed with
+0 / 730,908 changed pixels (byte-identical actuals, card bounds `[26,837][1054,1548]`,
+zero `ImageView`s in the card), and `dark_article`, `long_headline` (after dark) and
+`breaking_news` also passed with zero changed pixels. Thresholds are unchanged (channel
+delta >12, maximum changed-pixel ratio 0.002). The EXEC-029/030 review packets and
+metrics are under gitignored `debug-logs/` directories local to the original author's
+checkout (not present in a fresh clone). Native iOS and CI execution remain unverified.
+
+### Running all four approved scenarios
+
+Each scenario is a separate cold launch through the same running Metro process; no
+Metro restart or environment change is needed between them. From `qa_visual/`:
+
+```powershell
+foreach ($scenario in 'long_headline', 'breaking_news', 'dark_article', 'no_image') {
+    $env:VVP_QA_LAUNCH_URL = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=$scenario"
+    .\.venv\Scripts\python.exe -m pytest ".\tests\test_$scenario.py" -m visual -v -s
+}
+Remove-Item Env:VVP_QA_LAUNCH_URL
+```
+
+Baselines change only after explicit human review of the exact candidate PNG and its
+SHA-256; tests never create or update a golden.

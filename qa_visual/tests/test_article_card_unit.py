@@ -90,3 +90,17 @@ def test_layout_wait_requires_repeated_geometry():
     card._find_test_id = Mock(return_value=title)
     assert card.wait_for_stable_layout() == container.rect
     assert driver.find_element.call_count == 2
+
+
+@pytest.mark.unit
+def test_no_image_card_uses_layout_ready_id_and_checks_card_image_views():
+    from visualqa.screens.home_screen import HomeScreen
+    driver = Mock()
+    driver.find_elements.return_value = []
+    card = HomeScreen(driver).no_image_article_card
+    assert card.READY_ID == "qa-article-no-image-ready"
+    assert ArticleCard(driver).READY_ID == "qa-article-card-ready"  # image scenarios unchanged
+    assert card.image_views_in_card() == []
+    driver.find_elements.assert_called_once_with(
+        AppiumBy.XPATH, '//*[@resource-id="qa-article-no-image-ready"]/..//android.widget.ImageView'
+    )

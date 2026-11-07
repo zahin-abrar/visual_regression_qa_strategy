@@ -34,7 +34,7 @@ import { useAppColorScheme } from "#/hooks/useAppColorScheme";
 import { useFeedDimensions } from "#/hooks/useFeedDimensions";
 import type { ArticleProperties, ImageCredit } from "#/types";
 
-import { QA_ARTICLE_SLUG, qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+import { getQaArticleMedia } from "#/screens/Home/fixtures/qaScenario";
 
 import QaFixtureCover from "#assets/images/qa/fixture-cover.png";
 
@@ -58,7 +58,10 @@ interface ArticlePostScreenProperties {
  */
 const ArticlePost = (properties: ArticlePostScreenProperties) => {
   const { article, inView, elevated = false } = properties;
-  const isQaArticle = qaFixtureEnabled && article.slug === QA_ARTICLE_SLUG;
+  // Development-only QA contract; undefined for every production article.
+  const qaMedia = getQaArticleMedia(article.slug);
+  const isQaArticle = qaMedia !== undefined;
+  const qaNoMedia = qaMedia === "none";
 
   // Local state.
   const [imageUrl, setImgURL] = useState("");
@@ -66,6 +69,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
   const [scrollProgress, setScrollProgress] = useState<DimensionValue>("0%");
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [qaCoverLoaded, setQaCoverLoaded] = useState(false);
+  const [qaTextLaidOut, setQaTextLaidOut] = useState(false);
 
   // Hooks and derived values.
   const colorScheme = useAppColorScheme();
@@ -88,6 +92,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
   useEffect(() => {
     setScrollProgress("0%");
     setQaCoverLoaded(false);
+    setQaTextLaidOut(false);
   }, [article.slug]);
 
   // Retrieve and set scroll progress when inView. Runs on every screen focus
@@ -226,9 +231,15 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
     { textAlign: "right" },
   ];
 
+  // QA readiness: bundled-cover fixtures wait for image onLoad; the no-image
+  // fixture waits only for its real text layout.
+  let qaReadyTestId: string | undefined;
+  if (qaNoMedia && qaTextLaidOut) qaReadyTestId = "qa-article-no-image-ready";
+  else if (isQaArticle && !qaNoMedia && qaCoverLoaded) qaReadyTestId = "qa-article-card-ready";
+
   const content = (
     <UiPressable
-      testID={isQaArticle && qaCoverLoaded ? "qa-article-card-ready" : undefined}
+      testID={qaReadyTestId}
       accessibilityLabel={isQaArticle ? `qa-theme:${colorScheme}` : undefined}
       accessibilityRole="button"
       style={{ padding: 0, flex: 1 }}
@@ -238,28 +249,31 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
       <View style={containerStyle}>
         {/* Relative wrapper so the credit badge anchors to the thumbnail
             rather than the bottom of the whole card. */}
-        <View style={{ position: "relative" }}>
-          <Image
-            style={imageStyle}
-            source={isQaArticle ? QaFixtureCover : { uri: imageUrl }}
-            onLoad={() => {
-              if (isQaArticle) setQaCoverLoaded(true);
-            }}
-            placeholder={isQaArticle ? undefined : AppImages.loadingAnimation}
-            contentFit="cover"
-          />
-          {!isQaArticle && !imageUrl && !AppImages.loadingAnimation && (
-            <UiSpinner
-              containerStyle={{
-                position: "absolute",
-                height,
-                top: 0,
-                left: 0,
+        {/* QA no_image fixture: media is absent, so no panel or placeholder. */}
+        {!qaNoMedia && (
+          <View style={{ position: "relative" }}>
+            <Image
+              style={imageStyle}
+              source={isQaArticle ? QaFixtureCover : { uri: imageUrl }}
+              onLoad={() => {
+                if (isQaArticle) setQaCoverLoaded(true);
               }}
+              placeholder={isQaArticle ? undefined : AppImages.loadingAnimation}
+              contentFit="cover"
             />
-          )}
-          <ImageCreditBadge credit={imageCredit} position="bottomRight" />
-        </View>
+            {!isQaArticle && !imageUrl && !AppImages.loadingAnimation && (
+              <UiSpinner
+                containerStyle={{
+                  position: "absolute",
+                  height,
+                  top: 0,
+                  left: 0,
+                }}
+              />
+            )}
+            <ImageCreditBadge credit={imageCredit} position="bottomRight" />
+          </View>
+        )}
         <ReadingProgressBar
           testID="article-progress-bar"
           progress={scrollProgress}
@@ -272,6 +286,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
             gap: CARD_CONTENT_GAP,
             paddingHorizontal: POST_PADDING_HORIZONTAL,
           }}
+          onLayout={qaNoMedia ? () => setQaTextLaidOut(true) : undefined}
         >
           <Typography
             type="cardTitle"

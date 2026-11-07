@@ -62,7 +62,7 @@ For emulator, app, Appium, Python environment, golden review and troubleshooting
 
 ## Results and limitations
 
-The local Android visual test passed against the human-reviewed golden after repeat-capture verification. The current implementation covers three Android fixture scenarios with approved references and depends on the current UiAutomator2 accessibility hierarchy for the outer-card screenshot target. Rendering consistency depends on using the matching app and emulator profile. There is no executed iOS test, verified CI job, or demonstrated intentional visual-regression failure.
+The local Android visual test passed against the human-reviewed golden after repeat-capture verification. The current implementation covers four Android fixture scenarios (`long_headline`, `breaking_news`, `dark_article`, `no_image`) with human-approved references, captured as outer-element screenshots (full-screen context images are diagnostic only), and depends on the current UiAutomator2 accessibility hierarchy for the outer-card screenshot target. Rendering consistency depends on using the matching app and emulator profile. There is no executed iOS test, verified CI job, or demonstrated intentional visual-regression failure.
 
 ## Attribution and license
 
@@ -72,3 +72,12 @@ The application is adapted from [Volksverpetzer/vvp_app](https://github.com/Volk
 The additional `dark_article` implementation reuses the same article and real VVP
 dark palette through a development-only, nonpersistent theme override. The exact reviewed native PNG was human-approved and promoted in EXEC-028;
 independent cold-launch comparisons passed against its separate dark reference. See the [dark-article runner notes](qa_visual/README.md#dark-article-approved-android-reference).
+
+The `no_image` scenario (EXEC-029) renders the same synthetic article through the real
+`ArticlePost` with genuinely absent featured media and no image panel. This is a
+deliberate, challenge-scoped, development-only QA adaptation keyed to an explicit QA
+media contract; it is not verified upstream VVP production support for image-less
+cards, and normal production article rendering is unchanged. The exact reviewed native
+PNG was human-approved and promoted in EXEC-030; two independent cold-launch comparisons
+passed against it with zero changed pixels. See the
+[no-image runner notes](qa_visual/README.md#no-image-approved-android-reference).

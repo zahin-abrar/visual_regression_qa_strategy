@@ -40,3 +40,28 @@ Verified result: all five authorized native runs passed with zero changed pixels
 dark captures were byte-identical. All three approved hashes remained correct.
 TypeScript, focused/broad Jest and Python units/collection passed. The existing
 FIXTUR spelling-only combined-check failure remains. No implementation changes.
+
+
+### EXEC-029 - No-image article candidate (2026-11-07)
+Requested a development-only `no_image` scenario using the real article teaser with
+genuinely absent featured media (not a broken URL), text-layout readiness independent of
+image loading, no general production optional-media change, Appium image-absence checks,
+two native captures, the three existing regressions and a human review packet, without
+promoting a golden or committing.
+
+Verified result: two independent cold-launch captures were byte-identical; candidate
+awaits explicit human approval. The three existing references passed with zero changed
+pixels. TypeScript, focused/broad Jest and Python units/collection passed; the existing
+FIXTUR spelling-only combined-check failure remains.
+
+### EXEC-030 - No-image baseline approval and verification (2026-11-07)
+The human approved only the exact reviewed `no_image` PNG/hash after checking the image
+and its full-screen context (the element screenshot intentionally excludes feed margins).
+Requested byte-for-byte promotion after provenance checks, two independent `no_image`
+regressions, the three existing regressions, unchanged thresholds/fixtures/rendering,
+type/unit checks and documentation. No `empty_feed`, CI/iOS work, commit or publication.
+
+Verified result: all five native runs passed with zero changed pixels; the two `no_image`
+actuals were byte-identical. All four approved hashes were correct. TypeScript,
+focused/broad Jest and Python units/collection passed; the existing FIXTUR
+spelling-only combined-check failure remains.

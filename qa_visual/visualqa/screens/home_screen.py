@@ -15,5 +15,9 @@ class HomeScreen:
         return ArticleCard(self.driver)
 
     @property
+    def no_image_article_card(self) -> ArticleCard:
+        return ArticleCard(self.driver, ready_id=ArticleCard.NO_IMAGE_READY_ID)
+
+    @property
     def breaking_banner(self) -> BreakingBanner:
         return BreakingBanner(self.driver)

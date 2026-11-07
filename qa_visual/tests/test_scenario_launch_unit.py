@@ -38,3 +38,11 @@ def test_dark_launch_verifies_its_own_identity():
     driver.find_elements.return_value = [object()]
     launch_scenario(driver, "package", "vvpapp:///home?qa_scenario=dark_article")
     driver.find_elements.assert_called_once_with("accessibility id", "qa-scenario:dark_article")
+
+
+@pytest.mark.unit
+def test_no_image_launch_verifies_its_own_identity():
+    driver = Mock()
+    driver.find_elements.return_value = [object()]
+    launch_scenario(driver, "package", "vvpapp:///home?qa_scenario=no_image")
+    driver.find_elements.assert_called_once_with("accessibility id", "qa-scenario:no_image")
