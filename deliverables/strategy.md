@@ -1,67 +1,70 @@
 # Android/iOS Screenshot Testing Strategy
 
-## 1. Executive recommendation and quality objectives
+## 1. Recommendation and quality objectives
 
-News interfaces combine variable headlines, imagery, entitlement states and layouts. Frequent releases make exhaustive manual visual verification impractical. The objective is trustworthy PR feedback without an expensive or flaky automation bottleneck.
+News feeds combine long German headlines, imagery, urgency banners, themes and empty or error states, and frequent releases make exhaustive manual visual checking impractical. The objective is trustworthy pull-request feedback on unintended visual change without a slow or flaky automation bottleneck.
 
-The brief requires a strategy for both platforms and a deterministic real-UI demonstration on at least one. My engineering objectives are economical reuse and less repetitive manual verification. Recommend shared scenario contracts, fast component screenshots where supported, a small Appium integration suite, and human review of intentional changes. Choose component tools after inspecting the production codebases; assume neither React Native, Compose nor SwiftUI.
+Recommendation: a hybrid approach. Share scenario contracts, fixtures, comparison and review policy across platforms. Use fast native component snapshots where the production stack supports them, plus a small real-app device suite for integrated rendering, with human review of every reference change. Production tool choices follow inspection of the actual codebases; this strategy assumes neither React Native, Compose nor SwiftUI, nor any knowledge of the employer's internal architecture.
 
-## 2. Tooling architecture and trade-offs
+## 2. Demonstrated Android architecture
 
-**Verified prototype:** adapted Volksverpetzer React Native app; Appium 3.3.0/UiAutomator2 7.1.2; Python/pytest; `HomeScreen` exposing `ArticleCard`; separate Android session configuration and Pillow comparison; Pixel_10/API 37 emulator. Appium captures native rendered UI and offers reusable high-level Python scenarios with separate platform drivers. Its costs include device startup, slower execution, accessibility-tree dependencies and rendering variability.
+The working demo runs on Android only (Pixel_10/API 37 emulator). It uses the adapted open-source Volksverpetzer React Native/Expo app, not employer code.
 
-| Production layer | Choice and trade-off |
+- **Deterministic data:** development-only (`__DEV__`) in-app fixtures supply synthetic articles through the app's existing WordPress mapping into the real `Feed`, `ArticlePost` and `EmptyComponent` UI, with a bundled image and fixed text. **Appium drives and captures the UI; it does not provide the mocked data — the app's fixture seam does.**
+- **Scenario selection and isolation:** each test terminates the app and cold-launches it through the existing Expo development-client deep link with `qa_scenario=<id>`. The selection is resolved once, before the UI subtree mounts, and is immutable for that launch. The app exposes an identity marker that the test verifies before capturing.
+- **Runner:** Appium 3 (3.3.0) with UiAutomator2 and Python/pytest. A page-object model separates `HomeScreen` from the `ArticleCard`, `BreakingBanner` and `EmptyFeedState` component objects, which own scenario-specific readiness (image loaded, layout measured, successful empty fetch). There are no fixed sleeps.
+- **Capture and comparison:** native element screenshots of the real components. The Pillow comparator counts a pixel as changed when any RGB channel differs by more than 12. It fails above a 0.2% changed-pixel ratio or on any size mismatch, and writes actual, diff-overlay and JSON metrics. Full-screen context images are diagnostic only.
+- **References:** human-approved PNGs stored per platform and device profile (`baselines/android/pixel10-api37/`). Tests never create or update a golden.
+
+| Scenario | Visual risk and captured element | UI provenance |
+| --- | --- | --- |
+| `long_headline` | Long German headline wrapping in an image-bearing teaser; outer card, 1028 × 1237 | Real `ArticlePost` with synthetic data |
+| `breaking_news` | Urgency banner layout and long title; banner, 1028 × 493 | Development-only banner added to the sample app for this challenge; not an upstream VVP feature |
+| `dark_article` | Dark-theme contrast of the same card; 1028 × 1237 | Real VVP dark palette through a nonpersistent development-only theme override |
+| `no_image` | Text-only teaser with no image panel; card, 1028 × 711 | Real `ArticlePost`; challenge-scoped QA adaptation for absent media, not verified upstream support |
+| `empty_feed` | Successful zero-item feed response; empty-state message region, 1028 × 309 | Real `EmptyComponent`; **not** offline, error or loading coverage; the donation card below is excluded |
+
+## 3. Verified local evidence
+
+**Five-scenario suite (EXEC-032):** six independent cold launches through one Metro process covered all five scenarios, with `empty_feed` run twice. All six passed with zero changed pixels against the approved references, and the repeated `empty_feed` captures were byte-identical. The five reviewed references are committed in local checkpoint `bcc56b2`.
+
+**Intentional mismatch demonstration (EXEC-033):** a test marked `intentional_failure`, excluded from default selection, captures the correct real `breaking_news` banner. It compares that capture with a deliberately incorrect, separately stored reference (red and blue channels swapped, in `qa_visual/demo_assets/`, never a golden). The normal `breaking_news` test passed (exit 0). Selecting the demonstration explicitly then produced a genuine pytest assertion failure (exit 1): 468,349 of 506,804 pixels (about 92.41%) exceeded the unchanged thresholds. Actual, diff and JSON evidence was written. The normal test passed again, and all five normal scenarios remained green. This proves mismatch detection and reviewable failure output; it is **not** a regression introduced into application code.
+
+Each visual test declares its scenario with a pytest marker and builds its own cold-launch link, so single tests and the suite run without per-scenario configuration (re-verified with all five passing). Runs were local and sequential, not CI; artifacts are Git-ignored and recreated by the [runner guide](../qa_visual/README.md) commands.
+
+## 4. Cross-platform reuse boundaries
+
+| Layer | Approach |
 | --- | --- |
-| Android components | Evaluate [Paparazzi](https://github.com/cashapp/paparazzi) for isolated supported Views/Compose rendering; [Roborazzi](https://github.com/takahirom/roborazzi) when Robolectric integration is useful. JVM execution avoids emulator startup, but renderer compatibility and integrated behavior need separate validation. |
-| iOS components | Evaluate [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) for UIKit views/controllers and appropriately hosted SwiftUI components. Local isolation supports many states; iOS rendering still needs a consistent simulator/toolchain. |
-| Integrated journeys | Appium UiAutomator2 on Android; proposed XCUITest adapter on iOS. Verify real composition/navigation with fewer cases because device execution costs more. |
+| Shared | Scenario identifiers and versioned fixture contracts, high-level assertions (identity, readiness, content), comparison and reporting format, baseline-review policy and CI templates. |
+| Android | UiAutomator2 driver, locators, launch/reset, fixture adapter and Android goldens per device profile (implemented). |
+| iOS (proposed) | macOS simulator with the Appium XCUITest driver; the same scenario names delivered through an iOS launch-argument or deep-link adapter; separate locators and iOS goldens per simulator/OS. Not implemented or executed. |
+| Fast component snapshots (proposed) | [Paparazzi](https://github.com/cashapp/paparazzi) or [Roborazzi](https://github.com/takahirom/roborazzi) for Android Views/Compose; [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) for UIKit/SwiftUI. Only where compatible with the production stack; they do not render arbitrary React Native components. |
 
-Compose snapshot tools do not directly render arbitrary React Native components. Use the lowest-cost compatible layer providing the required confidence; avoid duplicating identical assertions. Share fixture schemas, scenario intent, comparison/reporting policy and CI templates. Keep locators, launch/reset, fixture adapters and reference PNGs platform-specific.
+Use the lowest-cost layer that gives the required confidence (many states as component snapshots, few device journeys) without duplicating assertions.
 
-## 3. Deterministic mock-data architecture
+## 5. Deterministic data in an existing production codebase
 
-**Implemented:** `__DEV__` plus `EXPO_PUBLIC_QA_SCENARIO=long_headline` selects a fixture fetcher. Synthetic article data passes through the existing WordPress mapping into real `Feed`, `GenericPost` and `ArticlePost` components. A bundled image and fixed headline, metadata and summary control the card. Appium waits for visible `qa-article-card-ready`, exposed after image loading, and checks the fixture-title prefix. Appium supplies automation; the app supplies mocks. This does not prove complete app-wide network isolation.
+Version a shared fixture schema and scenario identifiers alongside the tests, maintained jointly by development and QA, with thin platform adapters. Inject fixtures at the repository/data-source boundary through dependency injection in a test build variant. Where no such seam exists, redirect the API client to a controlled local mock server with fixed routes and assets. Keep production networking unchanged and verify that release builds cannot enable fixtures.
 
-**Proposed production seam:** version a shared fixture schema and scenario identifiers alongside tests, jointly maintained by development and QA, with platform-specific adapters. Inject at the repository/data-source boundary through dependency injection in a test variant. Where unavailable, redirect the API client to a controlled local mock server with fixed routes and assets. Isolate fixture selection from production; verify release builds cannot enable it.
+Each scenario pins bundled images, time and timezone, locale, theme, fonts and font scale, animation policy and session/entitlement state. Reset caches and sessions between cases, wait for explicit readiness signals, and block and report unexpected external requests in test mode.
 
-Each scenario specifies bundled images, frozen time/timezone, locale, theme, font files/font scale, animation policy and session/entitlement state. Reset caches and sessions between cases; await fonts, images and asynchronous layout explicitly. Block unexpected external requests in test mode and report them. Keep production networking unchanged.
+## 6. Golden governance and review
 
-## 4. Golden image management and review
+Partition references by platform, device size, OS/renderer and display configuration, and commit only approved PNGs. Publish actual, expected, diff and metrics together, including on failure. A missing reference or size mismatch fails; CI never regenerates or accepts goldens automatically. An intentional visual change arrives as an explicit pull request with rationale and comparison evidence. The feature reviewer and designer approve the result, QA checks fixture and profile consistency, and verification is rerun against the new reference before merge. Protect reference directories with code ownership; Git history keeps previous references. Demo thresholds suit one profile, not all.
 
-Partition references by platform, device size, OS/renderer and display configuration. Commit only approved PNGs with their fixture/profile versions; consider LFS if repository growth justifies it. Publish actual, expected, diff and JSON metrics together. A missing baseline requires approval and a dimensions mismatch fails without resizing. CI never regenerates or accepts goldens automatically; unexpected differences fail. An intentional update is proposed as an explicit PR with rationale and comparison evidence. Protect reference directories with required reviewer ownership. After signoff, rerun verification against the proposed image before merging; retain history of the previous reference.
+## 7. CI/CD, Scrum and risk-based coverage (proposed; CI is not implemented)
 
-For intentional changes, the developer explains the design change and submits a candidate golden with comparison evidence. A feature reviewer and designer approve the visual result; QA checks fixture/profile consistency. Promotion is an explicit PR change, followed by verification; retain the previous reference in version history.
+On each pull request: build the test variant with pinned dependencies and versioned fixtures; run affected component snapshots, then a focused device smoke suite; compare against platform/profile references; fail unexpected changes and publish actual, diff, metrics and logs; require human review for reference updates, then rerun verification. Android runners need emulator acceleration and sufficient memory; iOS needs macOS with pinned Xcode and simulator versions. Keep pull-request gates small, using component ownership and change maps. Run a risk-based nightly or pre-release matrix across themes, font scales, device sizes, OS versions, offline/error and premium states; a device cloud is optional for broader hardware. In refinement, developers, QA, designers and product owners agree on critical states. Developers maintain component snapshots, QA owns integration diagnostics and selection rules, designers approve intended visuals, and product owners resolve acceptance questions.
 
-**Verified baseline:** `qa_visual/baselines/android/pixel10-api37/long_headline.png`. The native image is **1028 × 1237**; two captures were byte-identical. Local pytest returned **1 passed, exit 0**, with **0 changed pixels**. The comparator counts a pixel when any RGB channel difference exceeds **12**, allowing at most **0.2%** changed pixels. These values describe this profile, not universal defaults; calibrate others against repeatability and known defects.
+## 8. Flakiness, scaling and rollout
 
-Boundary inspection mattered: the initial inner element omitted **105 px** of the outer card. The corrected parent capture checks containment and includes the lower padding/corners. Full-screen context remains diagnostic, excluding its changing clock from comparison.
+Pin emulator/simulator images, fonts, assets and rendering settings. Use explicit readiness, isolate each scenario with a cold launch or state reset, and capture element rather than full-screen images so clocks and status bars do not cause diffs. Separate infrastructure and readiness failures from genuine visual mismatches. Allow one logged retry only for diagnosed infrastructure errors, never retry a pixel mismatch until it passes, and quarantine persistent flakes with an owner and deadline.
 
-## 5. CI/CD and Scrum integration
+Roll out with a pilot of a few high-risk components on one device profile, and prove repeatability and baseline ownership before making checks blocking. Then add focused pull-request gates, an iOS pilot and further risk-based scenarios. Pair developers and QA engineers on fixture seams, diagnosis and review, and document examples for other teams. Measure PR feedback time, false positives, escaped visual defects, flakiness, CI cost and manual effort before claiming improvement.
 
-**Proposed PR workflow; CI is not implemented:**
+## 9. Limitations
 
-1. Build the appropriate test variant with pinned dependencies.
-2. Select versioned deterministic fixtures and reset application state.
-3. Run affected-component screenshots where supported.
-4. Execute a focused device smoke suite for critical journeys.
-5. Compare with reviewed platform/profile references.
-6. Fail unexpected changes; publish actual/golden/diff/metrics and logs even on failure.
-7. Require human review for baseline updates; rerun verification after approval.
-
-Provision Android runners with emulator acceleration and sufficient memory. For iOS, use macOS, compatible Xcode/simulator versions and the [Appium XCUITest driver](https://appium.github.io/appium-xcuitest-driver/latest/getting-started/system-requirements/); install the test build, inject the shared scenario through an iOS adapter, then capture against separate iOS goldens. A device cloud is optional for broader hardware coverage.
-
-During refinement, developers, QA, designers and product owners agree critical states and expected appearance. Developers maintain component tests; QA owns integration diagnostics and selection rules; designers review intended visuals; product owners resolve acceptance ambiguity. Keep PR checks focused using component ownership/change maps; run themes, font scales, device sizes, OS versions, offline/errors and premium states nightly or before release.
-
-## 6. Flakiness, scaling and rollout
-
-Pin emulator/simulator images, fonts, assets and rendering settings. Use explicit readiness, never arbitrary sleeps. Capture screenshots, accessibility trees and logs; distinguish infrastructure/readiness failures from genuine UI regressions. Permit one logged retry for diagnosed transient infrastructure errors, preserving both attempts; never retry a pixel mismatch until green. Quarantine persistent flakes with an owner and repair deadline.
-
-Pilot a few high-risk components and one device profile: long headlines, breaking banners and premium badges. Establish baseline ownership and repeatability before making checks blocking. Introduce focused PR gates, then an iOS pilot and additional fixtures; expand nightly/release coverage according to risk and measured stability. Pair developers and QA engineers on fixture seams, diagnosis and review guidelines; document examples for other teams.
-
-Measure PR feedback latency, false-positive rate, escaped visual defects, CI cost, flaky-test frequency and manual verification effort. Establish initial measurements before claiming improvement; use them to adjust coverage and runner capacity.
-
-## 7. Demonstrated scope and limitations
-
-**Implemented and verified:** one Android article-card scenario in the real app, native component screenshot, reviewed golden, repeatability and passing local comparison. It proves the fixture-to-render-to-screenshot-to-comparison path, not broad component or device coverage. See the [runner guide](../qa_visual/README.md) and [execution record](../docs/AGENT_TASK_HISTORY.md).
-
-**Not implemented or verified:** native iOS execution, completed CI pipeline, wider scenario/device coverage, deliberate failing-regression evidence, or Git commit/push. The existing diff artifact accompanies a passing comparison. This representative article card is not a complete production test matrix; additional representative components remain a submission gap.
+- Only Android native execution is verified; there is no native iOS execution and no verified CI pipeline. The harness uses a pinned local development environment (Expo dev client with Metro); standalone release or QA-build runtime behaviour is not validated.
+- The existing combined `pnpm check` fails on a known spelling issue (`FIXTUR`) in a fixture file. A historic one-pixel native image-layout difference has an unresolved root cause; an explicitly reviewed runtime-specific golden was approved instead.
+- The `empty_feed` reference excludes the donation card, and the failing demonstration proves mismatch detection, not detection of an application-code regression.

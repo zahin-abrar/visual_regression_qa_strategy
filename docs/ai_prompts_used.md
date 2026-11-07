@@ -97,3 +97,60 @@ Verified result: all six native runs passed with zero changed pixels, and the tw
 `empty_feed` actuals were byte-identical. All five approved hashes were correct.
 TypeScript, focused and full Jest, and Python units and collection passed. The existing
 FIXTUR spelling-only failure in the combined check remains.
+
+### EXEC-033 - Marker-controlled intentional visual failure demonstration (2026-11-07)
+Requested a permanent, explicitly selected pytest demonstration that genuinely fails
+because a real `breaking_news` capture differs from a deliberately incorrect reference.
+Requirements:
+- a dedicated `intentional_failure` marker, excluded by default
+- no `xfail`, `skip` or inverted assertion
+- a deterministic channel-swapped reference outside `baselines/`
+- reuse of the existing launcher, page object, capture and comparator
+No app, golden, threshold, CI or iOS changes, and no commit.
+
+Verified result: collection by default, `-m visual` and `-m unit` excluded the
+demonstration, and `-m intentional_failure` selected exactly one test. `breaking_news`
+PASS (0 changed pixels), then the demonstration FAILED at the comparison assertion (exit 1,
+468,349 of 506,804 pixels changed, 92.41%) with actual, diff and JSON artifacts, then
+`breaking_news` PASS. All five normal scenarios then passed with zero changed pixels, and
+all approved hashes were unchanged. This is a reference-mismatch demonstration, not an
+application regression.
+
+### EXEC-034 - Final strategy documentation reconciliation (2026-11-07)
+Requested: update the Android/iOS strategy Markdown and PDF so they describe the
+five-scenario Android demonstration and the intentional mismatch demonstration
+accurately, keep the 1-3 page scope and cross-platform recommendations, state
+limitations honestly, and correct only essential README contradictions. Documentation
+only; no app, test, fixture, threshold, golden, CI or iOS changes; no commit.
+
+Verified result: `deliverables/strategy.md` was restructured into nine concise sections
+(recommendation, demonstrated Android architecture with a five-scenario table, verified
+local evidence, reuse boundaries, production data seams, golden governance, proposed
+CI/Scrum, flakiness and rollout, limitations). A link to an ignored execution record
+was removed. The PDF was regenerated from the Markdown with the previously used
+ReportLab approach: 2 A4 pages, both rendered and visually inspected, with no clipping
+or private content. The READMEs now state that Git-ignored run artifacts are absent
+from a fresh clone.
+
+### EXEC-035 - Self-contained pytest scenario launching (2026-11-07)
+Requested: make the normal Android visual tests runnable directly, including from
+PyCharm's normal pytest Run action, without an externally set per-scenario
+`VVP_QA_LAUNCH_URL`. Each test declares its scenario. A conflicting override must fail
+clearly. The intentional-failure demonstration keeps its own marker. No app, fixture,
+golden, threshold, CI or iOS changes; no commit.
+
+Implemented: a registered `qa_scenario(id)` marker, a `qa_scenario` fixture in a root
+`conftest.py`, and `build_launch_url`/`resolve_launch_url` in the existing launcher.
+`make_driver(scenario)` uses these to cold-launch the declared scenario through the
+existing development-client deep link. Optional `VVP_METRO_HOST`/`VVP_METRO_PORT`
+overrides are supported, and a mismatching `VVP_QA_LAUNCH_URL` is rejected.
+
+Verified result, with `VVP_QA_LAUNCH_URL` unset:
+- Each of the five visual files passed individually with 0 changed pixels.
+- `-m visual`: 5 passed.
+- The default run: 46 passed, with the demonstration deselected.
+- `-m intentional_failure`: failed as designed (exit 1, 468,349 / 506,804).
+- A stale override failed immediately.
+- Unit tests: 41 passed.
+- Golden and demo hashes are unchanged.
+- One strategy sentence was updated and the 2-page PDF regenerated and inspected.

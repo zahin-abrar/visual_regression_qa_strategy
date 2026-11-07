@@ -13,13 +13,12 @@ EXPECTED_TITLE = "QA-Test: Redaktion meldet wichtige Neuigkeiten zur synthetisch
 
 
 @pytest.mark.visual
-def test_breaking_news_banner_matches_reviewed_golden():
+@pytest.mark.qa_scenario("breaking_news")
+def test_breaking_news_banner_matches_reviewed_golden(qa_scenario):
     from visualqa.android import make_driver, save_diagnostics
     from visualqa.scenario_launch import wait_for_scenario_identity
     from visualqa.screens.home_screen import HomeScreen
 
-    if not os.environ.get("VVP_QA_LAUNCH_URL"):
-        pytest.fail("breaking_news requires an explicit cold-launch VVP_QA_LAUNCH_URL")
     profile = os.environ.get("VVP_GOLDEN_PROFILE", "pixel10-api37")
     if not re.fullmatch(r"[a-z0-9_-]+", profile):
         pytest.fail("Invalid VVP_GOLDEN_PROFILE")
@@ -28,7 +27,7 @@ def test_breaking_news_banner_matches_reviewed_golden():
     output.mkdir(parents=True, exist_ok=True)
     actual = output / "breaking_news.actual.png"
     baseline = root / "baselines/android" / profile / "breaking_news.png"
-    driver = make_driver()
+    driver = make_driver(qa_scenario)
     try:
         wait_for_scenario_identity(driver, "breaking_news")
         banner = HomeScreen(driver).breaking_banner

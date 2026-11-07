@@ -10,7 +10,8 @@ from appium.options.android import UiAutomator2Options
 from selenium.common.exceptions import WebDriverException
 
 
-def make_driver():
+def make_driver(scenario: str | None = None):
+    """Create a session; with ``scenario`` the app is cold-launched into that QA scenario."""
     package_name = os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app")
     options = UiAutomator2Options()
     options.platform_name = "Android"
@@ -24,9 +25,15 @@ def make_driver():
     options.no_reset = True
     options.set_capability("appium:autoLaunch", False)
     options.set_capability("appium:newCommandTimeout", 90)
+    launch_url = None
+    if scenario is not None:
+        from visualqa.scenario_launch import resolve_launch_url
+        # Resolve (and reject conflicting overrides) before opening a session.
+        launch_url = resolve_launch_url(scenario)
+    else:
+        launch_url = os.environ.get("VVP_QA_LAUNCH_URL")
     driver = webdriver.Remote(os.environ.get("VVP_APPIUM_URL", "http://127.0.0.1:4723"), options=options)
     try:
-        launch_url = os.environ.get("VVP_QA_LAUNCH_URL")
         if launch_url:
             from visualqa.scenario_launch import launch_scenario
             launch_scenario(driver, package_name, launch_url)
@@ -37,7 +44,7 @@ def make_driver():
             wait_for_scenario_identity(driver)
     except Exception:
         try:
-            if os.environ.get("VVP_QA_LAUNCH_URL"):
+            if launch_url:
                 driver.terminate_app(package_name)
         finally:
             driver.quit()

@@ -15,7 +15,8 @@ SCENARIO = "long_headline"
 
 
 @pytest.mark.visual
-def test_long_headline_android_card_matches_reviewed_golden():
+@pytest.mark.qa_scenario(SCENARIO)
+def test_long_headline_android_card_matches_reviewed_golden(qa_scenario):
     profile = os.environ.get("VVP_GOLDEN_PROFILE", "pixel10-api37")
     if not re.fullmatch(r"[a-z0-9_-]+", profile):
         pytest.fail("VVP_GOLDEN_PROFILE must contain only lowercase letters, digits, _ and -")
@@ -31,7 +32,7 @@ def test_long_headline_android_card_matches_reviewed_golden():
     from visualqa.android import make_driver, save_diagnostics
     from visualqa.screens.home_screen import HomeScreen
 
-    driver = make_driver()
+    driver = make_driver(qa_scenario)
     try:
         try:
             from visualqa.scenario_launch import wait_for_scenario_identity
@@ -50,8 +51,7 @@ def test_long_headline_android_card_matches_reviewed_golden():
             raise
     finally:
         try:
-            if os.environ.get("VVP_QA_LAUNCH_URL"):
-                driver.terminate_app(os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app"))
+            driver.terminate_app(os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app"))
         finally:
             driver.quit()
 

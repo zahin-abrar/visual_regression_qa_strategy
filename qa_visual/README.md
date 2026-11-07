@@ -107,6 +107,58 @@ This was exercised with Python 3.13.1: the pinned packages installed, `pip check
 
 ## Run the checks
 
+### Self-launching visual tests (current workflow, EXEC-035)
+
+Each visual test declares its own scenario, for example
+`@pytest.mark.qa_scenario("breaking_news")`. The `qa_scenario` fixture in
+`conftest.py` reads that marker. `make_driver(scenario)` builds the development-client
+deep link (`build_launch_url` in `visualqa/scenario_launch.py`), terminates the app,
+cold-launches it with that `qa_scenario` and waits for the exact `qa-scenario:<id>`
+identity, all before the feed-specific readiness and capture. No per-scenario
+`VVP_QA_LAUNCH_URL` is needed. Run from `qa_visual/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest .\tests\test_breaking_news.py -v -s   # one scenario
+.\.venv\Scripts\python.exe -m pytest .\tests -m visual -v                  # all five scenarios
+.\.venv\Scripts\python.exe -m pytest .\tests -v                            # unit + visual; intentional demo deselected
+```
+
+**PyCharm:** use the normal green Run icon (or *Run 'pytest in test_…'*) on a visual test
+file or function, with `qa_visual/.venv` as the interpreter. No environment variables or
+extra arguments are needed. `qa_visual/pytest.ini` is found from the test's path, and the
+root `conftest.py` puts `qa_visual/` on `sys.path`. This also works when the working
+directory is the repository root, which was checked from the command line. Only the
+intentional-failure demo needs `-m intentional_failure` (see below).
+
+External prerequisites remain: emulator `emulator-5554` booted with the development app
+installed, Metro running (port 8081), the Appium server (port 4723) and
+`adb reverse tcp:8081 tcp:8081`.
+
+Optional overrides:
+
+- `VVP_METRO_HOST` and `VVP_METRO_PORT` (defaults `127.0.0.1` and `8081`) change the Metro
+  address placed in the launch link.
+- `VVP_QA_LAUNCH_URL` is still accepted for compatibility, but only if its `qa_scenario`
+  equals the scenario the test declares. A stale or conflicting value fails with a
+  `ValueError` before any Appium session opens; it never silently selects another fixture.
+- The existing `VVP_APPIUM_URL`, `VVP_ANDROID_*` and `VVP_GOLDEN_PROFILE` settings are
+  unchanged.
+
+The per-scenario examples further down that set `VVP_QA_LAUNCH_URL` record how earlier
+evidence was produced. They still work, because a matching URL is accepted, but they are
+no longer required.
+
+Verified in EXEC-035 (local Pixel_10/API 37, not CI) with `VVP_QA_LAUNCH_URL` unset:
+
+- Each of the five visual files, run alone, selected its own scenario and passed (exit 0)
+  with 0 changed pixels; every actual was byte-identical to its golden.
+- `pytest tests -m visual -v`: 5 passed (exit 0), as separate cold launches in the order
+  breaking_news, dark_article, empty_feed, long_headline, no_image, with 0 changed pixels.
+- `pytest tests -v`: 46 passed, 1 deselected (the intentional demo), exit 0.
+- `-m intentional_failure`: failed as intended (exit 1, 468,349 / 506,804 changed).
+- A stale `VVP_QA_LAUNCH_URL` (`long_headline` for the `breaking_news` test) failed
+  immediately with the conflict message. A matching URL passed.
+
 ### Runtime-selected cold launch (verified Android contract)
 
 The development-only startup gate now resolves React Native's initial launch URL
@@ -121,7 +173,7 @@ Neither state mounts the feed or emits article-ready identifiers.
 
 The selection is immutable for the JS launch. No URL-change listener or persistent
 scenario setting is used. Fast Refresh, foreground activation and a warm deep link
-are not scenario reset mechanisms. Use the explicit launch URL for visual comparison; environment-fallback activation is compatibility behavior and may not match this reference.
+are not scenario reset mechanisms. Use the explicit launch URL for visual comparison (the tests now build it automatically); environment-fallback activation is compatibility behavior and may not match this reference.
 
 **Verified on the installed Android development client (EXEC-024):**
 with Metro, the installed app, emulator and Appium already available, run from
@@ -192,14 +244,9 @@ Run these commands from `qa_visual/`:
 # Show which tests pytest discovers; collection does not run the visual scenario.
 .\.venv\Scripts\python.exe -m pytest --collect-only -q
 
-# Run the single native Android scenario; requires the running emulator, app,
-# fixture-enabled Metro and Appium server described above.
-$env:VVP_QA_LAUNCH_URL = 'exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=long_headline'
-try {
-    .\.venv\Scripts\python.exe -m pytest .\tests\test_long_headline.py -m visual -v -s
-} finally {
-    Remove-Item Env:VVP_QA_LAUNCH_URL -ErrorAction SilentlyContinue
-}
+# Run one native Android scenario; requires the running emulator, app,
+# Metro and Appium server described above. The test selects its own scenario.
+.\.venv\Scripts\python.exe -m pytest .\tests\test_long_headline.py -v -s
 ```
 
 The unit suite and collection command passed during prior execution. The visual command also passed after promotion of the reviewed baseline. A run with no baseline deliberately fails after capturing the actual and context screenshots, with a `Golden missing` message; this is not a successful comparison.
@@ -268,9 +315,10 @@ Local review materials were kept under a gitignored `debug-logs/exec025/review/`
 These are historical diagnostic material, not required checkout dependencies.
 Runner artifacts under `artifacts/android/pixel10-api37/` include
 `breaking_news.actual.png`, `.context.png`, `.capture.json`, `.hierarchy.xml`,
-`.diff.png` and `.comparison.json`. EXEC-026 run evidence is preserved separately
+`.diff.png` and `.comparison.json`. EXEC-026 run evidence was preserved separately
 in `exec026-breaking1/`, `exec026-breaking2/` and `exec026-long-headline/` under that
-artifact profile. iOS and CI execution remain unverified.
+artifact profile in the original author's checkout; `artifacts/` is gitignored, so a
+fresh clone contains none of these until the tests are run. iOS and CI execution remain unverified.
 
 ## Golden images and comparison
 
@@ -351,6 +399,7 @@ Useful read-only checks include `adb devices -l`, `adb shell getprop sys.boot_co
 zero-item fetch, not offline or error coverage) has an approved message-region reference
 and passing comparisons, and is tracked in Git.
 - There is no native iOS execution, iOS baseline, or verified CI pipeline.
+- The [intentional failure demonstration](#intentional-visual-failure-demonstration) fails against a deliberately incorrect reference. It demonstrates the failure path and its artifacts, not a detected application UI regression.
 - The card screenshot target resolves the ready element's direct parent based on the current UiAutomator2 hierarchy. Bounds checks guard the captured relationship, but a future app/accessibility-tree change may require inspection and a new reviewed golden.
 - Snapshot consistency depends on matching app build, emulator resolution/density, font scale, theme, assets and rendering environment.
 - The golden path is tracked; the approved runtime migration at `baselines/android/pixel10-api37/long_headline.png` was committed in local checkpoint `f0b38e9`. The previous reference remains in Git history.
@@ -419,7 +468,8 @@ maximum channel delta 0, tolerance-adjusted differences 0. Both light regression
 passed with zero changed pixels and observed effective light appearance. A third
 dark launch after the light scenarios also passed (exit 0, 17.14s), byte-identical
 to the first dark. All three golden hashes remained correct. Stored themePreference
-remained `system`; no setting was changed. Evidence is preserved under
+remained `system`; no setting was changed. Evidence was preserved (in the gitignored
+`artifacts/` directory of the original author's checkout, not in a fresh clone) under
 `artifacts/android/pixel10-api37/exec028-dark1/`, `exec028-dark2/`,
 `exec028-long-light/`, `exec028-breaking-light/` and `exec028-dark-after-light/`.
 Each includes actual/context/diff/comparison JSON and logs; dark runs additionally
@@ -524,15 +574,95 @@ scenario. Thresholds are unchanged. This is local sequential execution, not CI. 
 ### Running all five approved scenarios
 
 Each scenario is a separate cold launch through the same running Metro process; no
-Metro restart or environment change is needed between them. From `qa_visual/`:
+Metro restart or environment change is needed between them. Each test selects its own
+scenario. From `qa_visual/`:
 
 ```powershell
-foreach ($scenario in 'long_headline', 'breaking_news', 'dark_article', 'no_image', 'empty_feed') {
-    $env:VVP_QA_LAUNCH_URL = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=$scenario"
-    .\.venv\Scripts\python.exe -m pytest ".\tests\test_$scenario.py" -m visual -v -s
-}
-Remove-Item Env:VVP_QA_LAUNCH_URL
+.\.venv\Scripts\python.exe -m pytest .\tests -m visual -v
 ```
 
 Baselines change only after explicit human review of the exact candidate PNG and its
 SHA-256; tests never create or update a golden.
+
+## Intentional visual failure demonstration
+
+`tests/test_intentional_visual_failure.py` shows what a **real visual-comparison failure**
+looks like, including its artifacts. It is an **intentional reference-mismatch
+demonstration, not an application UI regression**: the app, fixture and styling are
+unchanged and render correctly. The test runs the normal `breaking_news` cold launch,
+identity, readiness, title check and native banner capture. It then compares the capture
+with a deliberately incorrect reference,
+[`demo_assets/intentional_mismatch_breaking_news.png`](demo_assets/intentional_mismatch_breaking_news.png),
+which has its red and blue channels swapped. The comparator, thresholds (channel delta
+>12, maximum ratio 0.002) and the approved `breaking_news.png` golden are all unchanged.
+The test is expected to **FAIL with exit code 1** at the comparison assertion; it does not
+use `xfail`, `skip` or an inverted assertion.
+
+The test is marked `@pytest.mark.intentional_failure` and requests its launch with
+`@pytest.mark.qa_scenario("breaking_news")`. It does **not** carry the `visual` marker.
+`pytest.ini` registers the
+marker and adds `-m "not intentional_failure"` to `addopts`, so it is deselected by
+default and excluded from `-m visual` and `-m unit`. Passing `-m intentional_failure` on
+the command line overrides the default and selects exactly this one test. Running the file
+without that argument reports `1 deselected` (pytest exit code 5).
+
+### PowerShell: PASS → intentional FAIL → PASS
+
+The prerequisites are the same as for `breaking_news`: emulator `emulator-5554` booted
+with the development app installed, Metro on port 8081 (started as described above) and
+Appium on port 4723. From `qa_visual/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest .\tests\test_breaking_news.py -v -s                                      # expected PASS, exit 0
+.\.venv\Scripts\python.exe -m pytest .\tests\test_intentional_visual_failure.py -m intentional_failure -v -s # expected FAIL, exit 1
+.\.venv\Scripts\python.exe -m pytest .\tests\test_breaking_news.py -v -s                                      # expected PASS, exit 0
+```
+
+No launch URL is needed; both tests cold-launch `breaking_news` themselves.
+
+### PyCharm
+
+Create a **pytest** run configuration (or edit the one the Run icon creates):
+
+- Python interpreter: the existing project interpreter `qa_visual/.venv/Scripts/python.exe`.
+- Target: script path `qa_visual/tests/test_intentional_visual_failure.py`.
+- Additional arguments: `-m intentional_failure -v -s`. Without this, the test is
+  reported as deselected.
+- No environment variables are required. Emulator, Metro and Appium must already be
+  running, as above.
+
+The run should end red with one failed test (exit code 1). The console prints
+`identity, readiness and title verified`, the changed-pixel count and an
+`AssertionError: INTENTIONAL visual mismatch (demo reference, not an app regression)`.
+For the normal PASS, use the Run icon on `tests/test_breaking_news.py`; no extra
+arguments are needed.
+
+### Artifacts and how to read them
+
+Written to `artifacts/android/pixel10-api37/` (ignored by Git), separate from the
+`breaking_news.*` files:
+
+- `intentional_failure.actual.png`: the native banner capture. It is byte-identical to the
+  approved golden, which shows the app itself did not regress.
+- `intentional_failure.diff.png`: the capture with every changed pixel painted red-pink.
+  Open it in any image viewer; here almost the whole banner background is marked, while
+  the unchanged white text is not.
+- `intentional_failure.comparison.json`: dimensions, changed pixels, ratio, thresholds and
+  `"passed": false`.
+- `intentional_failure.context.png` and `intentional_failure.capture.json`: uncompared
+  full-screen context and capture metadata (rect, session, reference path).
+
+Because the failure happens at the comparison assertion, no `failure-full-screen.png` or
+`failure-page-source.xml` is written; those diagnostics appear only for earlier Appium,
+locator or readiness failures.
+
+Verified locally in EXEC-033 (Pixel_10/API 37, not CI): `breaking_news` PASS (0 changed
+pixels) → intentional demo FAIL, exit 1, 468,349 of 506,804 pixels changed (92.41%) against
+a 0.2% limit → `breaking_news` PASS (0 changed). All five normal scenarios then passed
+with zero changed pixels. EXEC-035 repeated the explicit demonstration with no launch URL
+set: it selected `breaking_news` itself and failed with the same 468,349 / 506,804 result
+(exit 1).
+
+To regenerate the demo reference deterministically from the approved golden (it checks
+the golden's hash first and only reads it):
+`.\.venv\Scripts\python.exe demo_assets\generate_intentional_mismatch.py`.
