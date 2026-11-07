@@ -5,6 +5,7 @@ import { useColorScheme } from "react-native";
 import Colors from "#/constants/Colors";
 import { SettingsContext } from "#/helpers/provider/SettingsProvider";
 import { isDarkMode } from "#/helpers/utils/color";
+import { getQaThemeOverride } from "#/screens/Home/fixtures/qaScenario";
 import type { colorSchemeType } from "#/types/colors";
 
 export type AppColorScheme = keyof colorSchemeType;
@@ -23,6 +24,8 @@ export const ColorScheme = {
 export const useAppColorScheme = (): AppColorScheme => {
   const { themePreference } = useContext(SettingsContext);
   const scheme: ColorSchemeName = useColorScheme();
+  const qaTheme = getQaThemeOverride();
+  if (qaTheme) return qaTheme;
   if (themePreference === ColorScheme.light) return ColorScheme.light;
   if (themePreference === ColorScheme.dark) return ColorScheme.dark;
   return scheme === ColorScheme.dark ? ColorScheme.dark : ColorScheme.light;

@@ -1,3 +1,5 @@
+import QaBreakingBanner from "#/screens/Home/fixtures/QaBreakingBanner";
+import { qaActiveScenario, qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
 import { useRouter, useScrollToTop } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -275,7 +277,9 @@ const Feed = (properties: FeedProperties) => {
         // Rendered as header (not a data item) so ListEmptyComponent still
         // appears when the feed itself is empty.
         ListHeaderComponent={
-          activeAnnouncement && (
+          __DEV__ && qaFixtureEnabled && qaActiveScenario === "breaking_news" ? (
+            <QaBreakingBanner />
+          ) : activeAnnouncement && (
             <AnnouncementCard
               announcement={activeAnnouncement}
               onDismiss={dismissAnnouncement}

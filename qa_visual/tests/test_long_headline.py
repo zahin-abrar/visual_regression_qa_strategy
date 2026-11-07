@@ -34,8 +34,11 @@ def test_long_headline_android_card_matches_reviewed_golden():
     driver = make_driver()
     try:
         try:
+            from visualqa.scenario_launch import wait_for_scenario_identity
+            wait_for_scenario_identity(driver, "long_headline")
             article_card = HomeScreen(driver).article_card
             article_card.wait_until_ready()
+            assert article_card.effective_theme == "light"
             title = article_card.title
             assert "QA-FIXTUR:" in title, f"Fixture title not found: {title!r}"
             actual.write_bytes(article_card.capture_screenshot())
@@ -46,7 +49,11 @@ def test_long_headline_android_card_matches_reviewed_golden():
             save_diagnostics(driver, output)
             raise
     finally:
-        driver.quit()
+        try:
+            if os.environ.get("VVP_QA_LAUNCH_URL"):
+                driver.terminate_app(os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app"))
+        finally:
+            driver.quit()
 
     assert actual.is_file() and actual.stat().st_size > 0
     if not baseline.is_file():

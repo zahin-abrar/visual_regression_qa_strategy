@@ -4,6 +4,15 @@ import { findSecondaryWpFeed } from "#/helpers/utils/feeds";
 import { isSameHost } from "#/helpers/utils/host";
 
 export function redirectSystemPath({ path }: { path: string }) {
+  // Dev-client wrapper loads Metro; its outer QA query belongs to the launch gate.
+  // Route only; do not select/mutate a scenario here or on subsequent link events.
+  if (__DEV__ && /^exp\+vvpapp:\/\/expo-development-client\//.test(path)) {
+    try {
+      if (new URL(path).searchParams.has("qa_scenario")) return "/home";
+    } catch {
+      // The launch gate will reject malformed selection input.
+    }
+  }
   const wpUrl = Config.wpUrl;
 
   // 1. Option: the URL is from the share extension/intent

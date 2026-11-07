@@ -229,6 +229,7 @@ const ArticlePost = (properties: ArticlePostScreenProperties) => {
   const content = (
     <UiPressable
       testID={isQaArticle && qaCoverLoaded ? "qa-article-card-ready" : undefined}
+      accessibilityLabel={isQaArticle ? `qa-theme:${colorScheme}` : undefined}
       accessibilityRole="button"
       style={{ padding: 0, flex: 1 }}
       onPress={handlePress}

@@ -9,3 +9,34 @@
 - **2026-11-02 - EXEC-014:** User requested correction of PDF-local Markdown link rendering, reconciliation of root README strategy links, and final PDF verification. The original brief and repository requirement specify 1-3 pages; the existing approved document is two pages. A corrected two-page candidate was generated and inspected, but the official PDF was held open by another process and Windows denied safe replacement. No process was terminated.
 
 - **2026-11-02 - EXEC-014 completion:** After the user released the PDF lock, the corrected two-page candidate was promoted to `deliverables/strategy.pdf`. All pages were rendered and inspected; local README links, seven sections, Android evidence and clean PDF reference labels were verified. The original brief specifies 1-3 pages, so the approved two-page strategy was retained.
+
+- **2026-11-06:** User requested an explanation of the profile variable in the long-headline test and its architecture. Inspected the test, driver, page/component objects and comparator; explained directory selection versus device configuration. No implementation changes or test execution.
+
+
+### EXEC-025: Breaking-news candidate preparation
+Human directed a minimal development-only, nonanimated breaking-news banner in the real app feed, deterministic fixture selection, separate Appium Component Object/test, two independent native captures and preservation of the approved article baseline. Implemented the QA sample extension (not an upstream production feature); prepared a review-only candidate. Native repeatability was verified; banner baseline approval remains a human decision. No new baseline was automatically approved, and no CI or iOS execution is claimed.
+
+
+### EXEC-026: Approved breaking-news golden promotion
+Human explicitly approved the exact reviewed breaking-news candidate and requested byte-for-byte promotion, two independent native comparisons, the existing article regression and unit/type checks. Both banner comparisons and the article regression passed with unchanged thresholds. No fixture, UI or runner changes, CI work, iOS execution, commit or publication occurred.
+
+
+### EXEC-027 - Dark article candidate (2026-11-07)
+Requested a development-only nonpersistent override through the real application theme,
+with cold-launch isolation, exact scenario/effective-theme assertions, two native card
+captures and existing two-scenario regression checks. Both approved goldens and
+comparison thresholds were preserved. Two dark captures matched exactly; candidate
+awaits explicit human approval. No new golden, CI/iOS execution or commit was created.
+
+
+### EXEC-028 - Dark article baseline approval and verification (2026-11-07)
+The human approved only the exact reviewed dark PNG. Requested byte-for-byte
+promotion after source/hash/session checks, independent dark regressions, light
+scenario regressions and a subsequent dark launch, unchanged thresholds and
+fixtures, plus type/unit checks and documentation. No new scenario, automatic
+baseline regeneration, CI/iOS implementation, commit or publication was authorized.
+
+Verified result: all five authorized native runs passed with zero changed pixels;
+dark captures were byte-identical. All three approved hashes remained correct.
+TypeScript, focused/broad Jest and Python units/collection passed. The existing
+FIXTUR spelling-only combined-check failure remains. No implementation changes.

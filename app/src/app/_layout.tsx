@@ -36,6 +36,7 @@ import { isDarkMode } from "#/helpers/utils/color";
 import { useAppColorScheme } from "#/hooks/useAppColorScheme";
 import { useNotificationObserver } from "#/hooks/useNotificationObserver";
 import { qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
+import QaLaunchGate from "#/screens/Home/fixtures/QaLaunchGate";
 
 // Hide warning for new native event emitter
 LogBox.ignoreLogs(["new NativeEventEmitter"]);
@@ -209,4 +210,9 @@ export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
 
-export default RootLayout;
+// RootLayout hooks execute only after the launch gate opens.
+const InitializedRootLayout = () => (
+  __DEV__ ? <QaLaunchGate><RootLayout /></QaLaunchGate> : <RootLayout />
+);
+
+export default InitializedRootLayout;

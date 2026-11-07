@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from visualqa.components.article_card import ArticleCard
+from visualqa.components.breaking_banner import BreakingBanner
 
 
 class HomeScreen:
@@ -12,3 +13,7 @@ class HomeScreen:
     @property
     def article_card(self) -> ArticleCard:
         return ArticleCard(self.driver)
+
+    @property
+    def breaking_banner(self) -> BreakingBanner:
+        return BreakingBanner(self.driver)

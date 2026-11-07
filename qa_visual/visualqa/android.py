@@ -20,15 +20,27 @@ def make_driver():
     options.app_package = package_name
     options.app_activity = os.environ.get("VVP_ANDROID_ACTIVITY", ".MainActivity")
     # Metro + the installed Expo development build must already be available.
-    # Avoid killing the currently loaded JS bundle during first-run feasibility.
+    # Preserve activation compatibility unless explicit cold-launch mode is selected.
     options.no_reset = True
     options.set_capability("appium:autoLaunch", False)
     options.set_capability("appium:newCommandTimeout", 90)
     driver = webdriver.Remote(os.environ.get("VVP_APPIUM_URL", "http://127.0.0.1:4723"), options=options)
     try:
-        driver.activate_app(package_name)
+        launch_url = os.environ.get("VVP_QA_LAUNCH_URL")
+        if launch_url:
+            from visualqa.scenario_launch import launch_scenario
+            launch_scenario(driver, package_name, launch_url)
+        else:
+            # Compatibility path: existing Metro environment selection/activation.
+            driver.activate_app(package_name)
+            from visualqa.scenario_launch import wait_for_scenario_identity
+            wait_for_scenario_identity(driver)
     except Exception:
-        driver.quit()
+        try:
+            if os.environ.get("VVP_QA_LAUNCH_URL"):
+                driver.terminate_app(package_name)
+        finally:
+            driver.quit()
         raise
     return driver
 

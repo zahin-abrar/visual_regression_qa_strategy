@@ -5,10 +5,12 @@ import type { ReactNode } from "react";
 import SettingsStore from "#/helpers/Stores/SettingsStore";
 import { SettingsContext } from "#/helpers/provider/SettingsProvider";
 import { useAppColorScheme, useLinkColor } from "#/hooks/useAppColorScheme";
+import { getQaThemeOverride } from "#/screens/Home/fixtures/qaScenario";
 import type { ThemePreference } from "#/types";
 
 // jest-setup mocks this hook globally; test the real implementation here.
 jest.unmock("#/hooks/useAppColorScheme");
+jest.mock("#/screens/Home/fixtures/qaScenario", () => ({ getQaThemeOverride: jest.fn() }));
 
 const mockUseColorScheme = jest.fn<() => "light" | "dark">();
 
@@ -41,6 +43,16 @@ const renderWith = <T,>(
 };
 
 describe("useAppColorScheme", () => {
+  it("QA theme wins over stored preferences and device theme without persisting", async () => {
+    const save = jest.spyOn(SettingsStore, "setThemePreference");
+    jest.mocked(getQaThemeOverride).mockReturnValue("dark");
+    expect((await renderWith("light", "light")).result.current).toBe("dark");
+    jest.mocked(getQaThemeOverride).mockReturnValue("light");
+    expect((await renderWith("dark", "dark")).result.current).toBe("light");
+    expect(save).not.toHaveBeenCalled();
+    jest.mocked(getQaThemeOverride).mockReturnValue(undefined);
+    save.mockRestore();
+  });
   it("follows the device scheme on 'system'", async () => {
     expect((await renderWith("system", "dark")).result.current).toBe("dark");
     expect((await renderWith("system", "light")).result.current).toBe("light");

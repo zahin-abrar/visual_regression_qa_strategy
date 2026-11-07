@@ -43,6 +43,48 @@ class ArticleCard:
         WebDriverWait(self.driver, timeout, poll_frequency=0.5).until(ready)
 
     @property
+    def effective_theme(self) -> str:
+        element = self._find_test_id(self.READY_ID)
+        if element is None:
+            raise AssertionError("Article must be ready before checking effective theme")
+        label = element.get_attribute("content-desc") or ""
+        if label not in {"qa-theme:light", "qa-theme:dark"}:
+            raise AssertionError(f"Effective theme marker missing: {label!r}")
+        return label.removeprefix("qa-theme:")
+
+    def wait_for_stable_layout(self, timeout: int = 15) -> dict:
+        """Observe unchanged outer/title bounds twice after bundled-image readiness."""
+        previous = None
+
+        def settled(_driver):
+            nonlocal previous
+            container = self.driver.find_element(
+                AppiumBy.XPATH, f'//*[@resource-id="{self.READY_ID}"]/..'
+            )
+            title = self._find_test_id(self.TITLE_ID)
+            if title is None:
+                return False
+            rect, title_rect = container.rect, title.rect
+            viewport = self.driver.get_window_size()
+            valid = (
+                rect["width"] > 0 and rect["height"] > 0
+                and 0 <= rect["x"] and 0 <= rect["y"]
+                and rect["x"] + rect["width"] <= viewport["width"]
+                and rect["y"] + rect["height"] <= viewport["height"]
+                and title_rect["width"] > 0 and title_rect["height"] > 0
+                and rect["x"] <= title_rect["x"]
+                and rect["y"] <= title_rect["y"]
+                and title_rect["x"] + title_rect["width"] <= rect["x"] + rect["width"]
+                and title_rect["y"] + title_rect["height"] <= rect["y"] + rect["height"]
+            )
+            state = (rect, title_rect)
+            stable = valid and state == previous
+            previous = state if valid else None
+            return rect if stable else False
+
+        return WebDriverWait(self.driver, timeout, poll_frequency=0.5).until(settled)
+
+    @property
     def title(self) -> str:
         element = self._find_test_id(self.TITLE_ID)
         if element is None:

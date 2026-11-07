@@ -22,6 +22,27 @@ jest.mock("#/helpers/DeepLinkFilter", () => ({
 }));
 
 describe("redirectSystemPath", () => {
+  test("QA development-client launch routes home without selecting scenario state", () => {
+    const path = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=long_headline";
+    expect(redirectSystemPath({ path })).toBe("/home");
+  });
+
+  test("normal development-client URLs retain existing handling", () => {
+    const path = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081";
+    expect(redirectSystemPath({ path })).toBe(path);
+  });
+
+  test("release does not interpret the QA wrapper", () => {
+    const development = __DEV__;
+    Object.defineProperty(globalThis, "__DEV__", { value: false, configurable: true, writable: true });
+    try {
+      const path = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=long_headline";
+      expect(redirectSystemPath({ path })).toBe(path);
+    } finally {
+      Object.defineProperty(globalThis, "__DEV__", { value: development, configurable: true, writable: true });
+    }
+  });
+
   it("routes the share-intent host to /handle-share", () => {
     expect(redirectSystemPath({ path: "myapp://expo-sharing" })).toBe(
       "/handle-share",
