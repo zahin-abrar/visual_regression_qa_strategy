@@ -8,7 +8,7 @@ export const qaScenarios = Object.freeze({
   breaking_news: { captureSupported: true },
   dark_article: { captureSupported: true },
   no_image: { captureSupported: true },
-  empty_feed: { captureSupported: false },
+  empty_feed: { captureSupported: true },
 });
 export type QaScenarioId = keyof typeof qaScenarios;
 export type QaSelection = Readonly<{

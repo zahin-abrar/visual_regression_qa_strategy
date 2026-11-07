@@ -65,3 +65,35 @@ Verified result: all five native runs passed with zero changed pixels; the two `
 actuals were byte-identical. All four approved hashes were correct. TypeScript,
 focused/broad Jest and Python units/collection passed; the existing FIXTUR
 spelling-only combined-check failure remains.
+
+### EXEC-031 - Successful empty-feed candidate (2026-11-07)
+Requested a development-only `empty_feed` scenario where one configured synthetic feed
+source resolves successfully with zero articles (explicitly not offline, error, loading or
+zero-configured-feeds coverage). The request also asked for a minimal signal that tells a
+successful empty response apart from fetch errors that the existing utilities convert to
+an empty list, rendering through the real feed empty state, scenario-specific readiness,
+populated/empty/populated cold-launch isolation checks, two native captures, the four
+existing regressions and a human review packet, without promoting a golden or committing.
+
+Verified result: both empty-feed captures were byte-identical. Populated runs before and
+after them passed, and no stale content appeared in the empty runs. The candidate awaits
+explicit human approval. All four approved references passed unchanged. TypeScript,
+focused and full Jest, and Python units and collection passed. The existing FIXTUR
+spelling-only failure in the combined check remains.
+
+### EXEC-032 - Empty-feed baseline approval and five-scenario verification (2026-11-07)
+The human approved only the exact reviewed `empty_feed` PNG and hash, together with its
+message-only capture boundary, after reviewing the image and its full-screen context.
+Requested:
+- byte-for-byte promotion after provenance checks
+- two independent `empty_feed` regressions
+- the four existing regressions in one cold-launch sequence
+- unchanged thresholds, fixtures and rendering
+- type and unit checks
+- documentation, including a fix for stale commit-status wording
+No commit, CI or iOS work.
+
+Verified result: all six native runs passed with zero changed pixels, and the two
+`empty_feed` actuals were byte-identical. All five approved hashes were correct.
+TypeScript, focused and full Jest, and Python units and collection passed. The existing
+FIXTUR spelling-only failure in the combined check remains.

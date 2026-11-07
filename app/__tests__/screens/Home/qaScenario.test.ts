@@ -13,9 +13,11 @@ describe("QA cold-launch selection", () => {
     expect(resolveQaSelection(true, null)).toEqual({ status: "normal", source: "none" });
   });
   test.each(["empty_feed"])(
-    "%s cannot fall back to long_headline", (id) => {
+    "%s is an explicit active selection that cannot fall back to long_headline", (id) => {
       expect(resolveQaSelection(true, `vvpapp:///home?qa_scenario=${id}`, "long_headline"))
-        .toEqual({ status: "unsupported", id, source: "launch" });
+        .toEqual({ status: "active", id, source: "launch" });
+      expect(resolveQaSelection(false, `vvpapp:///home?qa_scenario=${id}`, id))
+        .toEqual({ status: "normal", source: "disabled" });
     },
   );
   test.each(["unknown", "toString", "", "long_headline&qa_scenario=empty_feed"])(
@@ -64,7 +66,7 @@ describe("QA cold-launch selection", () => {
     expect(scenario.qaFixtureEnabled).toBe(false);
   });
   test("fresh JS initialization does not inherit the previous supported selection", async () => {
-    for (const [id, status] of [["long_headline", "active"], ["empty_feed", "unsupported"], ["none", "normal"]]) {
+    for (const [id, status] of [["long_headline", "active"], ["empty_feed", "active"], ["bad", "invalid"], ["none", "normal"]]) {
       jest.resetModules();
       const scenario = require("#/screens/Home/fixtures/qaScenario") as typeof import("#/screens/Home/fixtures/qaScenario");
       expect((await scenario.initializeQaScenario(async () => `vvpapp:///home?qa_scenario=${id}`)).status)
@@ -89,7 +91,7 @@ test("no_image is an explicit capture-supported launch selection and stays relea
 });
 
 test("theme overrides are immutable-launch, development-only and absent for normal launches", async () => {
-  for (const [id, theme] of [["dark_article", "dark"], ["long_headline", "light"], ["breaking_news", "light"], ["none", undefined], ["no_image", "light"], ["empty_feed", undefined]]) {
+  for (const [id, theme] of [["dark_article", "dark"], ["long_headline", "light"], ["breaking_news", "light"], ["none", undefined], ["no_image", "light"], ["empty_feed", "light"]]) {
     jest.resetModules();
     const scenario = require("#/screens/Home/fixtures/qaScenario") as typeof import("#/screens/Home/fixtures/qaScenario");
     expect(scenario.getQaThemeOverride()).toBeUndefined();

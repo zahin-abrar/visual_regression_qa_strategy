@@ -1,6 +1,6 @@
 import type { FeedFetcherProperties } from "#/screens/Home/components/Feed";
 import { WordPressFetcher } from "#/screens/Home/fetchers/WordPressFetcher";
-import { QA_ARTICLE_SLUG, QA_NO_IMAGE_SLUG, qaActiveScenario } from "./qaScenario";
+import { QA_ARTICLE_SLUG, QA_NO_IMAGE_SLUG, qaActiveScenario, qaFixtureEnabled } from "./qaScenario";
 import type { LoadArticlePostProperties, Post } from "#/types";
 
 /** Synthetic content, not an actual publication or real WordPress response. */
@@ -41,10 +41,44 @@ export const qaNoImageArticle: LoadArticlePostProperties = Object.freeze({
 export const selectQaArticle = (): LoadArticlePostProperties =>
   qaActiveScenario === "no_image" ? qaNoImageArticle : qaArticle;
 
+/**
+ * Development-only fetch outcome record. Production fetch utilities turn
+ * exceptions into [], so an empty list alone cannot prove a successful
+ * response; this record is written only when the fixture source resolves.
+ */
+export type QaFeedOutcome = Readonly<{
+  scenario: string;
+  status: "success";
+  count: number;
+}>;
+let qaFeedOutcome: QaFeedOutcome | undefined;
+export const getQaFeedOutcome = (): QaFeedOutcome | undefined => qaFeedOutcome;
+/** Called before each feed request so a stale outcome can never satisfy readiness. */
+export const resetQaFeedOutcome = (): void => {
+  qaFeedOutcome = undefined;
+};
+
+/** True only for a completed, successful, zero-item empty_feed fetch. */
+export const isQaSuccessfulEmptyFeed = (): boolean =>
+  __DEV__ &&
+  qaFixtureEnabled &&
+  qaActiveScenario === "empty_feed" &&
+  qaFeedOutcome?.scenario === "empty_feed" &&
+  qaFeedOutcome.status === "success" &&
+  qaFeedOutcome.count === 0;
+
 /** Uses the production WordPress mapping and real ArticlePost component. */
 export const qaFeedFetcher = async ({
   page = 1,
 }: FeedFetcherProperties = {}): Promise<Post<unknown>[]> => {
+  // A new request invalidates any earlier outcome until it resolves.
+  resetQaFeedOutcome();
+  if (qaActiveScenario === "empty_feed") {
+    // One configured synthetic source whose successful response has no items.
+    const posts: Post<unknown>[] = [];
+    qaFeedOutcome = Object.freeze({ scenario: "empty_feed", status: "success", count: posts.length });
+    return posts;
+  }
   if (page !== 1) return [];
   const post = WordPressFetcher.mapArticleToPost(selectQaArticle(), 0);
   // Engagement/share widgets make unrelated network calls in this app.

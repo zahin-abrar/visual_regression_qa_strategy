@@ -17,7 +17,7 @@ def test_launch_checks_identity_after_termination_and_deep_link():
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("query", ["", "qa_scenario=unknown", "qa_scenario=empty_feed", "qa_scenario=long_headline&qa_scenario=long_headline"])
+@pytest.mark.parametrize("query", ["", "qa_scenario=unknown", "qa_scenario=none", "qa_scenario=long_headline&qa_scenario=empty_feed"])
 def test_unsupported_capture_rejected_before_launch(query):
     driver = Mock()
     with pytest.raises(ValueError, match="only explicit"):
@@ -46,3 +46,14 @@ def test_no_image_launch_verifies_its_own_identity():
     driver.find_elements.return_value = [object()]
     launch_scenario(driver, "package", "vvpapp:///home?qa_scenario=no_image")
     driver.find_elements.assert_called_once_with("accessibility id", "qa-scenario:no_image")
+
+
+@pytest.mark.unit
+def test_empty_feed_launch_verifies_its_own_identity():
+    driver = Mock()
+    driver.find_elements.return_value = [object()]
+    launch_scenario(driver, "package", "vvpapp:///home?qa_scenario=empty_feed")
+    assert [call[0] for call in driver.mock_calls] == [
+        "terminate_app", "execute_script", "find_elements",
+    ]
+    driver.find_elements.assert_called_once_with("accessibility id", "qa-scenario:empty_feed")

@@ -1,8 +1,8 @@
 # Android visual regression demo
 
-This runner captures four deterministic visual scenarios in the real Volksverpetzer React Native application. The `long_headline` fixture feeds synthetic article data through the app's normal React Native components; Appium/UiAutomator2 captures the rendered outer article card from Android. Pillow compares that PNG with a reviewed golden.
+This runner captures five deterministic visual scenarios in the real Volksverpetzer React Native application. The `long_headline` fixture feeds synthetic article data through the app's normal React Native components; Appium/UiAutomator2 captures the rendered outer article card from Android. Pillow compares that PNG with a reviewed golden.
 
-`long_headline`, `breaking_news`, `dark_article` and `no_image` each have an explicitly human-approved Android reference and passing local native comparisons. The implemented demo is Android only. There is no executed iOS test or verified CI pipeline.
+`long_headline`, `breaking_news`, `dark_article`, `no_image` and `empty_feed` each have an explicitly human-approved Android reference and passing local native comparisons. The implemented demo is Android only. There is no executed iOS test or verified CI pipeline.
 
 ## Implemented structure
 
@@ -114,8 +114,8 @@ before mounting the app providers and feed. The URL query `qa_scenario` override
 `EXPO_PUBLIC_QA_SCENARIO`; absent URL selection retains that environment fallback.
 `qa_scenario=none` explicitly disables the fallback. Without either selection the
 normal application runs. Release builds bypass the gate and ignore QA selections.
-`long_headline`, `breaking_news`, `dark_article` and `no_image` are capture-supported. The remaining future scenario
-(`empty_feed`) shows an unavailable
+`long_headline`, `breaking_news`, `dark_article`, `no_image` and `empty_feed` are
+capture-supported, and each has a human-approved Android reference. A registered scenario marked not capture-supported would show an unavailable
 screen; unknown/empty/duplicate selections show an invalid-selection screen.
 Neither state mounts the feed or emits article-ready identifiers.
 
@@ -160,6 +160,9 @@ adb -s emulator-5554 shell "am start -W -a android.intent.action.VIEW -d '$launc
 
 Cold-launch separately with `long_headline`, `empty_feed`, an unknown ID, and
 `none`; inspect identity/unavailable markers and absence of false article readiness.
+(Historical note: when this procedure was written `empty_feed` was not yet
+capture-supported; since EXEC-031 it is an active scenario, so use an unknown ID
+for the negative case.)
 Keep Metro's environment unchanged throughout. `none` must suppress even a
 Metro environment fallback; a launch without a query can legitimately use it.
 Do not use `pm clear` or wipe storage. The development-client wrapper explicitly
@@ -240,7 +243,7 @@ exposes this separate Component Object; no article-parent assumption is reused.
 The human reviewed the EXEC-025 banner candidate and full-screen context and
 explicitly approved its exact PNG on November 7, 2026. EXEC-026 copied those bytes
 without modification to `baselines/android/pixel10-api37/breaking_news.png`.
-This approved addition is local and **not yet committed**.
+This approved reference was committed in local checkpoint `f0b38e9`.
 
 Approved SHA-256:
 `E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F`.
@@ -281,7 +284,7 @@ baselines/android/pixel10-api37/long_headline.png
 
 The tracked reference path now contains the explicitly approved runtime-selected
 native screenshot, copied byte for byte from the reviewed candidate. This migration
-is local and **not yet committed**. It replaces the previous legacy environment-fallback
+was committed in local checkpoint `f0b38e9`. It replaces the previous legacy environment-fallback
 reference; the original remains recoverable from Git history at commit
 `ae07a0a7cbfae8be329d2e1a63d32ede575f32c9` using this same baseline path.
 
@@ -344,11 +347,13 @@ Useful read-only checks include `adb devices -l`, `adb shell getprop sys.boot_co
 
 ## Scope and limitations
 
-- Android `long_headline`, `breaking_news` and `dark_article` have approved references and passing local native comparisons on Pixel_10/API 37. `no_image` (a development-only, challenge-scoped absent-media variation; no production-wide optional-media support is claimed) also has an approved reference and passing comparisons. `empty_feed` remains unsupported.
+- Android `long_headline`, `breaking_news` and `dark_article` have approved references and passing local native comparisons on Pixel_10/API 37. `no_image` (a development-only, challenge-scoped absent-media variation; no production-wide optional-media support is claimed) also has an approved reference and passing comparisons. `empty_feed` (a successful
+zero-item fetch, not offline or error coverage) has an approved message-region reference
+and passing comparisons, and is tracked in Git.
 - There is no native iOS execution, iOS baseline, or verified CI pipeline.
 - The card screenshot target resolves the ready element's direct parent based on the current UiAutomator2 hierarchy. Bounds checks guard the captured relationship, but a future app/accessibility-tree change may require inspection and a new reviewed golden.
 - Snapshot consistency depends on matching app build, emulator resolution/density, font scale, theme, assets and rendering environment.
-- The golden path is tracked; the approved runtime migration at `baselines/android/pixel10-api37/long_headline.png` is currently an uncommitted local change. The previous reference remains in Git history.
+- The golden path is tracked; the approved runtime migration at `baselines/android/pixel10-api37/long_headline.png` was committed in local checkpoint `f0b38e9`. The previous reference remains in Git history.
 - Installation/build instructions marked above as documented setup steps were not all re-run end-to-end during this documentation task. Refer to the task history for exact verified command outcomes.
 
 
@@ -397,8 +402,8 @@ The local review packet (`debug-logs/exec027/review/`) is gitignored: it exists 
 It contains the candidate, context, repeatability diff/JSON and review notes.
 On November 7, 2026, the human explicitly approved that exact candidate/hash.
 EXEC-028 copied its bytes without pixel modification to
-`baselines/android/pixel10-api37/dark_article.png`. The addition is local and
-not yet committed. Any replacement still requires explicit human review; the
+`baselines/android/pixel10-api37/dark_article.png`. The addition was committed in
+local checkpoint `f0b38e9`. Any replacement still requires explicit human review; the
 runner never regenerates or approves references automatically.
 The unchanged real dark palette includes background #050D0F, text #F7F7F7 and muted
 text #AAAAAA. The stored themePreference was observed as `system` before the light
@@ -464,13 +469,65 @@ delta >12, maximum changed-pixel ratio 0.002). The EXEC-029/030 review packets a
 metrics are under gitignored `debug-logs/` directories local to the original author's
 checkout (not present in a fresh clone). Native iOS and CI execution remain unverified.
 
-### Running all four approved scenarios
+## Empty feed: approved Android reference
+
+`qa_scenario=empty_feed` (EXEC-031) is a deterministic **successful-empty** scenario: the
+home feed keeps exactly one configured synthetic source (`qaFeedFetcher`), and that source
+resolves successfully with `[]`. It is **not** offline, HTTP-error, loading or
+zero-configured-feeds coverage, and it makes no WordPress request.
+
+Because the production `FetcherUtilities` converts fetch exceptions into `[]`, an empty
+list alone cannot prove success. A development-only outcome record (`getQaFeedOutcome` /
+`isQaSuccessfulEmptyFeed` in `app/src/screens/Home/fixtures/qaFeed.ts`) is written only
+when the fixture source resolves; `Feed` clears it before every request, so a failed or
+stale request can never satisfy readiness.
+
+The real `Feed` renders its normal `ListEmptyComponent` (`EmptyComponent`). In this
+scenario only, the message region (icon + "Keine Ergebnisse. ..." text) receives
+`qa-empty-feed-ready` once the outcome is a successful zero-item fetch, initial loading and
+refresh have finished, there are no posts and the region has a measured layout. Production
+and other scenarios pass no QA props, so the empty state is unchanged there.
+
+The capture boundary is that message region only. The sibling donation card (amount
+picker, payment buttons) and the full screen are excluded; the full-screen
+`empty_feed.context.png` is diagnostic only. The test (`tests/test_empty_feed.py`) asserts
+identity `qa-scenario:empty_feed`, light theme, readiness, stable bounds, the exact
+message, and zero article markers, fixture titles, breaking-banner elements, loading text,
+progress bars and pending empty markers.
+
+```powershell
+$env:VVP_QA_LAUNCH_URL = 'exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=empty_feed'
+.\.venv\Scripts\python.exe -m pytest .\tests\test_empty_feed.py -m visual -v -s
+Remove-Item Env:VVP_QA_LAUNCH_URL
+```
+
+EXEC-031 ran long_headline, empty_feed, long_headline, empty_feed as separate cold launches
+through the same Metro process. Both empty captures were byte-identical (1028 × 309 RGBA,
+bounds `[26,825][1054,1134]`, 0 raw changed pixels). Both populated runs passed, and no
+articles or banners from the populated runs appeared in the empty runs.
+
+On November 7, 2026 the human reviewed the candidate and its full-screen context. They
+explicitly approved only SHA-256
+`903B971081AC2EA2FEB2A37D1B73473602E176A8E9FFE046074E7D3BDE5FA795`. They also approved
+the message-only boundary, which excludes the donation card, payment controls, the
+dynamic status bar and development warnings. EXEC-032 copied those exact bytes to
+`baselines/android/pixel10-api37/empty_feed.png` with no regeneration.
+
+EXEC-032 then ran six separate cold launches through the same Metro process, in this
+order: `empty_feed`, `long_headline`, `breaking_news`, `dark_article`, `no_image`,
+`empty_feed`. Every launch passed (exit 0) with zero changed pixels, and every actual
+was byte-identical to its golden. The two `empty_feed` actuals were byte-identical
+(0 / 317,652 changed). No article, banner or dark-theme state leaked into a later
+scenario. Thresholds are unchanged. This is local sequential execution, not CI. The
+`empty_feed` golden and implementation are tracked in Git.
+
+### Running all five approved scenarios
 
 Each scenario is a separate cold launch through the same running Metro process; no
 Metro restart or environment change is needed between them. From `qa_visual/`:
 
 ```powershell
-foreach ($scenario in 'long_headline', 'breaking_news', 'dark_article', 'no_image') {
+foreach ($scenario in 'long_headline', 'breaking_news', 'dark_article', 'no_image', 'empty_feed') {
     $env:VVP_QA_LAUNCH_URL = "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=$scenario"
     .\.venv\Scripts\python.exe -m pytest ".\tests\test_$scenario.py" -m visual -v -s
 }

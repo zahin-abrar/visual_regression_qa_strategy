@@ -37,7 +37,7 @@ describe("no_image fixture contract", () => {
     },
   );
 
-  test.each([null, "none", "empty_feed"])("non-active launch %s yields no QA media contract", async (id) => {
+  test.each([null, "none"])("non-active launch %s yields no QA media contract", async (id) => {
     const { scenario } = await load(id);
     expect(scenario.getQaArticleMedia(scenario.QA_NO_IMAGE_SLUG)).toBeUndefined();
     expect(scenario.getQaArticleMedia(scenario.QA_ARTICLE_SLUG)).toBeUndefined();

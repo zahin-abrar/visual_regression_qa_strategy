@@ -75,3 +75,25 @@ channel delta >12 and maximum changed-pixel ratio 0.002.
 EXEC-030: two independent `no_image` comparisons passed with zero changed pixels
 (byte-identical actuals), and the three existing references passed unchanged. All four
 approved references are distinct scenario files.
+
+
+### empty_feed
+
+- Reference: [`android/pixel10-api37/empty_feed.png`](android/pixel10-api37/empty_feed.png)
+- Status: human-approved Android reference (November 7, 2026, after image and context review); promoted byte for byte and verified in EXEC-032; tracked in Git
+- Source: ignored EXEC-031 review packet, `empty_feed.candidate.png` (two byte-identical native captures)
+- Launch contract: explicit `qa_scenario=empty_feed` cold launch. Requires exact scenario identity, effective light theme, and readiness `qa-empty-feed-ready`, which appears only after the single synthetic feed source has resolved successfully with zero items, loading and refresh have finished, there are no posts and the layout has been measured.
+- Image: PNG, 1028 x 309 pixels, RGBA. Message-region bounds `[26,825][1054,1134]`.
+- SHA-256: `903B971081AC2EA2FEB2A37D1B73473602E176A8E9FFE046074E7D3BDE5FA795`
+
+This scenario is a challenge-scoped, development-only **successful-empty** state. It is not
+offline, HTTP-error, loading or zero-configured-feeds coverage. The reference is an
+element screenshot of the real `EmptyComponent` message region (globe icon and "Keine
+Ergebnisse. ..." text) only. The human approved this boundary, which excludes the sibling
+donation card (amount picker, payment buttons), the dynamic status bar and development
+warnings; those appear only in the uncompared context image. Thresholds remain channel
+delta >12 and maximum changed-pixel ratio 0.002.
+
+EXEC-032: two independent `empty_feed` comparisons passed with zero changed pixels
+(byte-identical actuals), and the four existing references passed unchanged in the same
+cold-launch sequence. All five approved references are distinct scenario files.

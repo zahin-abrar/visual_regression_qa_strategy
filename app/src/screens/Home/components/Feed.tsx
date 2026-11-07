@@ -1,4 +1,8 @@
 import QaBreakingBanner from "#/screens/Home/fixtures/QaBreakingBanner";
+import {
+  isQaSuccessfulEmptyFeed,
+  resetQaFeedOutcome,
+} from "#/screens/Home/fixtures/qaFeed";
 import { qaActiveScenario, qaFixtureEnabled } from "#/screens/Home/fixtures/qaScenario";
 import { useRouter, useScrollToTop } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -117,6 +121,9 @@ const Feed = (properties: FeedProperties) => {
       const controller = new AbortController();
       fetchControllerRef.current?.abort();
       fetchControllerRef.current = controller;
+      if (__DEV__ && qaFixtureEnabled && qaActiveScenario === "empty_feed") {
+        resetQaFeedOutcome();
+      }
 
       try {
         const newPosts = await FetcherUtilities.fetchAndProcessPosts(
@@ -216,6 +223,19 @@ const Feed = (properties: FeedProperties) => {
       />
     );
   }, []);
+
+  // Development-only empty_feed readiness: successful zero-item fetch,
+  // loading/refresh finished, no posts, message region laid out.
+  const [qaEmptyLaidOut, setQaEmptyLaidOut] = useState(false);
+  const qaEmptyFeed =
+    __DEV__ && qaFixtureEnabled && qaActiveScenario === "empty_feed";
+  const qaEmptyReady =
+    qaEmptyFeed &&
+    initialLoad &&
+    !refreshing &&
+    posts.length === 0 &&
+    isQaSuccessfulEmptyFeed() &&
+    qaEmptyLaidOut;
 
   const contentContainerStyle = useMemo(
     () => [properties.style, globalStyles.content],
@@ -319,6 +339,12 @@ const Feed = (properties: FeedProperties) => {
             text="Keine Ergebnisse. Versuche es später erneut oder erweitere deine Feeds in den Einstellungen."
             icon={<WorldIcon size={iconSizes.xl} />}
             onPress={onRefresh}
+            {...(qaEmptyFeed && {
+              messageTestID: qaEmptyReady ? "qa-empty-feed-ready" : "qa-empty-feed",
+              messageAccessibilityLabel: `qa-theme:${colorScheme}`,
+              onMessageLayout: ({ nativeEvent: { layout } }) =>
+                setQaEmptyLaidOut(layout.width > 0 && layout.height > 0),
+            })}
           />
         }
         contentContainerStyle={contentContainerStyle}

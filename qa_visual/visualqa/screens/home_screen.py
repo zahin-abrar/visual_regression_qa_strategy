@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from visualqa.components.article_card import ArticleCard
 from visualqa.components.breaking_banner import BreakingBanner
+from visualqa.components.empty_feed_state import EmptyFeedState
 
 
 class HomeScreen:
@@ -21,3 +22,7 @@ class HomeScreen:
     @property
     def breaking_banner(self) -> BreakingBanner:
         return BreakingBanner(self.driver)
+
+    @property
+    def empty_feed_state(self) -> EmptyFeedState:
+        return EmptyFeedState(self.driver)
