@@ -101,27 +101,39 @@ Results and reports are written under the Git-ignored `qa_visual/artifacts/`. Se
 
 ## GitHub Actions: Android build and advisory visual tests
 
-[`.github/workflows/android-build.yml`](.github/workflows/android-build.yml) has two jobs. It runs only when triggered manually (`workflow_dispatch`), uses no secrets, EAS or Expo/Play credentials, and has `contents: read` permission.
+Two independent, manually triggered workflows (`workflow_dispatch` only). Neither uses secrets, EAS or Expo/Play credentials; both use only the built-in `GITHUB_TOKEN`.
 
-1. **`build-debug-apk`:** builds the Android debug APK on `ubuntu-24.04` (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` for x86_64) and uploads `android-debug-apk-x86_64`. Verified: GitHub run #2 passed in 33m 38s.
-2. **`visual-tests` (advisory):** a separate job on a fresh runner. It downloads that APK (no second native build), boots a headless x86_64 emulator, starts Metro and Appium, and runs only `python -m pytest -m visual -v` (the five approved scenarios; no unit tests, no intentional-failure demo). The jobs are separate so the slow native compile is not repeated and a visual or emulator problem never hides a green build.
+| Workflow | File | Purpose | Permissions |
+| --- | --- | --- | --- |
+| Android debug build | [`android-build.yml`](.github/workflows/android-build.yml) | Builds the debug APK on `ubuntu-24.04` (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` x86_64) and uploads `android-debug-apk-x86_64` (kept 7 days). | `contents: read` |
+| Android visual tests (advisory) | [`android-visual-tests.yml`](.github/workflows/android-visual-tests.yml) | Downloads an APK from an earlier build run, boots a headless emulator, starts Metro and Appium and runs only `python -m pytest -m visual -v` (five approved scenarios; no unit tests, no intentional-failure demo). **Never rebuilds the app.** | `contents: read`, `actions: read` |
 
-**Trigger:** GitHub > Actions > "Android debug build" > Run workflow on `main` (or `gh workflow run android-build.yml --ref main`).
+Build and test are separate because the native compile takes about 34 minutes and one APK can be reused for many visual runs.
 
-**Inspect results:** the visual job's **Summary** page shows passed / comparison mismatch / other failure / error / not-executed counts and a per-test classification. Artifacts on the run page:
+**1. Build an APK (when you need a new one):** GitHub > Actions > "Android debug build" > Run workflow on `main`.
+
+**2. Find the run ID:** open the finished build run; the ID is the number in its URL (`.../actions/runs/<run id>`).
+
+**3. Run the visual tests:** Actions > "Android visual tests (advisory)" > Run workflow, enter `source_run_id` (or `gh workflow run android-visual-tests.yml --ref main -f source_run_id=<run id>`).
+
+**4. Re-run on the same APK:** start the visual workflow again with the same run ID while the artifact is still available. Artifacts expire after 7 days; then run the build again and use the new ID.
+
+**Source checks (run first, fail clearly):** the ID must be numeric; the run must belong to this repository, be the Android build workflow and have completed successfully; the artifact must exist, be unexpired and non-empty. The source commit must be an ancestor of the commit under test, and none of these may have changed between them: `app/` (except Markdown), `qa_visual/baselines/`, `demo_assets/`, `visualqa/`, `tests/`, `conftest.py`, `requirements.txt` or `pytest.ini`. Workflow, script and documentation changes do not invalidate an APK. If the check fails, rebuild the APK from the current revision. The source run ID, source commit, visual workflow commit and APK SHA-256 are written to the job summary.
+
+**5. Inspect results:** the visual job's Summary shows passed / comparison mismatch / other failure / error / not-executed counts with the provenance. Artifacts:
 
 | Artifact | Contents | Retention |
 | --- | --- | --- |
 | `visual-evidence` | actual, reference, diff, comparison metadata and retained failure packages | 14 days |
-| `visual-allure-report` | Allure HTML report (open `index.html` through a local server, for example `allure open <dir>`) | 14 days |
+| `visual-allure-report` | Allure HTML report (open `index.html` via a local server, for example `allure open <dir>`) | 14 days |
 | `visual-allure-results` | raw Allure results and JUnit XML | 14 days |
 | `visual-infra-logs` | emulator, Appium, Metro, pytest and logcat logs, environment metadata | 7 days |
 
-**Why visual failures are advisory:** the pytest step may fail without failing the job (`continue-on-error`). The real exit code stays visible: the step shows as failed, an annotation is raised and the summary says so. Setup problems (missing APK, no KVM, emulator not booting, Appium or Metro not ready, app not starting) still fail the job. There are no retries, and goldens and thresholds are never changed by CI.
+**Why visual failures are advisory:** the pytest step has `continue-on-error`, so the job can be green while the step is red. The real exit code stays visible (failed step, warning annotation, summary banner); a green job does not mean five passing comparisons, so read the summary. Setup problems (source checks, artifact download, no KVM, emulator not booting, Appium or Metro not ready, app not starting) fail the job. There are no retries, and CI never changes goldens or thresholds.
 
-**Known cross-environment limitation:** the goldens were reviewed on a Windows-hosted Pixel_10 emulator. CI uses the same API 37 image, 1080x2424, 420 dpi and software rendering (`swiftshader_indirect`; local runs used `-gpu software`), but the host OS, emulator build, image revision, GPU backend and Metro/bundle timing differ. A mismatch is therefore **unresolved**: it may be environment drift, the already-documented intermittent rendering instability, or a real regression. A CI-specific baseline strategy needs separate human review.
+**Cross-environment limitation:** the goldens were reviewed on a Windows-hosted Pixel_10 emulator. CI uses the same API 37 image, 1080x2424, 420 dpi and software rendering (`swiftshader_indirect`; local runs used `-gpu software`), but host OS, emulator build, image revision and GPU backend differ. A mismatch is **unresolved**: environment drift, the documented intermittent rendering instability, or a real regression. A CI-specific baseline strategy needs separate human review.
 
-**Implemented versus verified:** both jobs are implemented; only the build job has been run on GitHub. The emulator/Appium job has not yet been executed on GitHub, so nothing here claims it works or that the goldens match on Linux. It does not validate iOS and does not make visual results a PR requirement.
+**Implemented versus GitHub-verified:** the build workflow passed on GitHub (run #2, 33m 38s). The visual workflow and its source checks are implemented and checked locally only (synthetic cases); they have not run on GitHub, so nothing here claims they work or that the goldens match on Linux. No iOS testing and no required PR check.
 
 ## Documentation
 
