@@ -92,29 +92,58 @@ PY
 grep -E "^(hw\.lcd|hw\.ramSize|image\.sysdir|hw\.device\.name|skin\.)" "$CFG" || true
 echo "::endgroup::"
 
+# ---- ADB authentication: key pair first, then a fresh adb server, then the emulator ----
+here=$(cd "$(dirname "$0")" && pwd)
+for v in ANDROID_USER_HOME ANDROID_SDK_HOME; do
+  if [ -n "${!v:-}" ]; then echo "note: unsetting $v (was set) so adb and the emulator both use \$HOME/.android"; unset "$v"; fi
+done
+bash "$here/init-adb-auth.sh" || exit 1
+# A server started earlier (e.g. by sdkmanager/platform-tools) may have missed the key: restart once.
+timeout 15 adb kill-server > "$LOG_DIR/adb-kill.log" 2>&1 < /dev/null || true
+timeout 30 adb start-server > "$LOG_DIR/adb-start.log" 2>&1 < /dev/null || true  # redirected: daemon must not inherit this pipe
+
 nohup emulator -avd Pixel_10 -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
   -accel on -gpu swiftshader_indirect > "$LOG_DIR/emulator.log" 2>&1 < /dev/null &
 emu=$!
 echo "emulator pid $emu"
 
-# Redirected so the adb daemon does not inherit this step's output pipe.
-timeout 30 adb start-server > "$LOG_DIR/adb-start.log" 2>&1 < /dev/null || true
-deadline=$(( $(date +%s) + 420 ))
-until [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null < /dev/null | tr -d '\r')" = "1" ]; do
+# adb transport state of the emulator: absent | offline | unauthorized | device | other
+adb_state() {
+  timeout 10 adb devices > "$LOG_DIR/adb-devices-poll.txt" 2>&1 < /dev/null || true
+  local s
+  s=$(tr -d '\r' < "$LOG_DIR/adb-devices-poll.txt" | awk '$1 ~ /^emulator-/ { print $2; exit }')
+  echo "${s:-absent}"
+}
+start=$(date +%s); BOOT_TIMEOUT=${BOOT_TIMEOUT:-420}; deadline=$(( start + BOOT_TIMEOUT )); last=""; boot=""
+while :; do
   if ! kill -0 "$emu" 2>/dev/null; then
     status=0; wait "$emu" || status=$?
     echo "--- emulator.log (last 60 lines) ---"; tail -n 60 "$LOG_DIR/emulator.log" || true
     if grep -qE 'error while loading shared libraries|cannot open shared object' "$LOG_DIR/emulator.log"; then
       echo "::error title=Emulator library missing::a shared library could not be loaded (see emulator.log above)"
     fi
-    fail "Emulator exited" "emulator process died before boot completed (exit status $status); see emulator.log above"
+    fail "Emulator process failed" "emulator process died before boot completed (exit status $status); see emulator.log above"
+  fi
+  state=$(adb_state)
+  if [ "$state" != "$last" ]; then echo "[$(( $(date +%s) - start ))s] adb state: $state"; last=$state; fi
+  if [ "$state" = "device" ]; then
+    # Only an authorized transport can answer this.
+    boot=$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null < /dev/null | tr -d '\r' || true)
+    [ "$boot" = "1" ] && break
   fi
   if [ "$(date +%s)" -ge "$deadline" ]; then
     tail -n 40 "$LOG_DIR/emulator.log" || true
-    fail "Emulator boot timeout" "sys.boot_completed not 1 within 420 s"
+    case "$state" in
+      absent)       fail "Emulator alive but no ADB transport" "no emulator-* device in adb devices after ${BOOT_TIMEOUT} s (emulator pid still running)";;
+      offline)      fail "ADB transport offline" "device stayed offline for ${BOOT_TIMEOUT} s";;
+      unauthorized) fail "ADB unauthorized" "device stayed unauthorized for ${BOOT_TIMEOUT} s; check adb key pair (init-adb-auth output) and emulator.log adbkey warnings";;
+      device)       fail "ADB connected but Android not boot-complete" "sys.boot_completed='${boot:-}' after ${BOOT_TIMEOUT} s";;
+      *)            fail "ADB unexpected state" "adb state '$state' after ${BOOT_TIMEOUT} s";;
+    esac
   fi
-  sleep 5
+  sleep "${POLL_INTERVAL:-5}"
 done
+echo "[$(( $(date +%s) - start ))s] sys.boot_completed=1"
 timeout 10 adb devices -l < /dev/null
 size=$(timeout 10 adb shell wm size < /dev/null | tr -d '\r'); dens=$(timeout 10 adb shell wm density < /dev/null | tr -d '\r')
 echo "$size"; echo "$dens"
