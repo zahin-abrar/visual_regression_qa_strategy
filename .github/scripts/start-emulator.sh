@@ -13,6 +13,19 @@ fail() { echo "::error title=$1::$2"; exit 1; }
 
 [ -x "$SDKM" ] && [ -x "$AVDM" ] || fail "cmdline-tools missing" "sdkmanager/avdmanager not found under $ANDROID_HOME/cmdline-tools/latest"
 
+# ---- Command-line Tools diagnostics: the binaries actually invoked below, not just whatever is on PATH ----
+echo "::group::Command-line Tools diagnostics"
+echo "ANDROID_HOME=$ANDROID_HOME"
+echo "JAVA_HOME=${JAVA_HOME:-unset}"; java -version 2>&1 | head -n 1 || true
+echo "PATH sdkmanager: $(command -v sdkmanager || echo none); PATH avdmanager: $(command -v avdmanager || echo none)"
+echo "invoked sdkmanager: $SDKM"; echo "invoked avdmanager: $AVDM"
+echo "cmdline-tools directories: $(ls "$ANDROID_HOME/cmdline-tools" 2>/dev/null | tr '\n' ' ')"
+cli_version() { timeout 60 "$1" --version 2>&1 < /dev/null | tr -d '\r' | grep -E '^[0-9]' | head -n 1 || true; }
+echo "invoked sdkmanager --version: $(cli_version "$SDKM")"
+timeout 90 "$SDKM" --list_installed 2>&1 < /dev/null | grep -E 'cmdline-tools|system-images|emulator|platform-tools' | head -n 12 || true
+echo "selected system image: $IMAGE"
+echo "::endgroup::"
+
 echo "::group::Install emulator package and system image"
 yes | "$SDKM" --licenses > "$LOG_DIR/sdkmanager-licenses.log" 2>&1 || true
 timeout 900 "$SDKM" --install "platform-tools" "emulator" "$IMAGE" > "$LOG_DIR/sdkmanager-install.log" 2>&1 \
@@ -51,17 +64,19 @@ echo "available device definitions: $(wc -l < "$LOG_DIR/avdmanager-devices.txt")
 # Answer avdmanager's "custom hardware profile? [no]" prompt explicitly through a pipe. Only
 # avdmanager's own status counts (printf may see SIGPIPE if avdmanager exits early), and a
 # timeout (124) is reported as such. The whole output is kept in avdmanager-create.log.
-set +e
-printf 'no\n' | timeout -k 5 "${AVD_CREATE_TIMEOUT:-300}" "$AVDM" create avd -n Pixel_10 -k "$IMAGE" --force > "$LOG_DIR/avdmanager-create.log" 2>&1
-create_rc=${PIPESTATUS[1]}
-set -e
-echo "avdmanager create exit status: $create_rc"
-if [ "$create_rc" -ne 0 ]; then
-  cat "$LOG_DIR/avdmanager-create.log"
-  [ "$create_rc" -eq 124 ] && fail "AVD creation timed out" "avdmanager create avd did not finish within ${AVD_CREATE_TIMEOUT:-300} s"
-  fail "AVD creation failed" "avdmanager create avd exited with status $create_rc (output above)"
-fi
-"$AVDM" list avd > "$LOG_DIR/avdmanager-list.txt" 2>&1 || true
+create_avd() {
+  set +e
+  printf 'no\n' | timeout -k 5 "${AVD_CREATE_TIMEOUT:-300}" "$AVDM" create avd -n Pixel_10 -k "$IMAGE" --force > "$LOG_DIR/avdmanager-create.log" 2>&1
+  create_rc=${PIPESTATUS[1]}
+  set -e
+  echo "avdmanager create exit status: $create_rc"
+  if [ "$create_rc" -ne 0 ]; then
+    cat "$LOG_DIR/avdmanager-create.log"
+    [ "$create_rc" -eq 124 ] && fail "AVD creation timed out" "avdmanager create avd did not finish within ${AVD_CREATE_TIMEOUT:-300} s"
+    fail "AVD creation failed" "avdmanager create avd exited with status $create_rc (output above)"
+  fi
+  "$AVDM" list avd > "$LOG_DIR/avdmanager-list.txt" 2>&1 || true
+}
 CFG_DIR="$AVD_HOME/Pixel_10.avd"
 CFG="$CFG_DIR/config.ini"
 INI="$AVD_HOME/Pixel_10.ini"
@@ -69,6 +84,7 @@ echo "AVD home: $AVD_HOME"; echo "registration file: $INI"; echo "AVD config: $C
 dump() { echo "--- avdmanager create output ---"; cat "$LOG_DIR/avdmanager-create.log"
          echo "--- avdmanager list avd ---"; cat "$LOG_DIR/avdmanager-list.txt"
          echo "--- contents of $AVD_HOME ---"; ls -la "$AVD_HOME" 2>&1 || true; }
+verify_registered() {
 [ -f "$CFG" ] || { dump; fail "AVD not created" "avdmanager exited 0 but $CFG does not exist (output above)"; }
 [ -f "$INI" ] || { dump; fail "AVD not registered" "$INI does not exist; the emulator discovers AVDs through this file"; }
 reg_path=$(sed -n 's/^path=//p' "$INI" | tr -d '\r' | head -n 1)
@@ -78,6 +94,65 @@ timeout 30 emulator -list-avds > "$LOG_DIR/emulator-list-avds.txt" 2>&1 < /dev/n
 grep -qx 'Pixel_10' "$LOG_DIR/emulator-list-avds.txt" \
   || { dump; echo "--- emulator -list-avds ---"; cat "$LOG_DIR/emulator-list-avds.txt"; fail "AVD not visible to emulator" "emulator -list-avds (ANDROID_AVD_HOME=$ANDROID_AVD_HOME) does not list Pixel_10"; }
 echo "emulator -list-avds: $(tr '\n' ' ' < "$LOG_DIR/emulator-list-avds.txt")"
+}
+
+# API 37 metadata check. Older Command-line Tools are reported (runner-images issue 14484) to write
+# target=android-0 for android-37.0 images; such an AVD later crashes surfaceflinger. Never patched by hand.
+EXPECTED_TARGET="android-37.0"
+EXPECTED_SYSDIR="system-images/android-37.0/google_apis_playstore_ps16k/x86_64"
+META_ERR=""
+check_target() {
+  META_ERR=""
+  local t sd
+  t=$(sed -n 's/^target=//p' "$INI" | tr -d '\r' | head -n 1)
+  sd=$(sed -n 's/^image\.sysdir\.1=//p' "$CFG" | tr -d '\r' | head -n 1)
+  sd=${sd//\\//}; sd=${sd%/}
+  echo "AVD metadata: $INI target='${t:-<absent>}'; $CFG image.sysdir.1='${sd:-<absent>}'"
+  if [ -z "$t" ]; then META_ERR="target= is absent from $INI"
+  elif [ "$t" = "android-0" ]; then META_ERR="target=android-0 in $INI (expected $EXPECTED_TARGET); typical of Command-line Tools that do not understand dotted API 37.0 targets"
+  elif [ "$t" != "$EXPECTED_TARGET" ]; then META_ERR="target='$t' in $INI, expected '$EXPECTED_TARGET' (another API level)"
+  elif [ -z "$sd" ]; then META_ERR="image.sysdir.1 is absent from $CFG"
+  elif [ "$sd" != "$EXPECTED_SYSDIR" ]; then META_ERR="image.sysdir.1='$sd' in $CFG, expected '$EXPECTED_SYSDIR'"
+  fi
+  [ -z "$META_ERR" ]
+}
+
+# Select Command-line Tools 22.0 (understands android-37.0). Versioned location, explicit binaries;
+# any cmdline-tools/* directory whose sdkmanager reports 22.0 is accepted (covers a latest-2 layout).
+CLI_WANTED="22.0"
+find_cli_wanted() {
+  local d v
+  for d in "$ANDROID_HOME"/cmdline-tools/*/; do
+    [ -x "${d}bin/sdkmanager" ] && [ -x "${d}bin/avdmanager" ] || continue
+    v=$(cli_version "${d}bin/sdkmanager")
+    case "$v" in "$CLI_WANTED"*) echo "${d%/}"; return 0;; esac
+  done
+  return 1
+}
+select_cli_wanted() {
+  local dir
+  if ! dir=$(find_cli_wanted); then
+    echo "installing cmdline-tools;$CLI_WANTED (current invoked version: $(cli_version "$SDKM"))"
+    timeout 600 "$SDKM" --install "cmdline-tools;$CLI_WANTED" > "$LOG_DIR/sdkmanager-cli-install.log" 2>&1 < /dev/null \
+      || { tail -n 20 "$LOG_DIR/sdkmanager-cli-install.log"; fail "Command-line Tools install failed" "could not install cmdline-tools;$CLI_WANTED (see sdkmanager-cli-install.log)"; }
+    dir=$(find_cli_wanted) || fail "Command-line Tools $CLI_WANTED not found" "installed cmdline-tools;$CLI_WANTED but no cmdline-tools/*/bin/sdkmanager reports $CLI_WANTED; found: $(ls "$ANDROID_HOME/cmdline-tools" | tr '\n' ' ')"
+  fi
+  SDKM="$dir/bin/sdkmanager"; AVDM="$dir/bin/avdmanager"
+  echo "using Command-line Tools $CLI_WANTED: $AVDM (version $(cli_version "$SDKM"))"
+}
+
+create_avd
+verify_registered
+if ! check_target; then
+  echo "::warning title=AVD metadata::$META_ERR"
+  case "$(cli_version "$SDKM")" in "$CLI_WANTED"*) fail "AVD target metadata wrong" "$META_ERR; Command-line Tools $CLI_WANTED already in use, so this is not the old-CLI problem";; esac
+  echo "Command-line Tools $(cli_version "$SDKM") produced incorrect metadata; switching to $CLI_WANTED and recreating the AVD"
+  select_cli_wanted
+  create_avd
+  verify_registered
+  check_target || fail "AVD target metadata wrong" "$META_ERR (even with Command-line Tools $CLI_WANTED)"
+fi
+echo "AVD metadata verified: target=$EXPECTED_TARGET, image matches $IMAGE"
 python3 - "$CFG" <<'PY'
 import sys
 p = sys.argv[1]
@@ -150,3 +225,7 @@ echo "$size"; echo "$dens"
 case "$size" in *"1080x2424"*) ;; *) fail "Display mismatch" "expected 1080x2424, got: $size";; esac
 case "$dens" in *"420"*) ;; *) fail "Density mismatch" "expected 420 dpi, got: $dens";; esac
 timeout 10 adb get-serialno < /dev/null
+
+# Post-boot stabilization gate: boot_completed alone is not proof of a healthy system (surfaceflinger
+# and system_server crashed seconds after boot in a real run). Bounded observation window.
+EMU_PID="$emu" bash "$here/post-boot-health.sh" || exit 1

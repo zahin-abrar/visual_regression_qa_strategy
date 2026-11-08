@@ -128,7 +128,7 @@ jobs:
       - name: "Setup 5/5: install APK, start Metro and Appium, check readiness"
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          adb install -r -g "$APK_PATH"
+          bash .github/scripts/install-apk.sh
           adb shell pm list packages de.volksverpetzer.app | grep -x "package:de.volksverpetzer.app"
 
           (cd app && nohup pnpm exec expo start --dev-client --localhost --port 8081 --clear \
