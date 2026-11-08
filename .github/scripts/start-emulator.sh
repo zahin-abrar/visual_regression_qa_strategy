@@ -41,12 +41,31 @@ echo "::group::Create AVD"
 # Log what exists, then create the AVD WITHOUT --device: the golden display is forced explicitly below.
 "$AVDM" list device -c > "$LOG_DIR/avdmanager-devices.txt" 2>&1 || true
 echo "available device definitions: $(wc -l < "$LOG_DIR/avdmanager-devices.txt")"
-"$AVDM" create avd -n Pixel_10 -k "$IMAGE" --force <<< "no" >"$LOG_DIR/avdmanager-create.log" 2>&1 \
-  || { cat "$LOG_DIR/avdmanager-create.log"; fail "AVD creation failed" "avdmanager create avd exited nonzero"; }
-CFG="$HOME/.android/avd/Pixel_10.avd/config.ini"
-[ -f "$CFG" ] || { cat "$LOG_DIR/avdmanager-create.log"; fail "AVD not created" "$CFG does not exist"; }
+# Answer avdmanager's "custom hardware profile? [no]" prompt explicitly through a pipe. Only
+# avdmanager's own status counts (printf may see SIGPIPE if avdmanager exits early), and a
+# timeout (124) is reported as such. The whole output is kept in avdmanager-create.log.
+set +e
+printf 'no\n' | timeout -k 5 "${AVD_CREATE_TIMEOUT:-300}" "$AVDM" create avd -n Pixel_10 -k "$IMAGE" --force > "$LOG_DIR/avdmanager-create.log" 2>&1
+create_rc=${PIPESTATUS[1]}
+set -e
+echo "avdmanager create exit status: $create_rc"
+if [ "$create_rc" -ne 0 ]; then
+  cat "$LOG_DIR/avdmanager-create.log"
+  [ "$create_rc" -eq 124 ] && fail "AVD creation timed out" "avdmanager create avd did not finish within ${AVD_CREATE_TIMEOUT:-300} s"
+  fail "AVD creation failed" "avdmanager create avd exited with status $create_rc (output above)"
+fi
 "$AVDM" list avd > "$LOG_DIR/avdmanager-list.txt" 2>&1 || true
-grep -q 'Name: Pixel_10' "$LOG_DIR/avdmanager-list.txt" || fail "AVD not listed" "avdmanager list avd does not show Pixel_10"
+# Locate the AVD from avdmanager itself, falling back to the default location.
+CFG_DIR=$(awk '/Name: Pixel_10/{f=1} f && /Path:/{sub(/^[[:space:]]*Path:[[:space:]]*/,""); print; exit}' "$LOG_DIR/avdmanager-list.txt" | tr -d '\r')
+[ -n "$CFG_DIR" ] || CFG_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/Pixel_10.avd"
+CFG="$CFG_DIR/config.ini"
+echo "AVD config: $CFG"
+if [ ! -f "$CFG" ]; then
+  echo "--- avdmanager create output ---"; cat "$LOG_DIR/avdmanager-create.log"
+  echo "--- avdmanager list avd ---"; cat "$LOG_DIR/avdmanager-list.txt"
+  fail "AVD not created" "avdmanager exited 0 but $CFG does not exist (output above)"
+fi
+grep -q 'Name: Pixel_10' "$LOG_DIR/avdmanager-list.txt" || { cat "$LOG_DIR/avdmanager-list.txt"; fail "AVD not listed" "avdmanager list avd does not show Pixel_10"; }
 python3 - "$CFG" <<'PY'
 import sys
 p = sys.argv[1]
