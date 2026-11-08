@@ -25,10 +25,15 @@ echo "::endgroup::"
 emulator -version > "$LOG_DIR/emulator-version.txt" 2>&1 \
   || { cat "$LOG_DIR/emulator-version.txt"; fail "emulator cannot run" "see output above (missing shared library?)"; }
 head -n 3 "$LOG_DIR/emulator-version.txt"
+# Optional diagnostic only. The emulator launcher sets the library search path for its bundled
+# qemu engine, so a bare ldd reports bundled libraries as "not found" on a healthy install.
+# This is an observation, never a failure; real library problems surface when the emulator starts.
 qemu=$(ls "$ANDROID_HOME"/emulator/qemu/linux-x86_64/qemu-system-x86_64* 2>/dev/null | head -n 1 || true)
-if [ -n "$qemu" ] && ldd "$qemu" 2>&1 | grep -q 'not found'; then
-  ldd "$qemu" | grep 'not found'
-  fail "emulator libraries missing" "unresolved shared libraries listed above"
+if [ -n "$qemu" ]; then
+  ldd_path="$ANDROID_HOME/emulator/lib64:$ANDROID_HOME/emulator/lib64/qt/lib:$ANDROID_HOME/emulator/lib64/gles_swiftshader"
+  { echo "# bare ldd (no launcher environment)"; ldd "$qemu" 2>&1 || true
+    echo "# ldd with approximate launcher LD_LIBRARY_PATH"; LD_LIBRARY_PATH="$ldd_path" ldd "$qemu" 2>&1 || true; }     > "$LOG_DIR/emulator-ldd.txt"
+  echo "ldd observation (informational, not a verdict): $(grep -c 'not found' "$LOG_DIR/emulator-ldd.txt" || true) 'not found' lines, see emulator-ldd.txt"
 fi
 
 echo "::group::Create AVD"
@@ -66,8 +71,12 @@ timeout 30 adb start-server > "$LOG_DIR/adb-start.log" 2>&1 < /dev/null || true
 deadline=$(( $(date +%s) + 420 ))
 until [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null < /dev/null | tr -d '\r')" = "1" ]; do
   if ! kill -0 "$emu" 2>/dev/null; then
-    tail -n 40 "$LOG_DIR/emulator.log" || true
-    fail "Emulator exited" "emulator process died before boot completed; see emulator.log above"
+    status=0; wait "$emu" || status=$?
+    echo "--- emulator.log (last 60 lines) ---"; tail -n 60 "$LOG_DIR/emulator.log" || true
+    if grep -qE 'error while loading shared libraries|cannot open shared object' "$LOG_DIR/emulator.log"; then
+      echo "::error title=Emulator library missing::a shared library could not be loaded (see emulator.log above)"
+    fi
+    fail "Emulator exited" "emulator process died before boot completed (exit status $status); see emulator.log above"
   fi
   if [ "$(date +%s)" -ge "$deadline" ]; then
     tail -n 40 "$LOG_DIR/emulator.log" || true
