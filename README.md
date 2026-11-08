@@ -99,14 +99,29 @@ allure open artifacts/allure-report/visual
 
 Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. No CI job has run.
 
-## GitHub Actions: Android debug build
+## GitHub Actions: Android build and advisory visual tests
 
-The workflow [`.github/workflows/android-build.yml`](.github/workflows/android-build.yml) builds the Android debug APK on a GitHub-hosted Ubuntu runner from committed files only (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` for x86_64). It needs no secrets, EAS or Expo/Play credentials.
+[`.github/workflows/android-build.yml`](.github/workflows/android-build.yml) has two jobs. It runs only when triggered manually (`workflow_dispatch`), uses no secrets, EAS or Expo/Play credentials, and has `contents: read` permission.
 
-- **Trigger:** manual only. On GitHub open **Actions > Android debug build > Run workflow**, or run `gh workflow run android-build.yml --ref main`.
-- **Result:** the run page lists the artifact `android-debug-apk-x86_64` (`app-debug.apk`, kept 7 days).
-- **Verifies:** the committed app files install, prebuild and compile into a debug APK on Linux.
-- **Does not verify:** it starts no emulator, runs no Appium or visual tests, validates no golden references, and does not install or launch the APK. A green run says nothing about visual correctness. Tool versions come from `app/.nvmrc`, `packageManager` in `app/package.json` and Java 17; the first GitHub-hosted run has not been executed yet.
+1. **`build-debug-apk`:** builds the Android debug APK on `ubuntu-24.04` (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` for x86_64) and uploads `android-debug-apk-x86_64`. Verified: GitHub run #2 passed in 33m 38s.
+2. **`visual-tests` (advisory):** a separate job on a fresh runner. It downloads that APK (no second native build), boots a headless x86_64 emulator, starts Metro and Appium, and runs only `python -m pytest -m visual -v` (the five approved scenarios; no unit tests, no intentional-failure demo). The jobs are separate so the slow native compile is not repeated and a visual or emulator problem never hides a green build.
+
+**Trigger:** GitHub > Actions > "Android debug build" > Run workflow on `main` (or `gh workflow run android-build.yml --ref main`).
+
+**Inspect results:** the visual job's **Summary** page shows passed / comparison mismatch / other failure / error / not-executed counts and a per-test classification. Artifacts on the run page:
+
+| Artifact | Contents | Retention |
+| --- | --- | --- |
+| `visual-evidence` | actual, reference, diff, comparison metadata and retained failure packages | 14 days |
+| `visual-allure-report` | Allure HTML report (open `index.html` through a local server, for example `allure open <dir>`) | 14 days |
+| `visual-allure-results` | raw Allure results and JUnit XML | 14 days |
+| `visual-infra-logs` | emulator, Appium, Metro, pytest and logcat logs, environment metadata | 7 days |
+
+**Why visual failures are advisory:** the pytest step may fail without failing the job (`continue-on-error`). The real exit code stays visible: the step shows as failed, an annotation is raised and the summary says so. Setup problems (missing APK, no KVM, emulator not booting, Appium or Metro not ready, app not starting) still fail the job. There are no retries, and goldens and thresholds are never changed by CI.
+
+**Known cross-environment limitation:** the goldens were reviewed on a Windows-hosted Pixel_10 emulator. CI uses the same API 37 image, 1080x2424, 420 dpi and software rendering (`swiftshader_indirect`; local runs used `-gpu software`), but the host OS, emulator build, image revision, GPU backend and Metro/bundle timing differ. A mismatch is therefore **unresolved**: it may be environment drift, the already-documented intermittent rendering instability, or a real regression. A CI-specific baseline strategy needs separate human review.
+
+**Implemented versus verified:** both jobs are implemented; only the build job has been run on GitHub. The emulator/Appium job has not yet been executed on GitHub, so nothing here claims it works or that the goldens match on Linux. It does not validate iOS and does not make visual results a PR requirement.
 
 ## Documentation
 

@@ -123,3 +123,213 @@ jobs:
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Stage 2 (ADVISORY): run the five approved Appium visual tests on a headless
+  # x86_64 emulator using the APK built above. Setup failures fail the job;
+  # pytest failures are reported loudly but do not fail the job. Linux emulator
+  # output has never been compared with the Windows-reviewed goldens before.
+  # ---------------------------------------------------------------------------
+  visual-tests:
+    name: Visual tests (advisory, emulator API 37)
+    needs: build-debug-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      NODE_OPTIONS: --dns-result-order=ipv4first
+      LOG_DIR: ${{ github.workspace }}/ci-logs
+      APK_PATH: ${{ github.workspace }}/apk/app-debug.apk
+      VVP_GOLDEN_PROFILE: pixel10-api37
+      APPIUM_VERSION: "3.3.0"
+      UIAUTOMATOR2_VERSION: "7.1.2"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare log directory
+        run: mkdir -p "$LOG_DIR"
+
+      - name: Download debug APK from the build job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-debug-apk-x86_64
+          path: apk
+
+      - name: Verify APK
+        run: |
+          if [ ! -s "$APK_PATH" ]; then
+            echo "::error title=APK missing::expected $APK_PATH from artifact android-debug-apk-x86_64"
+            ls -lR apk || true
+            exit 1
+          fi
+          ls -l "$APK_PATH"; sha256sum "$APK_PATH"
+
+      - name: Check KVM acceleration
+        run: bash .github/scripts/enable-kvm.sh
+
+      - name: Set up Java 17
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: app/package.json
+
+      - name: Set up Node (app/.nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: app/.nvmrc
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: qa_visual/requirements.txt
+
+      - name: "Setup 1/5: Python dependencies (qa_visual/requirements.txt)"
+        run: python -m pip install -r qa_visual/requirements.txt
+
+      - name: "Setup 2/5: app dependencies for Metro (no prebuild, no Gradle)"
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: "Setup 3/5: Appium and UiAutomator2 (pinned)"
+        run: |
+          npm install -g "appium@${APPIUM_VERSION}"
+          appium driver install "uiautomator2@${UIAUTOMATOR2_VERSION}"
+          appium driver list --installed
+
+      - name: "Setup 4/5: boot headless emulator (API 37, 1080x2424, 420 dpi)"
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          bash .github/scripts/start-emulator.sh
+
+      - name: "Setup 5/5: install APK, start Metro and Appium, check readiness"
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          adb install -r -g "$APK_PATH"
+          adb shell pm list packages de.volksverpetzer.app | grep -x "package:de.volksverpetzer.app"
+
+          (cd app && nohup pnpm exec expo start --dev-client --localhost --port 8081 --clear \
+            > "$LOG_DIR/metro.log" 2>&1 &)
+          nohup appium --address 127.0.0.1 --port 4723 --log "$LOG_DIR/appium.log" \
+            > "$LOG_DIR/appium.stdout.log" 2>&1 &
+          bash .github/scripts/wait-http.sh Metro http://127.0.0.1:8081/status 240 packager-status:running
+          bash .github/scripts/wait-http.sh Appium http://127.0.0.1:4723/status 120 '"ready":true'
+          adb reverse tcp:8081 tcp:8081
+
+          # Warm the first JS bundle so the first test is not slowed by bundling (bounded, best effort).
+          url=$(curl -fsS --max-time 30 -H 'expo-platform: android' -H 'Accept: application/expo+json,application/json' \
+            http://127.0.0.1:8081/ | python3 -c 'import json,sys; print(json.load(sys.stdin)["launchAsset"]["url"])') || url=""
+          if [ -n "$url" ]; then
+            curl -fsS --max-time 600 -o /dev/null "$url" && echo "Metro bundle warmed" \
+              || echo "::warning::Metro bundle warm-up failed; first test may be slow"
+          else
+            echo "::warning::could not read Metro manifest; skipping bundle warm-up"
+          fi
+
+          # Confirm the intended app starts (bounded).
+          adb shell am start -n de.volksverpetzer.app/.MainActivity
+          for i in $(seq 1 20); do
+            if adb shell pidof de.volksverpetzer.app >/dev/null 2>&1; then echo "app process is running"; exit 0; fi
+            sleep 3
+          done
+          echo "::error title=App did not start::de.volksverpetzer.app has no process 60 s after launch"
+          exit 1
+
+      - name: Record environment metadata
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          bash .github/scripts/collect-env.sh
+
+      # ADVISORY phase. continue-on-error keeps the real exit code visible (the step shows as
+      # failed) without failing the job. Nothing here retries, edits goldens or changes thresholds.
+      - name: Run visual tests (advisory)
+        id: pytest
+        continue-on-error: true
+        working-directory: qa_visual
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          set +e
+          python -m pytest -m visual -v \
+            --alluredir=artifacts/allure-results/ci --clean-alluredir \
+            --junitxml=artifacts/junit/visual.xml 2>&1 | tee "$LOG_DIR/pytest.log"
+          rc=${PIPESTATUS[0]}
+          echo "PYTEST_RC=$rc" >> "$GITHUB_ENV"
+          echo "pytest exit code: $rc"
+          exit "$rc"
+
+      - name: Summarize results
+        if: ${{ always() && !cancelled() }}
+        working-directory: qa_visual
+        env:
+          EXPECTED_VISUAL: "5"
+        run: |
+          PYTEST_RC="${PYTEST_RC:-not-run}" python ../.github/scripts/visual-summary.py artifacts/junit/visual.xml
+          if [ "${PYTEST_RC:-not-run}" != "0" ]; then
+            echo "::warning title=Advisory visual failure::pytest exit code ${PYTEST_RC:-not-run}; see job summary and artifacts. Not blocking."
+          fi
+
+      - name: Generate Allure HTML report
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        working-directory: qa_visual
+        run: |
+          npm install -g allure-commandline@2.36.0
+          allure generate artifacts/allure-results/ci -o artifacts/allure-report/ci --clean
+
+      - name: Collect final logs
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        run: |
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          adb logcat -d -t 4000 > "$LOG_DIR/logcat-tail.txt" 2>&1 || true
+          bash .github/scripts/disk-report.sh "visual job end" > "$LOG_DIR/disk-report.txt" 2>&1 || true
+
+      - name: Upload failure evidence and comparison images
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-evidence
+          path: qa_visual/artifacts/android/${{ env.VVP_GOLDEN_PROFILE }}
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Allure raw results
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-allure-results
+          path: |
+            qa_visual/artifacts/allure-results/ci
+            qa_visual/artifacts/junit/visual.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Allure HTML report
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-allure-report
+          path: qa_visual/artifacts/allure-report/ci
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload infrastructure logs
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-infra-logs
+          path: ci-logs
+          if-no-files-found: warn
+          retention-days: 7
