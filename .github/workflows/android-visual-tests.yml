@@ -116,6 +116,10 @@ jobs:
           appium driver install "uiautomator2@${UIAUTOMATOR2_VERSION}"
           appium driver list --installed
 
+      - name: "Setup 4a/5: emulator runtime library (libpulse0)"
+        timeout-minutes: 10
+        run: bash .github/scripts/install-emulator-deps.sh
+
       - name: "Setup 4/5: boot headless emulator (API 37, 1080x2424, 420 dpi)"
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
@@ -195,13 +199,13 @@ jobs:
           npm install -g allure-commandline@2.36.0
           allure generate artifacts/allure-results/ci -o artifacts/allure-report/ci --clean
 
-      - name: Collect final logs
+      - name: Collect final logs (bounded, best effort)
         if: ${{ always() && !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 4
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          adb logcat -d -t 4000 > "$LOG_DIR/logcat-tail.txt" 2>&1 || true
-          bash .github/scripts/disk-report.sh "visual job end" > "$LOG_DIR/disk-report.txt" 2>&1 || true
+          bash .github/scripts/collect-final-logs.sh
 
       - name: Upload failure evidence and comparison images
         if: ${{ always() && !cancelled() }}

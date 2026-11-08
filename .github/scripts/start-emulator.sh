@@ -1,27 +1,47 @@
 #!/usr/bin/env bash
 # Create and boot ONE headless AVD "Pixel_10" mirroring the golden profile pixel10-api37
-# (API 37 Google Play 16 KB x86_64 image, 1080x2424 @ 420 dpi). Bounded waits only.
-set -eu
+# (API 37 Google Play 16 KB x86_64 image, 1080x2424 @ 420 dpi). Bounded waits; every error propagates.
+set -euo pipefail
 : "${ANDROID_HOME:?ANDROID_HOME not set}" "${LOG_DIR:?LOG_DIR not set}"
 IMAGE="system-images;android-37.0;google_apis_playstore_ps16k;x86_64"
+IMAGE_DIR="$ANDROID_HOME/system-images/android-37.0/google_apis_playstore_ps16k/x86_64"
 SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
 export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 mkdir -p "$LOG_DIR"
+fail() { echo "::error title=$1::$2"; exit 1; }
+
+[ -x "$SDKM" ] && [ -x "$AVDM" ] || fail "cmdline-tools missing" "sdkmanager/avdmanager not found under $ANDROID_HOME/cmdline-tools/latest"
 
 echo "::group::Install emulator package and system image"
-yes | "$SDKM" --licenses >/dev/null 2>&1 || true
-"$SDKM" --install "platform-tools" "emulator" "$IMAGE" 2>&1 | tail -n 25
+yes | "$SDKM" --licenses > "$LOG_DIR/sdkmanager-licenses.log" 2>&1 || true
+timeout 900 "$SDKM" --install "platform-tools" "emulator" "$IMAGE" > "$LOG_DIR/sdkmanager-install.log" 2>&1 \
+  || { tail -n 30 "$LOG_DIR/sdkmanager-install.log"; fail "sdkmanager install failed" "could not install emulator or $IMAGE"; }
+tail -n 10 "$LOG_DIR/sdkmanager-install.log"
 echo "::endgroup::"
-emulator -version 2>&1 | head -n 3 || true
+[ -f "$IMAGE_DIR/system.img" ] || fail "System image missing" "$IMAGE_DIR/system.img not found after install; API level is not switched silently"
+
+# The emulator binary must load (this is where a missing libpulse.so.0 shows up).
+emulator -version > "$LOG_DIR/emulator-version.txt" 2>&1 \
+  || { cat "$LOG_DIR/emulator-version.txt"; fail "emulator cannot run" "see output above (missing shared library?)"; }
+head -n 3 "$LOG_DIR/emulator-version.txt"
+qemu=$(ls "$ANDROID_HOME"/emulator/qemu/linux-x86_64/qemu-system-x86_64* 2>/dev/null | head -n 1 || true)
+if [ -n "$qemu" ] && ldd "$qemu" 2>&1 | grep -q 'not found'; then
+  ldd "$qemu" | grep 'not found'
+  fail "emulator libraries missing" "unresolved shared libraries listed above"
+fi
 
 echo "::group::Create AVD"
-# The pixel_10 hardware profile may be missing from older cmdline-tools; the display is forced below anyway.
-if ! echo no | "$AVDM" create avd -n Pixel_10 -k "$IMAGE" --device pixel_10 --force 2>&1; then
-  echo "pixel_10 device definition unavailable; falling back to pixel_9 and overriding display"
-  echo no | "$AVDM" create avd -n Pixel_10 -k "$IMAGE" --device pixel_9 --force
-fi
+# Device definitions differ between cmdline-tools releases; pixel_9/pixel_10 are not guaranteed.
+# Log what exists, then create the AVD WITHOUT --device: the golden display is forced explicitly below.
+"$AVDM" list device -c > "$LOG_DIR/avdmanager-devices.txt" 2>&1 || true
+echo "available device definitions: $(wc -l < "$LOG_DIR/avdmanager-devices.txt")"
+"$AVDM" create avd -n Pixel_10 -k "$IMAGE" --force <<< "no" >"$LOG_DIR/avdmanager-create.log" 2>&1 \
+  || { cat "$LOG_DIR/avdmanager-create.log"; fail "AVD creation failed" "avdmanager create avd exited nonzero"; }
 CFG="$HOME/.android/avd/Pixel_10.avd/config.ini"
+[ -f "$CFG" ] || { cat "$LOG_DIR/avdmanager-create.log"; fail "AVD not created" "$CFG does not exist"; }
+"$AVDM" list avd > "$LOG_DIR/avdmanager-list.txt" 2>&1 || true
+grep -q 'Name: Pixel_10' "$LOG_DIR/avdmanager-list.txt" || fail "AVD not listed" "avdmanager list avd does not show Pixel_10"
 python3 - "$CFG" <<'PY'
 import sys
 p = sys.argv[1]
@@ -37,22 +57,27 @@ grep -E "^(hw\.lcd|hw\.ramSize|image\.sysdir|hw\.device\.name|skin\.)" "$CFG" ||
 echo "::endgroup::"
 
 nohup emulator -avd Pixel_10 -no-window -no-audio -no-boot-anim -no-snapshot -no-metrics \
-  -accel on -gpu swiftshader_indirect > "$LOG_DIR/emulator.log" 2>&1 &
-echo "emulator pid $!"
+  -accel on -gpu swiftshader_indirect > "$LOG_DIR/emulator.log" 2>&1 < /dev/null &
+emu=$!
+echo "emulator pid $emu"
 
-adb start-server
+# Redirected so the adb daemon does not inherit this step's output pipe.
+timeout 30 adb start-server > "$LOG_DIR/adb-start.log" 2>&1 < /dev/null || true
 deadline=$(( $(date +%s) + 420 ))
-until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
-  if [ "$(date +%s)" -ge "$deadline" ]; then
-    echo "::error title=Emulator boot timeout::sys.boot_completed not 1 within 420 s; see emulator.log in the infrastructure artifact"
+until [ "$(timeout 10 adb shell getprop sys.boot_completed 2>/dev/null < /dev/null | tr -d '\r')" = "1" ]; do
+  if ! kill -0 "$emu" 2>/dev/null; then
     tail -n 40 "$LOG_DIR/emulator.log" || true
-    exit 1
+    fail "Emulator exited" "emulator process died before boot completed; see emulator.log above"
+  fi
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    tail -n 40 "$LOG_DIR/emulator.log" || true
+    fail "Emulator boot timeout" "sys.boot_completed not 1 within 420 s"
   fi
   sleep 5
 done
-adb devices -l
-size=$(adb shell wm size | tr -d '\r'); dens=$(adb shell wm density | tr -d '\r')
+timeout 10 adb devices -l < /dev/null
+size=$(timeout 10 adb shell wm size < /dev/null | tr -d '\r'); dens=$(timeout 10 adb shell wm density < /dev/null | tr -d '\r')
 echo "$size"; echo "$dens"
-case "$size" in *"1080x2424"*) ;; *) echo "::error title=Display mismatch::expected 1080x2424, got: $size"; exit 1;; esac
-case "$dens" in *"420"*) ;; *) echo "::error title=Density mismatch::expected 420 dpi, got: $dens"; exit 1;; esac
-adb get-serialno
+case "$size" in *"1080x2424"*) ;; *) fail "Display mismatch" "expected 1080x2424, got: $size";; esac
+case "$dens" in *"420"*) ;; *) fail "Density mismatch" "expected 420 dpi, got: $dens";; esac
+timeout 10 adb get-serialno < /dev/null
