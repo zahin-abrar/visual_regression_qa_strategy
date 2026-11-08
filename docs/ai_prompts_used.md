@@ -154,3 +154,34 @@ Verified result, with `VVP_QA_LAUNCH_URL` unset:
 - Unit tests: 41 passed.
 - Golden and demo hashes are unchanged.
 - One strategy sentence was updated and the 2-page PDF regenerated and inspected.
+
+
+## EXEC-036 - Golden candidate workflow and configuration audit
+
+Request: verify fresh native candidate generation for the five Android scenarios,
+rehearse human-authorized promotion using temporary files, audit environment configuration,
+and clarify the README without changing references, fixtures, thresholds or architecture.
+
+Changes: the runner README now gives a scenario-parameterized capture/review/promotion
+procedure, preserves fresh evidence, requires an approved SHA-256 plus explicit confirmation,
+backs up an existing reference and rejects existing backups. It documents runner defaults,
+override precedence, the separate Expo configuration and future CI job variables. The root
+README links directly to these steps. No dotenv package, configuration example or runtime
+helper was needed. Two stale scenario-scope sentences were corrected.
+
+Verification: all five fresh native comparisons passed with zero changed pixels in the
+default run (46 passed, one intentional demo deselected, exit 0). The README breaking-news
+capture block separately passed (exit 0). Its 1028x493 RGBA PNG, context and diff were inspected.
+Promotion was rehearsed only in ignored temporary files: absent/existing destination,
+backup integrity, wrong hash, declined authorization and existing-backup refusal all passed.
+The post-copy comparator returned zero differences. A direct comparator check of the new
+capture against the unchanged intentional mismatch asset failed as expected (468349/506804
+pixels, exit 1); the intentional pytest test itself was not rerun. Unit tests: 41 passed;
+collection: 46 selected, one deselected. All six protected reference hashes are unchanged.
+
+Limitations: default pytest emitted a Windows permission error during old system-temp
+cleanup after passing; a unit rerun using a local ignored basetemp was clean. PyCharm GUI,
+CI and iOS were not executed. Endpoint validation is partial, and tolerance environment
+overrides apply to four normal tests but not breaking_news; these pre-existing behaviors
+are documented without changing the approved policy. No actual baseline promotion, staging,
+commit or push occurred. The strategy remains accurate and was not changed.

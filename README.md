@@ -60,6 +60,14 @@ In PyCharm, the normal Run action on a visual test file works with the `qa_visua
 
 For emulator, app, Appium, Python environment, golden review and troubleshooting instructions, see [qa_visual/README.md](qa_visual/README.md).
 
+To regenerate a candidate, run the corresponding `test_<scenario>.py` command above;
+it saves a fresh native `artifacts/android/pixel10-api37/<scenario>.actual.png` and
+context before comparison. Follow the [capture, human review and safe promotion steps](qa_visual/README.md#review-and-manually-promote-a-replacement)
+to preserve evidence, approve its hash and back up an existing reference before replacement.
+Tests never update goldens. Runner defaults require no `.env` file; see the
+[configuration inventory](qa_visual/README.md#configuration-ownership-and-precedence)
+for optional environment overrides and future CI usage.
+
 ## Documentation
 
 - [Android runner, setup and golden workflow](qa_visual/README.md)

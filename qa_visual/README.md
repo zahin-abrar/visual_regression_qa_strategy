@@ -159,6 +159,68 @@ Verified in EXEC-035 (local Pixel_10/API 37, not CI) with `VVP_QA_LAUNCH_URL` un
 - A stale `VVP_QA_LAUNCH_URL` (`long_headline` for the `breaking_news` test) failed
   immediately with the conflict message. A matching URL passed.
 
+### Configuration ownership and precedence
+
+**No runner `.env` file is needed or loaded.** Python reads the inherited process
+environment when creating a driver or executing a test. PyCharm Run works with the
+existing interpreter and defaults; optional overrides belong in its run configuration's
+environment field. The CLI equivalent was verified; the PyCharm GUI itself was not.
+An extra `.env.example` or dotenv dependency would duplicate this table without adding
+loading behavior, so neither is introduced.
+
+| Runner variable | Default | Effect / validation |
+| --- | --- | --- |
+| `VVP_METRO_HOST` | `127.0.0.1` | Host inserted into the development-client URL. Must be reachable from Android. |
+| `VVP_METRO_PORT` | `8081` | Port inserted into that URL; does not start or configure Metro or ADB reverse. |
+| `VVP_QA_LAUNCH_URL` | unset | Compatibility override, not required. Nonempty full URL takes precedence over host/port; exactly one matching `qa_scenario` is required before opening Appium. Empty value uses generated URL. |
+| `VVP_APPIUM_URL` | `http://127.0.0.1:4723` | Existing Appium endpoint; server address/port are configured separately at server startup. |
+| `VVP_ANDROID_DEVICE` | `Pixel_10` | Appium device name. |
+| `VVP_ANDROID_UDID` | `emulator-5554` | Actual Android target. |
+| `VVP_ANDROID_PACKAGE` | `de.volksverpetzer.app` | Installed package, termination and package-aware locators. Does not install an APK. |
+| `VVP_ANDROID_ACTIVITY` | `.MainActivity` | Appium capability; explicit scenario launch uses the development-client URL. |
+| `VVP_GOLDEN_PROFILE` | `pixel10-api37` | Both baseline and artifact directory. Requires `[a-z0-9_-]+`; does not change screen/OS configuration. |
+| `VVP_CHANNEL_TOLERANCE` | `12` | Existing override in long/dark/no-image/empty tests only; integer 0–255, validated by comparator after capture. |
+| `VVP_MAX_CHANGED_RATIO` | `0.002` | Same four tests only; float 0–1. `breaking_news` and the intentional demo always use comparator defaults. |
+
+Leave both tolerance variables **unset** for the approved five-scenario policy. Their
+existing asymmetry is documented, not changed in this audit. The comparator CLI accepts
+its own `--channel-tolerance` / `--max-changed-ratio` arguments and does not read these
+environment variables. Pixel comparison considers RGB, not alpha; dimension mismatch
+always fails. Invalid numeric conversions/ranges fail, but host/port/endpoint/package
+overrides do not have comprehensive early validation. A malformed URL with a matching
+scenario can pass the override check and fail at native launch; inspect the error rather
+than interpreting it as a visual mismatch. Empty values generally override defaults,
+so remove unwanted variables instead of setting them to empty strings.
+
+**App/Metro configuration is separate.** `app/.env.sample` documents `APP=volksverpetzer`
+and `EXPO_NO_TELEMETRY=1`; it is a template, not a runner configuration file. Expo's
+existing loader reads app `.env` files, with inherited process variables taking priority.
+`APP` is read when Expo evaluates `app.config.ts` (default `volksverpetzer`; any other
+value currently selects Mimikama, so use the documented value). `BUILD_FOSS_ONLY=true`
+and optional `BUILD_LABEL` affect app config/builds, not screenshot selection.
+`google_services` / `google_services_mimikama` are optional native service-file paths;
+those files and signing credentials remain private and are not needed as Python options.
+
+`EXPO_PUBLIC_QA_SCENARIO` is bundled by Expo/Metro and used only as the development
+fallback when the initial URL omits `qa_scenario`. Normal tests send an explicit scenario,
+which takes precedence; `none` disables the fallback. Selection is resolved once before
+providers/feed mount. `__DEV__` gates QA behavior, and the theme override is nonpersistent.
+Do not change Metro's environment between scenarios. `NODE_OPTIONS=--dns-result-order=ipv4first`
+is the documented local Node startup setting for IPv4 connectivity. None of the listed
+visual-runner settings are secrets; **never put credentials in `EXPO_PUBLIC_*`**, which
+is client-visible. Do not print local `.env` contents in diagnostics.
+
+**Future CI (proposed):** supply non-sensitive runner values as job environment variables,
+then run the same pytest commands after separately provisioning the emulator, installed
+development app, Metro and Appium. Keep profile/rendering settings aligned with references,
+leave tolerance overrides unset, and archive `artifacts/` even on failure. Supply any
+future build credentials through the CI secret store, not committed files or public Expo
+variables. Independent jobs need isolated devices/output directories; the current rolling
+artifact names are not safe for concurrent workers in one checkout. No CI execution is
+claimed. Root/nested ignore rules exclude real `.env`/`.env.*`, generated outputs and
+credential files while permitting reviewed `.env.sample` / `.env.example` templates;
+ignore rules do not replace a staged-content review.
+
 ### Runtime-selected cold launch (verified Android contract)
 
 The development-only startup gate now resolves React Native's initial launch URL
@@ -231,8 +293,8 @@ Cold launch resets in-memory pagination, scroll and pending requests by destroyi
 the process. Stored theme, settings, badges and onboarding remain intact. Existing
 fixture suppressions of announcements, notifications and article network effects
 remain in place; this is not app-wide network isolation. A development-only, nonpersistent
-theme override selects dark for `dark_article` and light for `long_headline` and `breaking_news`.
-Missing-media and successful-empty behavior remain deferred. A development-client procedure
+theme override selects dark for `dark_article` and light for the other four supported scenarios.
+Missing-media and successful-empty behavior are described in their scenario sections below. A development-client procedure
 is not proof of a standalone CI-ready QA build; no CI or iOS execution is claimed.
 
 Run these commands from `qa_visual/`:
@@ -262,9 +324,9 @@ German headline. No animation, dismissal, live timestamp, remote media or banner
 analytics is added.
 
 The same immutable launch gate selects `qa_scenario=breaking_news`. The typed
-registry enables it; `qaActiveScenario` controls the QA-only feed header. All three
-supported scenarios reuse the original deterministic WordPress-mapped article
-underneath, without changing its data or image. The banner requires `__DEV__`,
+registry enables it; `qaActiveScenario` controls the QA-only feed header. The banner
+scenario reuses the original deterministic WordPress-mapped article underneath,
+without changing its data or image. The banner requires `__DEV__`,
 active fixture mode and exact breaking-news selection; normal/release execution
 renders no banner. Production gating was tested at source/unit level, not by
 running a release APK.
@@ -358,26 +420,101 @@ The test captures the Appium element screenshot to `artifacts/android/<profile>/
 
 ### Review and manually promote a replacement
 
-Golden updates are explicit human decisions. The approved migration above was executed and verified twice. The generic interactive example below remains a documented procedure; that exact interactive command sequence was not executed end-to-end. It does not make the test update a golden automatically.
+Regeneration means **capture a fresh candidate, review it, explicitly approve its hash,
+then promote and verify**. A green comparison alone is not approval. Tests never write
+references. The commands below apply to all five scenario names: `long_headline`,
+`breaking_news`, `dark_article`, `no_image`, `empty_feed`.
 
-1. Confirm the app/fixture and emulator profile are correct. From `qa_visual/`, run the single visual test command above. It captures `actual.png` and `context.png` before comparison. If the current golden differs, pytest may fail; retain that failure and its diff/JSON as review evidence.
-2. Inspect the new `actual.png` against the full-screen `context.png`, checking fixture content, headline wrapping, image load, metadata, summary and the complete card boundary. Review the generated `diff.png` and `comparison.json` against the current golden. Do not promote a screenshot with unexplained rendering changes.
-3. Only after an authorized reviewer approves the exact `actual.png`, preserve the existing golden and interactively confirm the replacement. Example for the default profile:
+**1. Capture and preserve.** With the existing services ready, run from `qa_visual/`.
+Use the matching device profile; the profile variable names directories and does not
+configure the emulator. Remove a stale full-URL override before changing scenarios.
 
-   ```powershell
-   $baseline = '.\baselines\android\pixel10-api37\long_headline.png'
-   $candidate = '.\artifacts\android\pixel10-api37\long_headline.actual.png'
-   $backup = '.\artifacts\android\pixel10-api37\long_headline.previous-approved.png'
+```powershell
+$scenario = 'breaking_news' # Choose one of the five names above.
+$env:VVP_GOLDEN_PROFILE = 'pixel10-api37'
+Remove-Item Env:VVP_QA_LAUNCH_URL -ErrorAction SilentlyContinue
+$profile = $env:VVP_GOLDEN_PROFILE
+$output = Join-Path $PWD "artifacts/android/$profile"
+$captureStarted = Get-Date
+.\.venv\Scripts\python.exe -m pytest ".\tests\test_$scenario.py" -v -s
+$captureExit = $LASTEXITCODE
+Write-Host "pytest exit: $captureExit"
+$actual = Join-Path $output "$scenario.actual.png"
+if (!(Test-Path $actual) -or (Get-Item $actual).LastWriteTime -lt $captureStarted) {
+    throw 'No fresh native capture; inspect the test failure before continuing.'
+}
+$review = Join-Path $PWD ("artifacts/review/" + [guid]::NewGuid().ToString())
+New-Item -ItemType Directory -Path $review -ErrorAction Stop | Out-Null
+Get-ChildItem -LiteralPath $output -Filter "$scenario.*" -File |
+    Where-Object { $_.LastWriteTime -ge $captureStarted } |
+    Copy-Item -Destination $review -ErrorAction Stop
+$candidate = Join-Path $review "$scenario.actual.png"
+.\.venv\Scripts\python.exe -c "from PIL import Image; import sys; im=Image.open(sys.argv[1]); im.load(); print(im.format, im.size, im.mode)" $candidate
+Get-FileHash -LiteralPath $candidate -Algorithm SHA256
+Write-Host "Review packet: $review"
+```
 
-   if (Test-Path $backup) { throw "Backup already exists: $backup" }
-   Copy-Item -LiteralPath $baseline -Destination $backup
-   Get-FileHash $candidate -Algorithm SHA256
-   Copy-Item -LiteralPath $candidate -Destination $baseline -Confirm
-   Get-FileHash $baseline -Algorithm SHA256
-   ```
+The test verifies identity, readiness and content before native element capture. Inspect
+its outcome: a missing golden or pixel mismatch can be expected when proposing a change;
+an earlier Appium/readiness failure is not a valid candidate. A missing golden writes
+actual/context but no new diff/metrics. Compare timestamps so old rolling artifacts are
+not mistaken for new results. A mismatch writes diff/JSON and exits 1; a pass exits 0.
 
-   Check candidate dimensions/readability with Pillow and compare the copied hash with the candidate hash. The `-Confirm` prompt is deliberate. If there is no existing baseline, create the parent directory and copy the reviewed candidate only after approval; still verify its hash and image dimensions.
-4. Run the same visual test once more. A passing comparison must be observed; then verify the golden hash remains unchanged. Keep the previous approved image and review artifacts according to project retention needs. Never use an automatic “update golden” mode or replace a baseline merely to make a test pass.
+**2. Review.** Inspect candidate, context, approved reference, diff and comparison JSON.
+Check complete capture boundaries, content, theme, wrapping, media and readability.
+For `empty_feed`, review the message only; donation controls remain outside its reference.
+Repeat capture into a separate review directory to check stability when changing visuals.
+Record the reviewer's approval of the exact candidate SHA-256 and the reason for change.
+Keep the preserved candidate unchanged during review.
+
+**3. Promote only after approval.** In the same PowerShell session, the following block
+requires the approved hash and explicit confirmation. Existing references get a verified
+backup in the review directory; an existing backup stops the operation. To rehearse,
+set `$baseline` to a path in a fresh `artifacts/rehearsal/` directory instead.
+
+```powershell
+$baseline = Join-Path $PWD "baselines/android/$profile/$scenario.png"
+$backup = Join-Path $review "$scenario.previous-approved.png"
+$approvedHash = Read-Host 'Paste the SHA-256 explicitly approved by the reviewer'
+if ($approvedHash -notmatch '^[0-9a-fA-F]{64}$' -or
+    (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash -ne $approvedHash) {
+    throw 'Candidate does not match the approved hash.'
+}
+$confirmation = Read-Host "Type PROMOTE to authorize copying the reviewed candidate to $baseline"
+if ($confirmation -cne 'PROMOTE') { throw 'No promotion authorized.' }
+$replacing = Test-Path -LiteralPath $baseline
+if ($replacing) {
+    $previousHash = (Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash
+    [IO.File]::Copy($baseline, $backup, $false) # Fails if backup already exists.
+    if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ne $previousHash) {
+        throw 'Backup verification failed.'
+    }
+}
+[IO.Directory]::CreateDirectory((Split-Path -Parent $baseline)) | Out-Null
+[IO.File]::Copy($candidate, $baseline, $replacing) # Overwrite only after confirmation + backup.
+if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash -ne $approvedHash) {
+    throw 'Destination verification failed; retain the backup and investigate.'
+}
+Get-FileHash -LiteralPath $baseline -Algorithm SHA256
+```
+
+**4. Verify.** After a real, approved promotion, run the same native test again and check
+the reference hash is unchanged. Require a passing comparison before committing the
+reviewed PNG and its approval record. A rehearsal comparison validates the byte-copy
+procedure only and does not approve a reference:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest ".\tests\test_$scenario.py" -v -s
+if ($LASTEXITCODE -ne 0) { throw 'Post-promotion native comparison failed.' }
+if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash -ne $approvedHash) {
+    throw 'Reference changed during verification.'
+}
+```
+
+EXEC-036 verified fresh native captures for all five scenarios and rehearsed this
+promotion block against temporary files, including absent/existing destinations,
+backup preservation, declined authorization and wrong-hash rejection. No approved
+reference was replaced during that verification.
 
 ## Artifacts and failure diagnosis
 
