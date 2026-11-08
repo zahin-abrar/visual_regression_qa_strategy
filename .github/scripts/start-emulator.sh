@@ -37,6 +37,13 @@ if [ -n "$qemu" ]; then
 fi
 
 echo "::group::Create AVD"
+# avdmanager and the emulator launcher resolve the default AVD directory differently on the hosted
+# runner (observed: AVD created under ~/.config/.android/avd, emulator looked in ~/.android/avd).
+# Pin ONE directory for every tool and for the emulator process itself.
+AVD_HOME="${AVD_HOME_OVERRIDE:-${RUNNER_TEMP:-/tmp}/android-avd}"
+mkdir -p "$AVD_HOME"
+export ANDROID_AVD_HOME="$AVD_HOME"
+echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME (HOME=$HOME ANDROID_USER_HOME=${ANDROID_USER_HOME:-unset} XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-unset})"
 # Device definitions differ between cmdline-tools releases; pixel_9/pixel_10 are not guaranteed.
 # Log what exists, then create the AVD WITHOUT --device: the golden display is forced explicitly below.
 "$AVDM" list device -c > "$LOG_DIR/avdmanager-devices.txt" 2>&1 || true
@@ -55,17 +62,22 @@ if [ "$create_rc" -ne 0 ]; then
   fail "AVD creation failed" "avdmanager create avd exited with status $create_rc (output above)"
 fi
 "$AVDM" list avd > "$LOG_DIR/avdmanager-list.txt" 2>&1 || true
-# Locate the AVD from avdmanager itself, falling back to the default location.
-CFG_DIR=$(awk '/Name: Pixel_10/{f=1} f && /Path:/{sub(/^[[:space:]]*Path:[[:space:]]*/,""); print; exit}' "$LOG_DIR/avdmanager-list.txt" | tr -d '\r')
-[ -n "$CFG_DIR" ] || CFG_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/Pixel_10.avd"
+CFG_DIR="$AVD_HOME/Pixel_10.avd"
 CFG="$CFG_DIR/config.ini"
-echo "AVD config: $CFG"
-if [ ! -f "$CFG" ]; then
-  echo "--- avdmanager create output ---"; cat "$LOG_DIR/avdmanager-create.log"
-  echo "--- avdmanager list avd ---"; cat "$LOG_DIR/avdmanager-list.txt"
-  fail "AVD not created" "avdmanager exited 0 but $CFG does not exist (output above)"
-fi
-grep -q 'Name: Pixel_10' "$LOG_DIR/avdmanager-list.txt" || { cat "$LOG_DIR/avdmanager-list.txt"; fail "AVD not listed" "avdmanager list avd does not show Pixel_10"; }
+INI="$AVD_HOME/Pixel_10.ini"
+echo "AVD home: $AVD_HOME"; echo "registration file: $INI"; echo "AVD config: $CFG"
+dump() { echo "--- avdmanager create output ---"; cat "$LOG_DIR/avdmanager-create.log"
+         echo "--- avdmanager list avd ---"; cat "$LOG_DIR/avdmanager-list.txt"
+         echo "--- contents of $AVD_HOME ---"; ls -la "$AVD_HOME" 2>&1 || true; }
+[ -f "$CFG" ] || { dump; fail "AVD not created" "avdmanager exited 0 but $CFG does not exist (output above)"; }
+[ -f "$INI" ] || { dump; fail "AVD not registered" "$INI does not exist; the emulator discovers AVDs through this file"; }
+reg_path=$(sed -n 's/^path=//p' "$INI" | tr -d '\r' | head -n 1)
+[ "$reg_path" = "$CFG_DIR" ] || { dump; fail "AVD registration mismatch" "$INI points to '$reg_path', expected '$CFG_DIR'"; }
+grep -q 'Name: Pixel_10' "$LOG_DIR/avdmanager-list.txt" || { dump; fail "AVD not listed" "avdmanager list avd (ANDROID_AVD_HOME=$ANDROID_AVD_HOME) does not show Pixel_10"; }
+timeout 30 emulator -list-avds > "$LOG_DIR/emulator-list-avds.txt" 2>&1 < /dev/null || true
+grep -qx 'Pixel_10' "$LOG_DIR/emulator-list-avds.txt" \
+  || { dump; echo "--- emulator -list-avds ---"; cat "$LOG_DIR/emulator-list-avds.txt"; fail "AVD not visible to emulator" "emulator -list-avds (ANDROID_AVD_HOME=$ANDROID_AVD_HOME) does not list Pixel_10"; }
+echo "emulator -list-avds: $(tr '\n' ' ' < "$LOG_DIR/emulator-list-avds.txt")"
 python3 - "$CFG" <<'PY'
 import sys
 p = sys.argv[1]
