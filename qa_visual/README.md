@@ -6,7 +6,11 @@ This runner captures five deterministic visual scenarios in the real Volksverpet
 
 ## Implemented structure
 
-- `tests/test_long_headline.py` owns the scenario, fixture-title assertion, screenshot paths and visual assertion.
+- `tests/` contains five normal Appium visual tests and the explicitly selected intentional-failure demo. Each test owns its scenario, UI assertions and native component capture.
+- `unit_tests/` contains Python tests that require no Android services. The five original unit files retain their assertions; focused artifact/lifecycle tests cover the shared helpers.
+- Repository-root `pytest.ini` defines both test directories, markers and `pythonpath = qa_visual`, so discovery/imports work from either the repository root or `qa_visual/`.
+- `conftest.py` reads the scenario marker; `visualqa/visual_check.py` owns `VisualArtifacts` (profile paths, context/hierarchy/metadata writing, comparison and failure messages). It never writes a reference.
+- `android_session()` in `visualqa/android.py` wraps driver creation, failure diagnostics, termination and quit. Comparison runs after the session closes.
 - `visualqa/screens/home_screen.py` exposes the `HomeScreen` Screen Object.
 - `visualqa/components/article_card.py` locates the ready article, reads its title, waits for readiness and captures its containing card element. The capture checks the parent and ready-element rectangles before taking the native element screenshot.
 - `visualqa/android.py` configures the Android UiAutomator2 session and writes diagnostic screen/hierarchy files after a failure.
@@ -120,13 +124,13 @@ identity, all before the feed-specific readiness and capture. No per-scenario
 ```powershell
 .\.venv\Scripts\python.exe -m pytest .\tests\test_breaking_news.py -v -s   # one scenario
 .\.venv\Scripts\python.exe -m pytest .\tests -m visual -v                  # all five scenarios
-.\.venv\Scripts\python.exe -m pytest .\tests -v                            # unit + visual; intentional demo deselected
+.\.venv\Scripts\python.exe -m pytest -v                                   # unit + visual; intentional demo deselected
 ```
 
 **PyCharm:** use the normal green Run icon (or *Run 'pytest in test_…'*) on a visual test
 file or function, with `qa_visual/.venv` as the interpreter. No environment variables or
-extra arguments are needed. `qa_visual/pytest.ini` is found from the test's path, and the
-root `conftest.py` puts `qa_visual/` on `sys.path`. This also works when the working
+extra arguments are needed. Repository-root `pytest.ini` is found from the test's path; its
+`pythonpath = qa_visual` makes framework imports independent of the working directory. This also works when the working
 directory is the repository root, which was checked from the command line. Only the
 intentional-failure demo needs `-m intentional_failure` (see below).
 
@@ -154,10 +158,77 @@ Verified in EXEC-035 (local Pixel_10/API 37, not CI) with `VVP_QA_LAUNCH_URL` un
   with 0 changed pixels; every actual was byte-identical to its golden.
 - `pytest tests -m visual -v`: 5 passed (exit 0), as separate cold launches in the order
   breaking_news, dark_article, empty_feed, long_headline, no_image, with 0 changed pixels.
-- `pytest tests -v`: 46 passed, 1 deselected (the intentional demo), exit 0.
+- Historical pre-separation `pytest tests -v`: 46 passed, 1 deselected, exit 0. Since EXEC-037, use `pytest -v` for unit + visual; `pytest tests/` runs visual tests only.
 - `-m intentional_failure`: failed as intended (exit 1, 468,349 / 506,804 changed).
 - A stale `VVP_QA_LAUNCH_URL` (`long_headline` for the `breaking_news` test) failed
   immediately with the conflict message. A matching URL passed.
+
+### Test organization and coding conventions (EXEC-037)
+
+From `qa_visual/`, using the existing interpreter:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -v                 # all normal unit + visual tests
+.\.venv\Scripts\python.exe -m pytest unit_tests/ -v     # no Android services needed
+.\.venv\Scripts\python.exe -m pytest -m unit -q         # same unit suite by marker
+.\.venv\Scripts\python.exe -m pytest tests/ -v          # five normal visual tests
+.\.venv\Scripts\python.exe -m pytest -m visual -v       # same visual suite by marker
+.\.venv\Scripts\python.exe -m pytest --collect-only -q
+.\.venv\Scripts\python.exe -m pytest tests/test_dark_article.py::test_dark_article_android_card_matches_reviewed_golden -v
+.\.venv\Scripts\python.exe -m pytest tests/test_intentional_visual_failure.py -m intentional_failure -v -s
+```
+
+The final command deliberately exits 1 at the comparison assertion. The demo remains
+excluded by default, including when the `tests/` directory is selected. From the
+repository root use `qa_visual\.venv\Scripts\python.exe -m pytest`; for explicit
+paths prefix `qa_visual/` (for example `qa_visual/unit_tests/`). No custom runner is used.
+PyCharm can select an individual file/function with this interpreter and either working
+directory; GUI interaction itself has not been verified.
+
+Conventions for Python contributions: standard-library, third-party, then local imports;
+4-space indentation; snake_case functions/variables, PascalCase classes and uppercase
+constants; annotate shared helper interfaces and test scenario parameters. Use `Path`,
+UTF-8 text output and named metadata fields. Keep UI assertions in tests, locators and
+native screenshot bounds in components, and pixel calculations in `image_diff.py`.
+Preserve the original body/launch exception object and traceback. Diagnostic or cleanup
+failures are attached as exception notes with their tracebacks; termination and `quit()`
+are both attempted. If the body succeeds, the first cleanup failure propagates and any
+later failure is attached as a note. Driver creation failure before a usable driver exists
+propagates directly. Ordinary tests report through pytest assertions;
+explicit console output remains only for the intentional demonstration and comparator CLI.
+Long metadata expressions are split across lines. The original 41 unit-test assertions are preserved.
+
+Ruff was evaluated but is not installed or required. This bounded refactor uses manual
+style review and pytest, avoiding a formatting-only sweep of untouched components. A
+future dedicated tooling change can pin one Ruff version and configuration; there is no
+lint/format command claimed as verified here.
+
+The duplicate-code warning in article tests corresponds to shared path setup, comparison,
+artifact writes and cleanup, now extracted into small helpers. Readiness, title, theme,
+missing-image and empty-feed assertions remain explicit. Capture operations stay in the
+existing Component Objects; no generic scenario engine or inheritance was introduced.
+
+Tolerance asymmetry is retained deliberately for compatibility: long/dark/no-image/empty
+call `compare(use_environment_tolerances=True)`; breaking news and the intentional demo
+call `compare()` with the unchanged comparator defaults (12 and 0.002). History shows the
+banner tests were added using defaults; no separate product requirement for this difference
+was found. Keep overrides unset for the approved suite. A future policy change could unify
+this explicitly after review, but extracting helpers must not silently change behavior.
+
+Initial EXEC-037 local verification: 50 unit tests passed (the original 41 plus nine helper
+checks); both visual selection commands passed all five scenarios with zero changed
+pixels; default execution passed 55 tests with the intentional demo deselected. An
+individual dark-article test function passed. Explicit intentional-failure execution
+returned exit 1 at the real comparator assertion (468,349/506,804 changed pixels,
+92.4123%). Collection succeeded from both working directories. All six protected
+reference hashes remained unchanged. PyCharm GUI itself was not exercised.
+
+The subsequent EXEC-037 exception-preservation audit exposed a misleading lifecycle
+assertion that expected diagnostic-error masking. Bounded remediation corrected that
+contract and verified 22 focused lifecycle cases and 68 total unit tests. Default
+collection selects 73 normal tests and excludes the demo; all five native comparisons
+passed again with zero changed pixels, and the intentional demo again failed at the
+real comparison assertion (exit 1). Reference hashes and comparison policy are unchanged.
 
 ### Configuration ownership and precedence
 

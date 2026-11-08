@@ -30,7 +30,7 @@ The breaking-news banner is a development-only sample-app extension for the chal
 ## Architecture overview
 
 - `app/` — Volksverpetzer React Native application and development-only fixture provider.
-- `qa_visual/` — Android Appium/pytest scenario, platform-specific golden, screenshots and Pillow comparison utility.
+- `qa_visual/` — Android Appium visual tests in `tests/`, Python unit tests in `unit_tests/`, device-specific goldens and Pillow comparison. Root `pytest.ini` supports discovery from either working directory.
 - The `HomeScreen` Screen Object and the `ArticleCard`, `BreakingBanner` and `EmptyFeedState` Component Objects own screen access, scenario-specific readiness, content lookup and native element capture.
 - `visualqa/android.py` configures the Android Appium session; `visualqa/image_diff.py` compares PNGs and writes diff/metrics artifacts.
 - Goldens are stored by platform and device profile. The current goldens belong to Android `pixel10-api37` and are not iOS references.
@@ -54,6 +54,8 @@ Preserve an existing healthy Metro process and its environment. With the Appium 
 Set-Location .\qa_visual # From the repository root.
 .\.venv\Scripts\python.exe -m pytest .\tests\test_long_headline.py -v -s   # one scenario
 .\.venv\Scripts\python.exe -m pytest .\tests -m visual -v                  # all five scenarios
+.\.venv\Scripts\python.exe -m pytest .\unit_tests -q                       # unit tests; no Android required
+.\.venv\Scripts\python.exe -m pytest -v                                    # all normal tests
 ```
 
 In PyCharm, the normal Run action on a visual test file works with the `qa_visual/.venv` interpreter and no extra environment variables.

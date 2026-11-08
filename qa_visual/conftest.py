@@ -1,14 +1,10 @@
-"""Shared pytest wiring for the visual runner.
-
-Living at the qa_visual/ root, this conftest also puts qa_visual/ on sys.path, so
-``visualqa`` imports work whatever working directory an IDE (e.g. PyCharm) uses.
-"""
+"""Scenario declaration shared by visual tests; root pytest.ini sets imports."""
 
 import pytest
 
 
 @pytest.fixture
-def qa_scenario(request) -> str:
+def qa_scenario(request: pytest.FixtureRequest) -> str:
     """The QA scenario a test declares with ``@pytest.mark.qa_scenario("<id>")``."""
     from visualqa.scenario_launch import SUPPORTED_SCENARIOS
 

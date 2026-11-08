@@ -3,14 +3,42 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from traceback import format_exception
 
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 from selenium.common.exceptions import WebDriverException
 
 
-def make_driver(scenario: str | None = None):
+def _note_secondary(primary: BaseException, operation: str, error: BaseException) -> None:
+    """Keep secondary tracebacks visible without changing the primary failure."""
+    primary.add_note(f"Secondary failure during {operation}:\n{''.join(format_exception(error, chain=False))}")
+
+
+def _cleanup_driver(
+    driver: webdriver.Remote, package_name: str, primary: BaseException | None = None,
+) -> None:
+    """Attempt both operations; report the first failure and annotate later ones."""
+    failure = primary
+    for operation, cleanup in (
+        ("terminate_app", lambda: driver.terminate_app(package_name)),
+        ("driver.quit", driver.quit),
+    ):
+        try:
+            cleanup()
+        except BaseException as error:
+            if failure is None:
+                failure = error
+            else:
+                _note_secondary(failure, operation, error)
+    if primary is None and failure is not None:
+        raise failure
+
+
+def make_driver(scenario: str | None = None) -> webdriver.Remote:
     """Create a session; with ``scenario`` the app is cold-launched into that QA scenario."""
     package_name = os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app")
     options = UiAutomator2Options()
@@ -42,17 +70,30 @@ def make_driver(scenario: str | None = None):
             driver.activate_app(package_name)
             from visualqa.scenario_launch import wait_for_scenario_identity
             wait_for_scenario_identity(driver)
-    except Exception:
-        try:
-            if launch_url:
-                driver.terminate_app(package_name)
-        finally:
-            driver.quit()
+    except BaseException as primary:
+        _cleanup_driver(driver, package_name, primary)
         raise
     return driver
 
 
-def save_diagnostics(driver, folder: Path):
+@contextmanager
+def android_session(scenario: str, output: Path) -> Iterator[webdriver.Remote]:
+    """Preserve body failures, annotate secondary errors and always attempt cleanup."""
+    driver = make_driver(scenario)
+    try:
+        yield driver
+    except BaseException as primary:
+        try:
+            save_diagnostics(driver, output)
+        except BaseException as error:
+            _note_secondary(primary, "diagnostic collection", error)
+        _cleanup_driver(driver, os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app"), primary)
+        raise
+    else:
+        _cleanup_driver(driver, os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app"))
+
+
+def save_diagnostics(driver: webdriver.Remote, folder: Path) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     try:
         (folder / "failure-full-screen.png").write_bytes(driver.get_screenshot_as_png())

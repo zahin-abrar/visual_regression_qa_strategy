@@ -185,3 +185,19 @@ CI and iOS were not executed. Endpoint validation is partial, and tolerance envi
 overrides apply to four normal tests but not breaking_news; these pre-existing behaviors
 are documented without changing the approved policy. No actual baseline promotion, staging,
 commit or push occurred. The strategy remains accurate and was not changed.
+
+
+## EXEC-037 - Framework organization and maintainability
+
+Request: separate unit and Appium tests, review Python conventions and duplicated visual-test infrastructure, and perform a bounded refactor preserving scenario selection, UI assertions, artifacts, comparison policy and human-approved references. No new scenarios, CI, dependencies or commits.
+
+Changes: five existing unit files moved to `qa_visual/unit_tests/`; one repository-root pytest configuration supports both working directories. Small shared artifact/comparison and Android session helpers replace duplicated plumbing. Scenario-specific assertions remain in each test. Nine focused unit cases cover helper safety and cleanup. Ruff was evaluated and deferred; documented conventions are applied to touched code without a broad formatting sweep.
+
+Verification: baseline 46 passed/one demo deselected. After refactor, both unit commands passed 50 tests; both five-scenario visual commands passed with zero changed pixels; default suite passed 55 tests/one deselected; an individual dark-article function passed. The intentional reference-mismatch demo genuinely failed at its comparison assertion (exit 1, 468,349/506,804 pixels changed, 92.4123%). Root and runner-directory discovery passed. Six protected reference hashes, app/fixture code and comparison thresholds are unchanged. Exact CLI logs and generated artifacts remain local and ignored. PyCharm GUI, CI and iOS were not executed. The existing tolerance-override asymmetry is explicitly retained and documented.
+
+
+### EXEC-037 follow-up: primary exception preservation
+
+A focused audit found that diagnostic and cleanup errors could replace the original body or launch failure; the previous lifecycle test incorrectly expected masking in its diagnostics case. Requested bounded correction: retain the original exception object and traceback, attempt diagnostics/termination/quit, expose secondary tracebacks through exception notes, and report cleanup failures after successful execution.
+
+Implemented shared cleanup with first-error preservation and secondary notes, covering runtime and legacy launch failure paths. No dependencies or visual behavior changes. Mock verification passed 22 lifecycle cases (68 total unit tests), including simultaneous failures, filesystem errors, identity, tracebacks and invocation order. Default collection selected 73 normal tests and excluded the demo. All five native visual comparisons passed with zero changed pixels; the intentional demo failed at its genuine comparison assertion (exit 1, 468,349/506,804 changed pixels). Six reference hashes and thresholds remain unchanged. Changes remain uncommitted for review.
