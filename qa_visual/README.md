@@ -598,6 +598,8 @@ Run from `qa_visual/` with the existing emulator, Metro and Appium running (`.\.
 | 3 | Unit + normal visual (default) | `.\.venv\Scripts\python.exe -m pytest -v` | **79 passed**, 1 deselected, 84.2 s, exit 0 (74 unit + 5 visual). |
 | 4 | Everything, incl. intentional failure | `.\.venv\Scripts\python.exe -m pytest -m "unit or visual or intentional_failure" -v` | **79 passed, 1 failed**, 96.5 s, exit 1 (the intentional test). |
 
+Discovery is restricted by the root `pytest.ini` (`norecursedirs` plus `testpaths`), so these commands give the same selection from `qa_visual/` or the repository root and never recurse into generated `artifacts/`. (Before EXEC-040E, running from `qa_visual/` scanned `artifacts/` and could hit `PermissionError` on unreadable temporary directories.) If your shell cannot write the root `.pytest_cache`, add `-p no:cacheprovider`; that warning could not be reproduced on the verified host, where the directory is writable.
+
 Six-test Allure report (command 2 with separate results directory, then generate and open):
 
 ```powershell
