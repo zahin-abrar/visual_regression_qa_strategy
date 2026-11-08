@@ -587,6 +587,66 @@ promotion block against temporary files, including absent/existing destinations,
 backup preservation, declined authorization and wrong-hash rejection. No approved
 reference was replaced during that verification.
 
+## Allure reporting (EXEC-038)
+
+Allure is **optional**. Plain `python -m pytest ...` and PyCharm right-click runs are unchanged: the `allure-pytest` plugin (pinned in `requirements.txt` as `allure-pytest==2.16.2`, installed with `pip install -r requirements.txt`) records nothing unless `--alluredir` is given, and no Allure CLI is needed to run tests. Comparison logic, thresholds, goldens and scenario launching are untouched; evidence is attached from `VisualArtifacts.compare()` (`visualqa/allure_report.py`) *before* the final assertion, so failing comparisons keep their screenshots.
+
+### CLI prerequisites (report generation only)
+
+The CLI verified here is **Allure Report 2** (`allure --version` = `2.36.0`, npm global install on this host; it needs Java, 17.0.21 observed). Report 2 uses `allure generate <results> -o <report>` and `allure open <report>`. Allure Report 3 is a different (npm `allure`) CLI with its own configuration; it was **not** tested and the commands below are not claimed for it.
+
+### Commands (run from `qa_visual/`, PowerShell)
+
+Each command writes to its own directory; `--clean-alluredir` empties the results directory first so old results never accumulate. Reports are generated separately, never merged.
+
+```powershell
+# 1. All normal tests (74 unit + 5 visual); the intentional demo stays excluded.
+.\.venv\Scripts\python.exe -m pytest -v --alluredir=artifacts/allure-results/normal --clean-alluredir --junitxml=artifacts/junit/normal.xml
+
+# 2. Only the five Android visual tests.
+.\.venv\Scripts\python.exe -m pytest -m visual -v --alluredir=artifacts/allure-results/visual --clean-alluredir --junitxml=artifacts/junit/visual.xml
+
+# 3. Intentional reference-mismatch demonstration (expected to FAIL, exit 1), kept separate.
+.\.venv\Scripts\python.exe -m pytest tests/test_intentional_visual_failure.py -m intentional_failure -v --alluredir=artifacts/allure-results/intentional-failure --clean-alluredir --junitxml=artifacts/junit/intentional-failure.xml
+
+# 4. Generate an HTML report from one results directory.
+allure generate artifacts/allure-results/visual -o artifacts/allure-report/visual --clean
+
+# 5. Open it (serves on a local port until Ctrl+C) ...
+allure open artifacts/allure-report/visual
+# ... or generate and open in one step, using a temporary report directory.
+allure serve artifacts/allure-results/visual
+```
+
+Output locations (all under the Git-ignored `artifacts/`): `artifacts/allure-results/<name>/` (JSON + attachments), `artifacts/allure-report/<name>/` (HTML; open it with `allure open`, not by double-clicking `index.html`, because the page loads its data over HTTP) and `artifacts/junit/<name>.xml`.
+
+### What each visual test attaches
+
+Parameters: `scenario`, `platform`, `golden_profile`, `changed_pixels`, `total_pixels`, `changed_ratio`, `allowed_ratio`, `channel_tolerance`, `size_match`. Attachments, in order:
+
+| Attachment | Type | Source |
+| --- | --- | --- |
+| Approved golden (the intentional demo: "Intentionally INCORRECT reference") | PNG | `baselines/android/<profile>/<scenario>.png` (demo: `demo_assets/`) |
+| Actual native element screenshot | PNG | `<prefix>.actual.png` |
+| Visual diff (changed pixels in red) | PNG | `<prefix>.diff.png` |
+| Full-screen context (diagnostic only) | PNG | `<prefix>.context.png` |
+| Comparison metrics | JSON | `<prefix>.comparison.json` |
+| Capture metadata / UI hierarchy | JSON / XML | `.capture.json`, `.hierarchy.xml`, where that test writes them |
+| Failure full-screen / page source | PNG / XML | `failure-*` diagnostics from a failure before comparison |
+
+Only files modified during the current test are attached (the `VisualArtifacts.started_ns` timestamp; failure diagnostics use the test start), so leftovers from older runs are never shown as evidence. The reference is a committed file and is always attached. A missing golden attaches only the fresh actual/context images. The intentional demo carries the suite name "Intentional reference-mismatch demonstration (not an app regression)", a tag and a description; it never appears in the normal results because pytest.ini still deselects it.
+
+### CI considerations (no workflow implemented, nothing claimed green)
+
+A pipeline can run the commands above non-interactively, publish `artifacts/allure-results/*`, `artifacts/allure-report/*`, `artifacts/junit/*.xml` and `artifacts/android/` as build artifacts (publishing them even when tests fail), and use only the `normal`/`visual` results as the quality gate; the intentional demo must stay outside it. JUnit XML is produced alongside Allure for CI viewers. Emulator, Metro and Appium must already be running.
+
+### Known limitations
+
+- Failure-before-capture diagnostics are covered by unit tests, not by a forced emulator failure.
+- `allure-pytest` resets a test's title when the call phase starts, so the readable title is set through the plugin's `__allure_display_name__` attribute on the test function.
+- Allure Report 3, history/trend views and CI publication are unverified. The HTML report was inspected headlessly in Chrome on Windows only.
+- **Unresolved stability observation:** during EXEC-038 verification, early full-suite runs reported `dark_article` (11,147 px) and `long_headline` (11,640 px) as mismatches, a ~1 px shift of the fixture image only. The `dark_article` mismatch reproduced on the unmodified EXEC-037 code, so it is not caused by the Allure changes. Those runs also took about 180 s instead of the later ~78 s; later runs showed 0 px for all five. The cause is not established. No reference or threshold was changed. Treat such a result as a real failure to investigate, never as grounds to approve a new golden.
+
 ## Artifacts and failure diagnosis
 
 For the default profile, runner output is under `artifacts/android/pixel10-api37/`:

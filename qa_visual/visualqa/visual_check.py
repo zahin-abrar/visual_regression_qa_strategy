@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
+from visualqa import allure_report
 from visualqa.image_diff import Comparison, compare_png, write_result
 
 if TYPE_CHECKING:
@@ -26,6 +28,8 @@ class VisualArtifacts:
     output: Path
     prefix: str
     baseline: Path
+    # Evidence older than this was not produced by the current test (Allure only).
+    started_ns: int = field(default_factory=time.time_ns, compare=False)
 
     @classmethod
     def for_scenario(cls, scenario: str, *, baseline: Path | None = None) -> VisualArtifacts:
@@ -58,6 +62,7 @@ class VisualArtifacts:
         """Compare after capture; retain the caller's existing tolerance policy."""
         assert self.actual.is_file() and self.actual.stat().st_size > 0
         if not self.baseline.is_file():
+            allure_report.attach_missing_golden(self)
             pytest.fail(
                 f"Golden missing. An ACTUAL native screenshot was saved at {self.actual}. "
                 "Review it and make a second capture to check stability before human approval. "
@@ -72,6 +77,10 @@ class VisualArtifacts:
         else:
             result = compare_png(self.baseline, self.actual, self.path("diff.png"))
         write_result(result, self.path("comparison.json"))
+        # Attach before the caller's final assertion so failures keep their evidence.
+        allure_report.attach_comparison(
+            self, result, intentional_reference=self.baseline.is_relative_to(ROOT / "demo_assets")
+        )
         return result
 
     def failure_message(self, result: Comparison) -> str:

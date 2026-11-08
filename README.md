@@ -70,6 +70,18 @@ Tests never update goldens. Runner defaults require no `.env` file; see the
 [configuration inventory](qa_visual/README.md#configuration-ownership-and-precedence)
 for optional environment overrides and future CI usage.
 
+## Optional Allure reports
+
+Visual tests can emit an [Allure](https://allurereport.org/) report showing, per scenario, the approved golden, the actual native screenshot, the red diff, the comparison JSON and the pixel metrics; the intentional reference-mismatch demo is reported separately. It is optional: normal pytest and PyCharm runs need neither the Allure CLI nor any flag. Quick start (from `qa_visual/`; Allure Report 2 CLI 2.36.0 verified):
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m visual --alluredir=artifacts/allure-results/visual --clean-alluredir --junitxml=artifacts/junit/visual.xml
+allure generate artifacts/allure-results/visual -o artifacts/allure-report/visual --clean
+allure open artifacts/allure-report/visual
+```
+
+Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. No CI job has run.
+
 ## Documentation
 
 - [Android runner, setup and golden workflow](qa_visual/README.md)
