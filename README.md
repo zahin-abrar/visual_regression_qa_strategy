@@ -99,6 +99,15 @@ allure open artifacts/allure-report/visual
 
 Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. No CI job has run.
 
+## GitHub Actions: Android debug build
+
+The workflow [`.github/workflows/android-build.yml`](.github/workflows/android-build.yml) builds the Android debug APK on a GitHub-hosted Ubuntu runner from committed files only (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` for x86_64). It needs no secrets, EAS or Expo/Play credentials.
+
+- **Trigger:** manual only. On GitHub open **Actions > Android debug build > Run workflow**, or run `gh workflow run android-build.yml --ref main`.
+- **Result:** the run page lists the artifact `android-debug-apk-x86_64` (`app-debug.apk`, kept 7 days).
+- **Verifies:** the committed app files install, prebuild and compile into a debug APK on Linux.
+- **Does not verify:** it starts no emulator, runs no Appium or visual tests, validates no golden references, and does not install or launch the APK. A green run says nothing about visual correctness. Tool versions come from `app/.nvmrc`, `packageManager` in `app/package.json` and Java 17; the first GitHub-hosted run has not been executed yet.
+
 ## Documentation
 
 - [Android runner, setup and golden workflow](qa_visual/README.md)
