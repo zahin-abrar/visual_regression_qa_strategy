@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from visualqa import allure_report
+from visualqa import allure_report, failure_evidence
 from visualqa.image_diff import Comparison, compare_png, write_result
 
 if TYPE_CHECKING:
@@ -63,6 +63,7 @@ class VisualArtifacts:
         assert self.actual.is_file() and self.actual.stat().st_size > 0
         if not self.baseline.is_file():
             allure_report.attach_missing_golden(self)
+            failure_evidence.retain(self, reason="golden missing")
             pytest.fail(
                 f"Golden missing. An ACTUAL native screenshot was saved at {self.actual}. "
                 "Review it and make a second capture to check stability before human approval. "
@@ -81,6 +82,8 @@ class VisualArtifacts:
         allure_report.attach_comparison(
             self, result, intentional_reference=self.baseline.is_relative_to(ROOT / "demo_assets")
         )
+        if not result.passed:
+            failure_evidence.retain(self, result, reason="visual comparison failed")
         return result
 
     def failure_message(self, result: Comparison) -> str:

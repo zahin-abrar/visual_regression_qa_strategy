@@ -46,10 +46,10 @@ These instructions describe the local setup. Python environment creation and dep
 
 Install/configure Android SDK platform tools, an Android emulator and a Java 17 toolchain. `JAVA_HOME` must point to the Java installation. The UiAutomator2 doctor passed required checks for `adb`, `emulator`, Java and `JAVA_HOME`; optional warnings were reported for `bundletool.jar` and GStreamer screen-streaming tools.
 
-Start the existing AVD and check it is available and booted:
+Start the existing AVD and check it is available and booted. The runs documented here (EXEC-038 onward) used `-no-snapshot-load -gpu software`; the launch flags used when the goldens were first captured were not recorded:
 
 ```powershell
-emulator -avd Pixel_10
+emulator -avd Pixel_10 -no-snapshot-load -gpu software
 adb devices -l
 adb shell getprop sys.boot_completed
 adb shell wm size
@@ -587,6 +587,29 @@ promotion block against temporary files, including absent/existing destinations,
 backup preservation, declined authorization and wrong-hash rejection. No approved
 reference was replaced during that verification.
 
+## Verified pytest command matrix (EXEC-040)
+
+Run from `qa_visual/` with the existing emulator, Metro and Appium running (`.\.venv\Scripts\python.exe` shown; plain `python` is equivalent inside the venv). The command-line `-m` replaces the `not intentional_failure` default in `pytest.ini`; no test is skipped, xfailed or tolerance-adjusted.
+
+| # | Purpose | Command | Executed result |
+| --- | --- | --- | --- |
+| 1 | Five normal visual tests | `.\.venv\Scripts\python.exe -m pytest -m visual -v` | Re-run: **5 passed**, 75 deselected, 79.9 s, exit 0, 0 changed pixels each. The first execution of the same command failed (see note below). |
+| 2 | All six visual scenarios | `.\.venv\Scripts\python.exe -m pytest -m "visual or intentional_failure" -v` | **5 passed, 1 failed**, 74 deselected, 127.1 s, exit 1. The failure is the intentional reference mismatch (468,349 / 506,804 px). |
+| 3 | Unit + normal visual (default) | `.\.venv\Scripts\python.exe -m pytest -v` | **79 passed**, 1 deselected, 84.2 s, exit 0 (74 unit + 5 visual). |
+| 4 | Everything, incl. intentional failure | `.\.venv\Scripts\python.exe -m pytest -m "unit or visual or intentional_failure" -v` | **79 passed, 1 failed**, 96.5 s, exit 1 (the intentional test). |
+
+Six-test Allure report (command 2 with separate results directory, then generate and open):
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "visual or intentional_failure" -v --alluredir=artifacts/allure-results/six-visual --clean-alluredir --junitxml=artifacts/junit/six-visual.xml
+allure generate artifacts/allure-results/six-visual -o artifacts/allure-report/six-visual --clean
+allure open artifacts/allure-report/six-visual
+```
+
+The report was opened in headless Chrome: two suites, "Android visual regression" (5 passed) and "Intentional reference-mismatch demonstration (not an app regression)" (1 failed), each with golden/reference, actual, diff, context and comparison-JSON attachments.
+
+Note on command 1: on its first execution in EXEC-040 it exited 1 (2 failed, 3 passed, 185 s): `dark_article` 11,147 px and `long_headline` 11,640 px, the same counts as the earlier unresolved stability observation. The following three commands and a re-run of command 1 were clean. Its artifacts were not archived, so only the log counts survive. The cause is still unknown; do not treat a re-run as proof the observation is resolved.
+
 ## Allure reporting (EXEC-038)
 
 Allure is **optional**. Plain `python -m pytest ...` and PyCharm right-click runs are unchanged: the `allure-pytest` plugin (pinned in `requirements.txt` as `allure-pytest==2.16.2`, installed with `pip install -r requirements.txt`) records nothing unless `--alluredir` is given, and no Allure CLI is needed to run tests. Comparison logic, thresholds, goldens and scenario launching are untouched; evidence is attached from `VisualArtifacts.compare()` (`visualqa/allure_report.py`) *before* the final assertion, so failing comparisons keep their screenshots.
@@ -645,7 +668,7 @@ A pipeline can run the commands above non-interactively, publish `artifacts/allu
 - Failure-before-capture diagnostics are covered by unit tests, not by a forced emulator failure.
 - `allure-pytest` resets a test's title when the call phase starts, so the readable title is set through the plugin's `__allure_display_name__` attribute on the test function.
 - Allure Report 3, history/trend views and CI publication are unverified. The HTML report was inspected headlessly in Chrome on Windows only.
-- **Unresolved stability observation:** during EXEC-038 verification, early full-suite runs reported `dark_article` (11,147 px) and `long_headline` (11,640 px) as mismatches, a ~1 px shift of the fixture image only. The `dark_article` mismatch reproduced on the unmodified EXEC-037 code, so it is not caused by the Allure changes. Those runs also took about 180 s instead of the later ~78 s; later runs showed 0 px for all five. The cause is not established. No reference or threshold was changed. Treat such a result as a real failure to investigate, never as grounds to approve a new golden.
+- **Unresolved stability observation:** during EXEC-038 verification, early full-suite runs reported `dark_article` (11,147 px) and `long_headline` (11,640 px) as mismatches, a ~1 px shift of the fixture image only. The `dark_article` mismatch reproduced on the unmodified EXEC-037 code, so it is not caused by the Allure changes. It recurred once more in EXEC-040 (first run only, same pixel counts, about 2x slower), while a genuine emulator cold boot probe in EXEC-039 did not reproduce it. It recurred again in the first full default run of EXEC-040B; the automatically retained `actual.png` is byte-identical to the EXEC-038 capture, so the alternate rendering is a discrete, repeatable state of the image band, not random noise. In the first full default run of EXEC-040C the same two captures were again byte-identical to those, and `no_image` also failed once: its card was 710 px tall instead of 711, so the alternate state can change element geometry too, not only the image band. The trigger is still unknown. Those runs also took about 180 s instead of the later ~78 s; later runs showed 0 px for all five. The cause is not established. No reference or threshold was changed. Treat such a result as a real failure to investigate, never as grounds to approve a new golden.
 
 ## Artifacts and failure diagnosis
 
@@ -656,6 +679,21 @@ For the default profile, runner output is under `artifacts/android/pixel10-api37
 - `long_headline.diff.png` — red-overlay difference image generated by the comparator.
 - `long_headline.comparison.json` — dimensions, changed-pixel count/ratio, configured tolerances and pass result.
 - `failure-full-screen.png` and `failure-page-source.xml` — diagnostics written when capture/setup inside the Appium test fails.
+
+### Retained failure evidence (EXEC-040B)
+
+The files above use fixed names and are overwritten by the next run. Whenever a visual comparison fails (or the golden is missing), the runner also copies that run's evidence, unmodified, into a unique directory and prints `[visual-evidence] retained failure evidence: <path>`:
+
+```
+artifacts/android/<profile>/failures/<UTC timestamp>-<scenario>-<pid>/
+  reference.png      golden/reference used (the intentional demo's incorrect reference for that test)
+  actual.png  diff.png  comparison.json  context.png
+  capture.json  hierarchy.xml   only for tests that write them; failure-* driver diagnostics if present
+  manifest.json      reason, scenario, pytest node id, UTC start/retain times, Appium session id,
+                     comparison metrics, platform/Python, VVP_* variables, SHA-256 of every file
+```
+
+Only files written during the failing test are copied, so stale artifacts from earlier runs are never included. Evidence collection never raises: a copy problem is listed in `manifest.json` under `collection_problems` (or emitted as a warning) and the original visual assertion remains the failure. Packages are never deleted by the runner; the directory is Git-ignored, so clear it manually. Appium server logs are external; use the session id in the manifest to find the session. Not covered: failures before comparison (setup, locator, Appium transport errors); those keep the existing `failure-*` diagnostics, which Allure attaches only when fresh.
 
 A **missing/unapproved baseline** means the native capture completed, but there is no approved reference to compare; pytest reports `Golden missing`. A **visual regression** means the test captured the fixture and compared it with an existing baseline, but the size/pixel policy failed. Appium connection, locator, readiness or fixture-title errors are earlier failures; inspect the failure screenshot and XML rather than treating them as visual comparison results.
 
