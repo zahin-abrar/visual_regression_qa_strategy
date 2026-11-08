@@ -37,6 +37,23 @@ The breaking-news banner is a development-only sample-app extension for the chal
 
 See [the runner README](qa_visual/README.md) for implementation details and setup.
 
+## Setup from a fresh checkout
+
+This project has been run only on one Windows 11 host with PowerShell. Nothing below has been re-executed from a clean clone; the table separates what was exercised on that host from what is only documented. Other operating systems are untested.
+
+| Step | Status |
+| --- | --- |
+| Prerequisites: Git, Node 24.x (`app/.nvmrc`), pnpm 12.11.2 (`packageManager` in `app/package.json`), Java 17, Android SDK (platform-tools, emulator), Python 3.11-3.13 (3.13.1 used), Appium 3.3.0 with the `uiautomator2` driver 7.1.2 | Versions observed on the host; installation not repeated |
+| 1. App dependencies: `cd app`, then `pnpm install` (optionally copy `.env.sample` to `.env`; `APP=volksverpetzer` is the variant tested) | Documented by the upstream app; not run from a clean clone |
+| 2. Emulator: an AVD named `Pixel_10`, API 37, 1080 x 2424 at 420 dpi. Verified runs used `emulator -avd Pixel_10 -no-snapshot-load -gpu software` | Launch verified; AVD creation (Android Studio Device Manager) not documented or tested here |
+| 3. Development build: with the emulator running, `cd app`, then `pnpm android` (`expo run:android`) installs the dev client `de.volksverpetzer.app` | Script exists in `app/package.json`; a clean build was not run. The host already had the app installed |
+| 4. Metro: from `app/`, `pnpm.cmd exec expo start --dev-client --localhost --port 8081 --clear`, then `adb reverse tcp:8081 tcp:8081` | Verified (see Quick start) |
+| 5. Appium: `appium --address 127.0.0.1 --port 4723` in its own terminal | Verified |
+| 6. Python environment: `cd qa_visual`, `py -3.13 -m venv .venv`, then `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` | Verified |
+| 7. Tests (from `qa_visual/`): five normal visual tests, six-test run with the intentional failure, complete default suite, Allure and failure evidence | Verified; commands in the [pytest command matrix](qa_visual/README.md#verified-pytest-command-matrix-exec-040), [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) and [retained failure evidence](qa_visual/README.md#retained-failure-evidence-exec-040b) |
+
+The emulator, Metro and Appium are started by hand; the tests do not start them. Goldens are tied to the `pixel10-api37` profile above. Intermittent mismatches and Appium transport errors observed on the verified host are described in the runner README.
+
 ## Quick start
 
 Once the Android emulator and installed development app are ready, start Metro with the fixture enabled in one PowerShell terminal:
@@ -85,7 +102,7 @@ Results and reports are written under the Git-ignored `qa_visual/artifacts/`. Se
 ## Documentation
 
 - [Android runner, setup and golden workflow](qa_visual/README.md)
-- [Sanitized AI prompt disclosure](docs/ai_prompts_used.md)
+- [Notice: provenance, licenses and brand-asset limitation](NOTICE.md)
 - [Cross-platform Android/iOS screenshot-testing strategy (PDF)](deliverables/strategy.pdf) ([editable Markdown](deliverables/strategy.md))
 
 ## Results and limitations
@@ -94,7 +111,7 @@ The local Android visual test passed against the human-reviewed golden after rep
 
 ## Attribution and license
 
-The application is adapted from [Volksverpetzer/vvp_app](https://github.com/Volksverpetzer/vvp_app), upstream `prerelease` commit `8b421753a17a18cd648447319adcca61a288f97f`. The app directory includes [its MIT license and notice](app/LICENSE.md); retain the upstream attribution and license terms. This does not establish redistribution clearance for every logo, image, or other third-party asset bundled with the app.
+The application is adapted from [Volksverpetzer/vvp_app](https://github.com/Volksverpetzer/vvp_app), upstream `prerelease` commit `8b421753a17a18cd648447319adcca61a288f97f`. The app directory includes [its MIT license and notice](app/LICENSE.md); retain the upstream attribution and license terms. MIT covers the code, not logos, trademarks, mascot artwork or animations; see [NOTICE.md](NOTICE.md) for the unresolved brand-asset limitation. This does not establish redistribution clearance for every logo, image, or other third-party asset bundled with the app.
 
 
 The additional `dark_article` implementation reuses the same article and real VVP
