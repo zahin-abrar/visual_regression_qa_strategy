@@ -97,7 +97,7 @@ allure generate artifacts/allure-results/visual -o artifacts/allure-report/visua
 allure open artifacts/allure-report/visual
 ```
 
-Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. No CI job has run.
+Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. Manually triggered GitHub Actions workflows also exist (see the next section for what they have and have not verified).
 
 ## GitHub Actions: Android build and advisory visual tests
 
@@ -133,12 +133,13 @@ Build and test are separate because the native compile takes about 34 minutes an
 
 **Cross-environment limitation:** the goldens were reviewed on a Windows-hosted Pixel_10 emulator. CI uses the same API 37 image, 1080x2424, 420 dpi and software rendering (`swiftshader_indirect`; local runs used `-gpu software`), but host OS, emulator build, image revision and GPU backend differ. A mismatch is **unresolved**: environment drift, the documented intermittent rendering instability, or a real regression. A CI-specific baseline strategy needs separate human review.
 
-**Implemented versus GitHub-verified:** the build workflow passed on GitHub (run #2, 33m 38s). The visual workflow and its source checks are implemented and checked locally only (synthetic cases); they have not run on GitHub, so nothing here claims they work or that the goldens match on Linux. No iOS testing and no required PR check.
+**Implemented versus GitHub-verified:** the build workflow passed on GitHub (run `42616325655`, commit `d48e8d7`). The visual workflow ran on GitHub: run `42620071563` (`visual_scope=breaking_news`) passed with 0 changed pixels, and a full-suite run on the same APK passed golden comparison for `breaking_news`, `dark_article`, `empty_feed` and `long_headline` (0 changed pixels each) while `no_image` failed before capture because the app process crashed natively (`SIGSEGV` in React Native Fabric, cause unresolved). **The full five-scenario suite has therefore not passed on GitHub.** An isolated `no_image` run (`visual_scope=no_image`) could not be executed because of GitHub platform errors. First-launch Expo developer-menu overlays are dismissed by the test runner. No iOS testing and no required PR check.
 
 ## Documentation
 
 - [Android runner, setup and golden workflow](qa_visual/README.md)
 - [Notice: provenance, licenses and brand-asset limitation](NOTICE.md)
+- [AI assistance disclosure (draft for author review)](deliverables/ai_prompt_disclosure.md)
 - [Cross-platform Android/iOS screenshot-testing strategy (PDF)](deliverables/strategy.pdf) ([editable Markdown](deliverables/strategy.md))
 
 ## Results and limitations

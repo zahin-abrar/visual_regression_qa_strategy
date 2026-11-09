@@ -287,8 +287,7 @@ development app, Metro and Appium. Keep profile/rendering settings aligned with 
 leave tolerance overrides unset, and archive `artifacts/` even on failure. Supply any
 future build credentials through the CI secret store, not committed files or public Expo
 variables. Independent jobs need isolated devices/output directories; the current rolling
-artifact names are not safe for concurrent workers in one checkout. No CI execution is
-claimed. Root/nested ignore rules exclude real `.env`/`.env.*`, generated outputs and
+artifact names are not safe for concurrent workers in one checkout. Hosted CI is manual and advisory (see the root README). Root/nested ignore rules exclude real `.env`/`.env.*`, generated outputs and
 credential files while permitting reviewed `.env.sample` / `.env.example` templates;
 ignore rules do not replace a staged-content review.
 
@@ -366,7 +365,7 @@ fixture suppressions of announcements, notifications and article network effects
 remain in place; this is not app-wide network isolation. A development-only, nonpersistent
 theme override selects dark for `dark_article` and light for the other four supported scenarios.
 Missing-media and successful-empty behavior are described in their scenario sections below. A development-client procedure
-is not proof of a standalone CI-ready QA build; no CI or iOS execution is claimed.
+is not proof of a standalone release-build QA variant; no iOS execution is claimed.
 
 Run these commands from `qa_visual/`:
 
@@ -765,8 +764,7 @@ runner never regenerates or approves references automatically.
 The unchanged real dark palette includes background #050D0F, text #F7F7F7 and muted
 text #AAAAAA. The stored themePreference was observed as `system` before the light
 and second dark launches and after; tests also cover opposing stored/device themes
-without writes. Other persisted state still survives cold launch. No CI or iOS
-execution is implied.
+without writes. Other persisted state still survives cold launch. No iOS execution is implied.
 
 
 EXEC-028 post-promotion verification: two independent dark cold-launch tests

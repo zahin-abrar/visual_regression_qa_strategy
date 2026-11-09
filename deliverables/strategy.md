@@ -24,13 +24,21 @@ The working demo runs on Android only (Pixel_10/API 37 emulator). It uses the ad
 | `no_image` | Text-only teaser with no image panel; card, 1028 × 711 | Real `ArticlePost`; challenge-scoped QA adaptation for absent media, not verified upstream support |
 | `empty_feed` | Successful zero-item feed response; empty-state message region, 1028 × 309 | Real `EmptyComponent`; **not** offline, error or loading coverage; the donation card below is excluded |
 
-## 3. Verified local evidence
+## 3. Verified evidence
 
-**Five-scenario suite (EXEC-032):** six independent cold launches through one Metro process covered all five scenarios, with `empty_feed` run twice. All six passed with zero changed pixels against the approved references, and the repeated `empty_feed` captures were byte-identical. The five reviewed references are committed in local checkpoint `bcc56b2`.
+**Local Android (Windows-hosted emulator):** all five scenarios passed with zero changed pixels against their approved references; repeated `empty_feed` captures were byte-identical.
 
-**Intentional mismatch demonstration (EXEC-033):** a test marked `intentional_failure`, excluded from default selection, captures the correct real `breaking_news` banner. It compares that capture with a deliberately incorrect, separately stored reference (red and blue channels swapped, in `qa_visual/demo_assets/`, never a golden). The normal `breaking_news` test passed (exit 0). Selecting the demonstration explicitly then produced a genuine pytest assertion failure (exit 1): 468,349 of 506,804 pixels (about 92.41%) exceeded the unchanged thresholds. Actual, diff and JSON evidence was written. The normal test passed again, and all five normal scenarios remained green. This proves mismatch detection and reviewable failure output; it is **not** a regression introduced into application code.
+**Intentional mismatch demonstration:** a test marked `intentional_failure` (excluded from default selection) compares the real `breaking_news` banner with a deliberately wrong, separately stored reference (red and blue channels swapped, in `qa_visual/demo_assets/`, never a golden). It fails at the comparison assertion (468,349 of 506,804 pixels, about 92.41%, above the unchanged thresholds) and writes actual, diff and JSON evidence while the normal test still passes. This proves mismatch detection and reviewable output; it is **not** an application regression.
 
-Each visual test declares its scenario with a pytest marker and builds its own cold-launch link, so single tests and the suite run without per-scenario configuration (re-verified with all five passing). Runs were local and sequential, not CI; artifacts are Git-ignored and recreated by the [runner guide](../qa_visual/README.md) commands.
+**GitHub Actions (manual, advisory, Ubuntu runner, headless API 37 emulator):**
+
+| Run | What it showed |
+| --- | --- |
+| Build `42616325655` | Debug APK built from commit `d48e8d7` and published as a reusable artifact. |
+| Visual run `42620071563` (commit `d48e8d7`, `visual_scope=breaking_news`) | `breaking_news` passed with 0 changed pixels against the committed golden. |
+| Full suite on the same APK (run ID not recorded here) | 4 scenarios (`breaking_news`, `dark_article`, `empty_feed`, `long_headline`) passed golden comparison with 0 changed pixels. `no_image` failed before capture: the app process died with a native `SIGSEGV` in React Native's Fabric renderer on the 16 KB-page image (`mqt_v_js`, `libreactnative.so`). **This is not a passing five-scenario run.** The same signature was seen in an earlier run. |
+
+The cause of the `no_image` crash is **unresolved**: an isolated `no_image`-only workflow option exists (commit `79126a9`) but could not be executed because of GitHub platform errors, so fixture-specific, launch-order, image or resource causes are all unproven. The visual workflow is advisory: pytest failures are reported but do not fail the job, so the job status alone never proves a pass.
 
 ## 4. Cross-platform reuse boundaries
 
@@ -53,9 +61,9 @@ Each scenario pins bundled images, time and timezone, locale, theme, fonts and f
 
 Partition references by platform, device size, OS/renderer and display configuration, and commit only approved PNGs. Publish actual, expected, diff and metrics together, including on failure. A missing reference or size mismatch fails; CI never regenerates or accepts goldens automatically. An intentional visual change arrives as an explicit pull request with rationale and comparison evidence. The feature reviewer and designer approve the result, QA checks fixture and profile consistency, and verification is rerun against the new reference before merge. Protect reference directories with code ownership; Git history keeps previous references. Demo thresholds suit one profile, not all.
 
-## 7. CI/CD, Scrum and risk-based coverage (proposed; CI is not implemented)
+## 7. CI/CD, Scrum and risk-based coverage
 
-On each pull request: build the test variant with pinned dependencies and versioned fixtures; run affected component snapshots, then a focused device smoke suite; compare against platform/profile references; fail unexpected changes and publish actual, diff, metrics and logs; require human review for reference updates, then rerun verification. Android runners need emulator acceleration and sufficient memory; iOS needs macOS with pinned Xcode and simulator versions. Keep pull-request gates small, using component ownership and change maps. Run a risk-based nightly or pre-release matrix across themes, font scales, device sizes, OS versions, offline/error and premium states; a device cloud is optional for broader hardware. In refinement, developers, QA, designers and product owners agree on critical states. Developers maintain component snapshots, QA owns integration diagnostics and selection rules, designers approve intended visuals, and product owners resolve acceptance questions.
+**Implemented:** two manually triggered workflows. One builds the debug APK. The other reuses it (after a provenance and compatibility check), boots a pinned emulator, runs Metro and Appium, runs `pytest -m visual` (all five, or one selected scenario), and uploads actual/diff/metrics, Allure, launch-failure diagnostics and logs even on failure. **Proposed, not implemented:** a pull-request trigger. On each pull request: build the test variant with pinned dependencies and versioned fixtures; run affected component snapshots, then a focused device smoke suite; compare against platform/profile references; fail unexpected changes and publish actual, diff, metrics and logs; require human review for reference updates, then rerun verification. Android runners need emulator acceleration and sufficient memory; iOS needs macOS with pinned Xcode and simulator versions. Keep pull-request gates small, using component ownership and change maps. Run a risk-based nightly or pre-release matrix across themes, font scales, device sizes, OS versions, offline/error and premium states; a device cloud is optional for broader hardware. In refinement, developers, QA, designers and product owners agree on critical states. Developers maintain component snapshots, QA owns integration diagnostics and selection rules, designers approve intended visuals, and product owners resolve acceptance questions.
 
 ## 8. Flakiness, scaling and rollout
 
@@ -65,6 +73,8 @@ Roll out with a pilot of a few high-risk components on one device profile, and p
 
 ## 9. Limitations
 
-- Only Android native execution is verified; there is no native iOS execution and no verified CI pipeline. The harness uses a pinned local development environment (Expo dev client with Metro); standalone release or QA-build runtime behaviour is not validated.
-- The existing combined `pnpm check` fails on a known spelling issue (`FIXTUR`) in a fixture file. A historic one-pixel native image-layout difference has an unresolved root cause; an explicitly reviewed runtime-specific golden was approved instead.
-- The `empty_feed` reference excludes the donation card, and the failing demonstration proves mismatch detection, not detection of an application-code regression.
+- Only Android native execution is verified; there is no iOS execution. Hosted CI is manual and advisory, with no required pull-request check, and the full five-scenario suite has not passed on GitHub because of the open `no_image` native crash.
+- Goldens were reviewed on a Windows-hosted emulator; the Linux runner matched four of them pixel for pixel, but different emulator or image builds may still drift, so profiles should be pinned and re-approved per environment.
+- The harness uses an Expo development client with Metro, so a first-launch Expo developer-menu overlay is dismissed by the test runner; standalone release-build behaviour is not validated.
+- The existing combined `pnpm check` fails on a known spelling issue (`FIXTUR`) in a fixture file. A historic one-pixel native layout difference has an unresolved root cause; a reviewed runtime-specific golden was approved instead.
+- The `empty_feed` reference excludes the donation card, and the failing demonstration proves mismatch detection, not detection of a code regression. The adapted app carries third-party brand assets whose redistribution rights are unconfirmed (see `NOTICE.md`).
