@@ -21,6 +21,13 @@ const QaLaunchGate = ({ children }: PropsWithChildren) => {
     }
   }, [selection]);
 
+  useEffect(() => {
+    if (selection?.status === "active") {
+      // Development-only diagnostic: JS has rendered the identity marker (Appium exposure is separate).
+      console.info(`[qa-scenario] marker rendered qa-scenario:${selection.id}`);
+    }
+  }, [selection]);
+
   if (!selection) return null;
   if (selection.status === "invalid" || selection.status === "unsupported") {
     // No providers, normal feeds, fixture requests or article-ready identifiers.

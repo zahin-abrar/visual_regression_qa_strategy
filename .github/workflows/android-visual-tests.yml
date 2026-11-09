@@ -12,6 +12,14 @@ on:
         description: "Run ID of a successful 'Android debug build' run whose android-debug-apk-x86_64 artifact to test (artifacts expire after 7 days)"
         required: true
         type: string
+      visual_scope:
+        description: "Visual tests to run: all five approved scenarios, or only breaking_news (diagnostic run)"
+        required: true
+        type: choice
+        options:
+          - all
+          - breaking_news
+        default: all
 
 permissions:
   contents: read
@@ -36,6 +44,7 @@ jobs:
       APPIUM_VERSION: "3.3.0"
       UIAUTOMATOR2_VERSION: "7.1.2"
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      VISUAL_SCOPE: ${{ inputs.visual_scope }}
     steps:
       - name: Check out repository (full history for the compatibility check)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,6 +54,9 @@ jobs:
 
       - name: Prepare log directory
         run: mkdir -p "$LOG_DIR"
+
+      - name: Validate visual scope (allowlist)
+        run: bash .github/scripts/visual-scope.sh "$VISUAL_SCOPE"
 
       - name: Validate source build run, artifact and compatibility
         env:
@@ -172,7 +184,9 @@ jobs:
         run: |
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
           set +e
-          python -m pytest -m visual -v \
+          # VISUAL_PYTEST_TARGET is a fixed allowlisted value set by visual-scope.sh (empty = all).
+          # shellcheck disable=SC2086
+          python -m pytest -m visual $VISUAL_PYTEST_TARGET -v \
             --alluredir=artifacts/allure-results/ci --clean-alluredir \
             --junitxml=artifacts/junit/visual.xml 2>&1 | tee "$LOG_DIR/pytest.log"
           rc=${PIPESTATUS[0]}
@@ -183,8 +197,6 @@ jobs:
       - name: Summarize results
         if: ${{ always() && !cancelled() }}
         working-directory: qa_visual
-        env:
-          EXPECTED_VISUAL: "5"
         run: |
           PYTEST_RC="${PYTEST_RC:-not-run}" python ../.github/scripts/visual-summary.py artifacts/junit/visual.xml
           if [ "${PYTEST_RC:-not-run}" != "0" ]; then

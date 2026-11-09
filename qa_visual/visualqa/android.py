@@ -38,8 +38,13 @@ def _cleanup_driver(
         raise failure
 
 
-def make_driver(scenario: str | None = None) -> webdriver.Remote:
-    """Create a session; with ``scenario`` the app is cold-launched into that QA scenario."""
+def make_driver(scenario: str | None = None, diagnostics_dir: Path | None = None) -> webdriver.Remote:
+    """Create a session; with ``scenario`` the app is cold-launched into that QA scenario.
+
+    If the launch fails and ``diagnostics_dir`` is given, bounded evidence (screen, hierarchy,
+    app state, logcat, classification) is captured BEFORE the session is cleaned up. The
+    original exception is always re-raised unchanged (a short note is added).
+    """
     package_name = os.environ.get("VVP_ANDROID_PACKAGE", "de.volksverpetzer.app")
     options = UiAutomator2Options()
     options.platform_name = "Android"
@@ -71,6 +76,14 @@ def make_driver(scenario: str | None = None) -> webdriver.Remote:
             from visualqa.scenario_launch import wait_for_scenario_identity
             wait_for_scenario_identity(driver)
     except BaseException as primary:
+        if diagnostics_dir is not None and scenario is not None and isinstance(primary, Exception):
+            try:
+                from visualqa.launch_diagnostics import capture
+                folder, summary = capture(driver, scenario=scenario, package=package_name,
+                                          launch_url=launch_url, error=primary, folder=diagnostics_dir)
+                primary.add_note(f"Launch diagnostics ({summary}); evidence: {folder}")
+            except BaseException as error:
+                _note_secondary(primary, "launch diagnostics", error)
         _cleanup_driver(driver, package_name, primary)
         raise
     return driver
@@ -79,7 +92,7 @@ def make_driver(scenario: str | None = None) -> webdriver.Remote:
 @contextmanager
 def android_session(scenario: str, output: Path) -> Iterator[webdriver.Remote]:
     """Preserve body failures, annotate secondary errors and always attempt cleanup."""
-    driver = make_driver(scenario)
+    driver = make_driver(scenario, diagnostics_dir=output / "launch-diagnostics" / scenario)
     try:
         yield driver
     except BaseException as primary:

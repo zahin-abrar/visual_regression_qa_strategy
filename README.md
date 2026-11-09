@@ -114,7 +114,7 @@ Build and test are separate because the native compile takes about 34 minutes an
 
 **2. Find the run ID:** open the finished build run; the ID is the number in its URL (`.../actions/runs/<run id>`).
 
-**3. Run the visual tests:** Actions > "Android visual tests (advisory)" > Run workflow, enter `source_run_id` (or `gh workflow run android-visual-tests.yml --ref main -f source_run_id=<run id>`).
+**3. Run the visual tests:** Actions > "Android visual tests (advisory)" > Run workflow, enter `source_run_id` and choose `visual_scope` (`all` = the five approved scenarios, default; `breaking_news` = that single test, for diagnostic runs). CLI: `gh workflow run android-visual-tests.yml --ref main -f source_run_id=<run id> -f visual_scope=breaking_news`.
 
 **4. Re-run on the same APK:** start the visual workflow again with the same run ID while the artifact is still available. Artifacts expire after 7 days; then run the build again and use the new ID.
 
@@ -124,7 +124,7 @@ Build and test are separate because the native compile takes about 34 minutes an
 
 | Artifact | Contents | Retention |
 | --- | --- | --- |
-| `visual-evidence` | actual, reference, diff, comparison metadata and retained failure packages | 14 days |
+| `visual-evidence` | actual, reference, diff, comparison metadata, retained failure packages and `launch-diagnostics/<scenario>/` (screen, UI hierarchy, app state, logcat and a classification captured when a scenario launch fails before the test body) | 14 days |
 | `visual-allure-report` | Allure HTML report (open `index.html` via a local server, for example `allure open <dir>`) | 14 days |
 | `visual-allure-results` | raw Allure results and JUnit XML | 14 days |
 | `visual-infra-logs` | emulator, Appium, Metro, pytest and logcat logs, environment metadata | 7 days |

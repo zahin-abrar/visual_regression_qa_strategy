@@ -1,4 +1,7 @@
-import { resolveQaSelection } from "#/screens/Home/fixtures/qaScenario";
+import {
+  describeQaLaunchUrl,
+  resolveQaSelection,
+} from "#/screens/Home/fixtures/qaScenario";
 
 describe("QA cold-launch selection", () => {
   test("release ignores URL and environment controls", () => {
@@ -104,4 +107,23 @@ test("theme overrides are immutable-launch, development-only and absent for norm
       expect(scenario.getQaThemeOverride()).toBeUndefined();
     } finally { globals.__DEV__ = previous; }
   }
+});
+
+describe("QA launch URL diagnostics", () => {
+  test("keeps only scheme, host, path and the qa_scenario values", () => {
+    expect(
+      describeQaLaunchUrl(
+        "exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=breaking_news",
+      ),
+    ).toBe(
+      'exp+vvpapp://expo-development-client/ qa_scenario=["breaking_news"]',
+    );
+  });
+  test("reports a URL without a selection, a missing URL and an unparseable URL", () => {
+    expect(describeQaLaunchUrl("vvpapp:///home?token=secret")).toBe(
+      "vvpapp:///home qa_scenario=[]",
+    );
+    expect(describeQaLaunchUrl(null)).toBe("<none>");
+    expect(describeQaLaunchUrl("not a url")).toBe("<unparseable>");
+  });
 });

@@ -41,6 +41,7 @@
 **/failure-*.png
 **/failure-*.xml
 **/*.log
+**/.local-evidence/
 
 # Native build outputs and local Android tree
 /app/android/

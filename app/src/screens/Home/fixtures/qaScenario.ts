@@ -73,10 +73,30 @@ export function getQaArticleMedia(slug: string): QaArticleMedia | undefined {
 }
 let initialization: Promise<QaSelection> | undefined;
 
+/** Log-safe launch URL: scheme, host and path plus only the qa_scenario values (no other query data). */
+export function describeQaLaunchUrl(url: string | null): string {
+  if (!url) return "<none>";
+  try {
+    const parsed = new URL(url);
+    const selections = parsed.searchParams.getAll("qa_scenario");
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname} qa_scenario=${JSON.stringify(selections)}`;
+  } catch {
+    return "<unparseable>";
+  }
+}
+
 export function initializeQaScenario(getInitialUrl: () => Promise<string | null>) {
   if (!initialization) {
     initialization = (__DEV__ ? getInitialUrl() : Promise.resolve(null))
-      .then((url) => resolveQaSelection(__DEV__, url, process.env.EXPO_PUBLIC_QA_SCENARIO))
+      .then((url) => {
+        const selection = resolveQaSelection(__DEV__, url, process.env.EXPO_PUBLIC_QA_SCENARIO);
+        // Development-only diagnostic (initialization never runs this path in release builds).
+        console.info(
+          `[qa-scenario] initial URL ${describeQaLaunchUrl(url)} -> status=${selection.status} ` +
+            `id=${selection.id ?? "-"} source=${selection.source}`,
+        );
+        return selection;
+      })
       .catch((): QaSelection => Object.freeze({ status: "invalid", source: "launch" }))
       .then((selection) => {
         qaFixtureEnabled = selection.status === "active";

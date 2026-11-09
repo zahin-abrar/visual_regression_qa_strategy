@@ -94,3 +94,23 @@ def attach_failure_diagnostics(folder: Path, since_ns: int) -> None:
     attach_if_fresh(folder / "failure-page-source.xml", "Failure page source", AttachmentType.XML, since_ns)
     for name in ("screenshot-error.txt", "page-source-error.txt"):
         attach_if_fresh(folder / name, name, AttachmentType.TEXT, since_ns)
+
+
+_LAUNCH_NAMES = {
+    "failure-screen.png": ("Launch failure: screen at timeout", AttachmentType.PNG),
+    "hierarchy.xml": ("Launch failure: UI hierarchy", AttachmentType.XML),
+    "launch-context.txt": ("Launch failure: context, classification and original exception", AttachmentType.TEXT),
+    "app-state.txt": ("Launch failure: app process and foreground activity", AttachmentType.TEXT),
+    "logcat.txt": ("Launch failure: relevant logcat", AttachmentType.TEXT),
+    "diagnostic-errors.txt": ("Launch failure: diagnostic collection problems", AttachmentType.TEXT),
+}
+
+
+def attach_launch_diagnostics(paths) -> None:
+    """Scenario-launch failure evidence (written moments ago by launch_diagnostics.capture)."""
+    if not _active:
+        return
+    for path in paths:
+        name, kind = _LAUNCH_NAMES.get(Path(path).name, (Path(path).name, AttachmentType.TEXT))
+        if Path(path).is_file():
+            allure.attach.file(str(path), name=name, attachment_type=kind)
