@@ -1,10 +1,13 @@
 """Opt-in Android cold launch; scenario identity must precede card readiness."""
 
 import os
+import time
 from urllib.parse import parse_qs, quote, urlparse
 
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+
+from visualqa import expo_overlay
 
 SUPPORTED_SCENARIOS = frozenset({"long_headline", "breaking_news", "dark_article", "no_image", "empty_feed"})
 DEV_CLIENT_LINK = "exp+vvpapp://expo-development-client/"
@@ -38,12 +41,51 @@ def resolve_launch_url(scenario: str, env=None) -> str:
     return build_launch_url(scenario, env.get("VVP_METRO_HOST", "127.0.0.1"), env.get("VVP_METRO_PORT", "8081"))
 
 
-def wait_for_scenario_identity(driver, scenario="long_headline"):
-    # Scenario identity precedes component-specific readiness.
-    WebDriverWait(driver, 45).until(
-        lambda current: current.find_elements(AppiumBy.ACCESSIBILITY_ID, f"qa-scenario:{scenario}"),
-        message=f"Exact active scenario identity qa-scenario:{scenario} was not exposed",
-    )
+SCENARIO_WAIT_S = 45
+MARKER_POLL_S = 0.5
+OVERLAY_CHECK_EVERY_S = 1.5
+MAX_DISMISSAL_EXTENSION_S = 10
+
+
+def wait_for_scenario_identity(driver, scenario="long_headline", *, clock=time.monotonic, sleep=time.sleep):
+    """Wait for the exact ``qa-scenario:<id>`` accessibility identity (45 s, unchanged).
+
+    While waiting, the Expo developer-menu onboarding sheet is recognised (hierarchy evidence only) and
+    dismissed at most once per overlay variant (onboarding sheet, then the dev-menu panel it opens); the time spent dismissing extends the wait by at most
+    MAX_DISMISSAL_EXTENSION_S. Dismissal never counts as activation: the exact marker is still required.
+    """
+    message = f"Exact active scenario identity qa-scenario:{scenario} was not exposed"
+    deadline = clock() + SCENARIO_WAIT_S
+    last_overlay_check = None
+    report = None
+    handled = set()
+    extended = 0.0
+    while True:
+        if driver.find_elements(AppiumBy.ACCESSIBILITY_ID, f"qa-scenario:{scenario}"):
+            return
+        now = clock()
+        if now >= deadline:
+            error = TimeoutException(message)
+            error.add_note(f"Expo onboarding overlay: {report or 'not observed (no dismissal attempted)'}")
+            raise error
+        if last_overlay_check is None or now - last_overlay_check >= OVERLAY_CHECK_EVERY_S:
+            last_overlay_check = now
+            try:
+                evidence = expo_overlay.inspect_hierarchy(expo_overlay._source(driver))
+                if evidence is not None and evidence.present:
+                    if evidence.variant in handled:
+                        raise expo_overlay.ExpoOverlayError(
+                            f"Expo overlay reappeared after it was dismissed ({evidence.describe()})")
+                    step = expo_overlay.dismiss_if_present(driver, evidence, clock=clock, sleep=sleep)
+                    handled.add(evidence.variant)
+                    report = f"{report}; {step}" if report else step
+                    deadline += min(clock() - now, max(0, MAX_DISMISSAL_EXTENSION_S - extended))
+                    extended += min(clock() - now, max(0, MAX_DISMISSAL_EXTENSION_S - extended))
+                    continue
+            except expo_overlay.ExpoOverlayError as error:
+                error.add_note(f"scenario wait for qa-scenario:{scenario}; overlay report: {report or 'none'}")
+                raise
+        sleep(MARKER_POLL_S)
 
 
 def launch_scenario(driver, package_name: str, url: str):

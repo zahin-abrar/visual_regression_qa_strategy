@@ -18,6 +18,8 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from visualqa import expo_overlay
+
 DRIVER_TIMEOUT_S = 20
 ADB_TIMEOUT_S = 15
 LOGCAT_LINES = 3000
@@ -109,6 +111,10 @@ def classify(*, expected: str, process_running: bool | None, foreground: str | N
         return "wrong-marker", f"found qa-scenario marker(s) {found}, expected {expected}"
     if _QA_UNAVAILABLE.search(hierarchy):
         return "qa-selection-rejected", "app shows 'QA scenario unavailable' (invalid/unsupported launch selection)"
+    overlay = expo_overlay.inspect_hierarchy(hierarchy)
+    if overlay is not None and overlay.covering:
+        return ("expo-dev-menu-overlay",
+                f"Expo developer-menu overlay covers the app ({overlay.describe()})")
     if _DEV_CLIENT.search(hierarchy) or (foreground and "devlauncher" in foreground.lower()):
         return "dev-client-screen", "Expo development-client screen visible; app UI not reached"
     if _ERROR_SCREEN.search(hierarchy):
@@ -200,6 +206,7 @@ def capture(driver, *, scenario: str, package: str, launch_url: str | None,
             f"expected identity: qa-scenario:{scenario}",
             f"observed identities: {sorted(set(_SCENARIO_MARKER.findall(str(hierarchy or ''))))}",
             f"classification: {state}",
+            f"expo overlay evidence: {getattr(expo_overlay.inspect_hierarchy(str(hierarchy or '')), 'describe', lambda: 'hierarchy unavailable')()}",
             f"explanation: {why}",
             f"launch url (sanitized): {sanitize_launch_url(launch_url)}",
             f"session id: {getattr(driver, 'session_id', '?')}",
