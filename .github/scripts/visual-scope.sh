@@ -7,8 +7,9 @@ scope=${1-}
 case "$scope" in
   all)           target="";                                                                    expected=5 ;;
   breaking_news) target="tests/test_breaking_news.py::test_breaking_news_banner_matches_reviewed_golden"; expected=1 ;;
+  no_image)      target="tests/test_no_image.py::test_no_image_android_card_matches_reviewed_golden"; expected=1 ;;
   *)
-    echo "::error title=Invalid visual_scope::'$scope' is not one of: all, breaking_news"
+    echo "::error title=Invalid visual_scope::'$scope' is not one of: all, breaking_news, no_image"
     exit 1 ;;
 esac
 out=${GITHUB_ENV:-/dev/stdout}

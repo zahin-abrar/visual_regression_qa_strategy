@@ -18,6 +18,10 @@ elif tr -d '\r' < "$LOG_DIR/adb-devices-final.txt" | awk 'NR > 1 && $2 == "devic
   timeout -k 2 "$T" "$ADB" logcat -d -t 4000 > "$out" 2>&1 < /dev/null
   rc=$?
   [ "$rc" -eq 0 ] || echo "[logcat exited with code $rc (124 = timed out after ${T}s); output above may be partial]" >> "$out"
+  # Android crash buffer (native fatal signals / tombstone summaries); bounded, best effort.
+  timeout -k 2 "$T" "$ADB" logcat -b crash -d -t 1000 > "$LOG_DIR/logcat-crash.txt" 2>&1 < /dev/null
+  rc=$?
+  [ "$rc" -eq 0 ] || echo "[crash buffer logcat exited with code $rc (124 = timed out after ${T}s); output above may be partial]" >> "$LOG_DIR/logcat-crash.txt"
 else
   echo "No Android device/emulator available (adb devices rc=$rc); logcat not collected. See emulator.log for the boot failure." > "$out"
 fi

@@ -13,12 +13,13 @@ on:
         required: true
         type: string
       visual_scope:
-        description: "Visual tests to run: all five approved scenarios, or only breaking_news (diagnostic run)"
+        description: "Visual tests to run: all five approved scenarios, or a single scenario (breaking_news or no_image) for a diagnostic run"
         required: true
         type: choice
         options:
           - all
           - breaking_news
+          - no_image
         default: all
 
 permissions:
