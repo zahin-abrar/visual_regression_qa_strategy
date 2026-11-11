@@ -12,4 +12,4 @@ Human-reviewed and explicitly approved native element screenshots (PNG, RGBA):
 
 `empty_feed.png` captures only the empty-state message region; the donation card below it is intentionally excluded.
 
-Do not replace these images without explicit human review of a new native capture and its comparison evidence. See the [baseline guide](../../README.md) and the [runner's manual promotion procedure](../../../README.md#review-and-manually-promote-a-replacement).
+Do not replace these images without explicit human review of a new native capture and its comparison evidence. See the [baseline guide](../../README.md) and the [golden workflow](../../../../README.md#regenerate-golden-images).

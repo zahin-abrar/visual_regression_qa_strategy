@@ -1,6 +1,7 @@
 # Local project context and execution logs
 /.project-private/
 /debug-logs/
+/prompt-collection/
 
 # Environment files; reviewed templates may be committed
 **/.env

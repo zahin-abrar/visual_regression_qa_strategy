@@ -1,177 +1,227 @@
 # Mobile Visual Regression QA
 
-A focused demonstration of mobile screenshot testing with a real React Native news application. It pairs one executed Android prototype with a proposed cross-platform strategy; the proposal is not presented as an implemented or tested iOS runner.
+## Overview
 
-## Project overview
+This project demonstrates automated screenshot testing on a real Android news application adapted from Volksverpetzer. Using Appium and pytest, each test loads a predictable, development-only news scenario, captures the rendered React Native UI and compares it with a human-approved reference image (a *golden*).
 
-The repository contains the Volksverpetzer application with a development-only deterministic fixture, a Python/pytest/Appium visual runner, and supporting documentation. The executed Android scope on Pixel_10/API 37 includes five human-approved visual scenarios: `long_headline`, `breaking_news`, `dark_article`, `no_image` and `empty_feed`. Each is selected by an explicit runtime cold launch (`qa_scenario=<id>`) and has passed local native regression comparisons against its reviewed reference. iOS is proposed scope only; there is no iOS implementation or execution. See the [cross-platform strategy (PDF)](deliverables/strategy.pdf) and [editable Markdown source](deliverables/strategy.md).
+Five scenarios are implemented and have passed local Android comparisons. The demonstration has not been implemented or executed on iOS.
 
-## What has been demonstrated
+## Prerequisites
 
-- The real Volksverpetzer React Native app rendered the deterministic `long_headline` fixture.
-- Appium with UiAutomator2 captured the native outer article-card element.
-- A small Python/pytest POM separates screen-level access (`HomeScreen`) from component-level readiness and capture (`ArticleCard`, `BreakingBanner`, `EmptyFeedState`).
-- Five runtime-selected Android scenarios are verified against human-approved references:
-  - `long_headline`: outer article card, 1028 × 1237.
-  - `breaking_news`: development-only banner, 1028 × 493.
-  - `dark_article`: the same card in the real VVP dark palette, 1028 × 1237.
-  - `no_image`: the card with genuinely absent featured media, 1028 × 711.
-  - `empty_feed`: the real empty-state message region after a successful zero-item fetch, 1028 × 309.
-- In EXEC-032, six separate cold launches through one Metro process covered all five scenarios, including two `empty_feed` runs. Every launch passed with zero changed pixels, and the two `empty_feed` captures were byte-identical. This was local sequential execution, not CI.
-- A marker-controlled intentional failure demonstration (`-m intentional_failure`, excluded by default) captures the real `breaking_news` banner and compares it with a deliberately incorrect, channel-swapped reference. It genuinely fails at the comparison assertion (exit 1, 92.41% of pixels changed) and writes actual, diff and JSON artifacts, while the normal `breaking_news` test passes before and after. This is a reference-mismatch demonstration, not an application regression. See the [runner guide](qa_visual/README.md#intentional-visual-failure-demonstration).
-- Two reviewed native captures were byte-identical at 1028 × 1237 pixels.
-- After an explicit human-reviewed migration to the runtime-selected baseline, two independent cold-launch visual tests each reported **1 passed**, exit 0, and 0 of 1,271,636 changed pixels (0.0%).
-- Each run writes a diff image and comparison-metrics JSON under `qa_visual/artifacts/android/pixel10-api37/`. This directory is Git-ignored, so a fresh clone has no artifacts until the tests are run locally.
+The documented local environment is Windows 11 with PowerShell 5.1 or later. Install Git, Node.js 24.x, pnpm 12.11.2 (the version in `app/package.json`), Java 17 and Python 3.13. Put Java and Android SDK tools on `PATH`, and set `JAVA_HOME` to the Java installation.
 
-The golden path `qa_visual/baselines/android/pixel10-api37/long_headline.png` is tracked. Its approved runtime-selected replacement was committed in local checkpoint `f0b38e9`, and the previous environment-fallback golden remains recoverable in Git history. This intentional migration preserves comparison thresholds; legacy fallback may no longer match, and the underlying native layout-rounding cause remains unresolved. No CI pipeline or native iOS execution has been demonstrated.
+Use Android Studio Device Manager to configure an x86_64 AVD named `Pixel_10`: API 37, 1080 x 2424, 420 dpi, font scale 1.0. On the tested host, ADB assigned the serial `emulator-5554`; that serial can differ on another machine or when multiple emulators are running. Android SDK platform-tools (`adb`) and emulator tools must be available.
 
-The breaking-news banner is a development-only sample-app extension for the challenge, not a verified upstream VVP production feature. After explicit human approval and byte-for-byte promotion, two independent banner regressions passed with zero changed pixels; their 1028 x 493 captures were byte-identical. The long-headline regression also passed against its unchanged reference. The breaking-news baseline was committed in local checkpoint `f0b38e9`. See the [runner guide](qa_visual/README.md#breaking-news-banner-approved-android-reference) for the exact breaking-news launch command and review policy.
+**One-time setup**, starting at the repository root:
 
-## Architecture overview
+```powershell
+npm install -g appium@3.3.0
+appium.cmd driver install uiautomator2@7.1.2
+appium.cmd driver doctor uiautomator2
 
-- `app/` — Volksverpetzer React Native application and development-only fixture provider.
-- `qa_visual/` — Android Appium visual tests in `tests/`, Python unit tests in `unit_tests/`, device-specific goldens and Pillow comparison. Root `pytest.ini` supports discovery from either working directory.
-- The `HomeScreen` Screen Object and the `ArticleCard`, `BreakingBanner` and `EmptyFeedState` Component Objects own screen access, scenario-specific readiness, content lookup and native element capture.
-- `visualqa/android.py` configures the Android Appium session; `visualqa/image_diff.py` compares PNGs and writes diff/metrics artifacts.
-- Goldens are stored by platform and device profile. The current goldens belong to Android `pixel10-api37` and are not iOS references.
+Set-Location .\app
+pnpm.cmd install --frozen-lockfile
+Set-Location ..\qa_visual
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip check
+Set-Location ..
+```
 
-See [the runner README](qa_visual/README.md) for implementation details and setup.
+An Android **development build** of `de.volksverpetzer.app` must be installed. If absent, first start the emulator as below, then run this from the repository root:
 
-## Setup from a fresh checkout
+```powershell
+Set-Location .\app
+pnpm.cmd android
+Set-Location ..
+```
 
-This project has been run only on one Windows 11 host with PowerShell. Nothing below has been re-executed from a clean clone; the table separates what was exercised on that host from what is only documented. Other operating systems are untested.
+The app script invokes `expo run:android` and may start Metro. If it does, reuse that server only when it has the settings shown under **Run the demo**; otherwise stop it before starting Terminal 2. Do not run two Metro servers on port 8081, or rebuild an already working development app just to run tests.
 
-| Step | Status |
-| --- | --- |
-| Prerequisites: Git, Node 24.x (`app/.nvmrc`), pnpm 12.11.2 (`packageManager` in `app/package.json`), Java 17, Android SDK (platform-tools, emulator), Python 3.11-3.13 (3.13.1 used), Appium 3.3.0 with the `uiautomator2` driver 7.1.2 | Versions observed on the host; installation not repeated |
-| 1. App dependencies: `cd app`, then `pnpm install` (optionally copy `.env.sample` to `.env`; `APP=volksverpetzer` is the variant tested) | Documented by the upstream app; not run from a clean clone |
-| 2. Emulator: an AVD named `Pixel_10`, API 37, 1080 x 2424 at 420 dpi. Verified runs used `emulator -avd Pixel_10 -no-snapshot-load -gpu software` | Launch verified; AVD creation (Android Studio Device Manager) not documented or tested here |
-| 3. Development build: with the emulator running, `cd app`, then `pnpm android` (`expo run:android`) installs the dev client `de.volksverpetzer.app` | Script exists in `app/package.json`; a clean build was not run. The host already had the app installed |
-| 4. Metro: from `app/`, `pnpm.cmd exec expo start --dev-client --localhost --port 8081 --clear`, then `adb reverse tcp:8081 tcp:8081` | Verified (see Quick start) |
-| 5. Appium: `appium --address 127.0.0.1 --port 4723` in its own terminal | Verified |
-| 6. Python environment: `cd qa_visual`, `py -3.13 -m venv .venv`, then `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` | Verified |
-| 7. Tests (from `qa_visual/`): five normal visual tests, six-test run with the intentional failure, complete default suite, Allure and failure evidence | Verified; commands in the [pytest command matrix](qa_visual/README.md#verified-pytest-command-matrix-exec-040), [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) and [retained failure evidence](qa_visual/README.md#retained-failure-evidence-exec-040b) |
+Dependency installation and Android compilation have been exercised separately, including a tracked-only checkout with warm caches. The complete clean-host installation and `pnpm android` build/install/start sequence have **not** been verified end to end. AVD provisioning and the installation commands above remain setup guidance.
 
-The emulator, Metro and Appium are started by hand; the tests do not start them. Goldens are tied to the `pixel10-api37` profile above. Intermittent mismatches and Appium transport errors observed on the verified host are described in the runner README.
+No runner `.env` is required. The app defaults to the tested `volksverpetzer` variant. Do not put credentials in client-visible `EXPO_PUBLIC_*` variables.
 
-## Quick start
+## Run the demo
 
-Once the Android emulator and installed development app are ready, start Metro with the fixture enabled in one PowerShell terminal:
+Open each terminal at the repository root. Keep healthy existing services running; tests do not start them. The commands below use the existing installed development app.
+
+**Terminal 1 — Android emulator**
+
+```powershell
+emulator -avd Pixel_10 -no-snapshot-load -gpu software
+```
+
+**Terminal 2 — Metro development server**
 
 ```powershell
 Set-Location .\app
 $env:EXPO_PUBLIC_QA_SCENARIO = 'long_headline'
-$env:NODE_OPTIONS = "--dns-result-order=ipv4first"
+$env:NODE_OPTIONS = '--dns-result-order=ipv4first'
 pnpm.cmd exec expo start --dev-client --localhost --port 8081 --clear
 ```
 
-Preserve an existing healthy Metro process and its environment. With the Appium server ready and `adb reverse tcp:8081 tcp:8081` in place, run the visual tests from a second terminal. Each test declares its scenario (`@pytest.mark.qa_scenario(...)`) and cold-launches the app into it, so no launch URL needs to be set:
+`EXPO_PUBLIC_QA_SCENARIO` provides a development fallback. Each pytest test selects its own scenario when launching the app, so you do not need to change this variable or restart Metro between tests.
+
+**Terminal 3 — Appium**
 
 ```powershell
-Set-Location .\qa_visual # From the repository root.
-.\.venv\Scripts\python.exe -m pytest .\tests\test_long_headline.py -v -s   # one scenario
-.\.venv\Scripts\python.exe -m pytest .\tests -m visual -v                  # all five scenarios
-.\.venv\Scripts\python.exe -m pytest .\unit_tests -q                       # unit tests; no Android required
-.\.venv\Scripts\python.exe -m pytest -v                                    # all normal tests
+appium.cmd --address 127.0.0.1 --port 4723
 ```
 
-In PyCharm, the normal Run action on a visual test file works with the `qa_visual/.venv` interpreter and no extra environment variables.
-
-For emulator, app, Appium, Python environment, golden review and troubleshooting instructions, see [qa_visual/README.md](qa_visual/README.md).
-
-To regenerate a candidate, run the corresponding `test_<scenario>.py` command above;
-it saves a fresh native `artifacts/android/pixel10-api37/<scenario>.actual.png` and
-context before comparison. Follow the [capture, human review and safe promotion steps](qa_visual/README.md#review-and-manually-promote-a-replacement)
-to preserve evidence, approve its hash and back up an existing reference before replacement.
-Tests never update goldens. Runner defaults require no `.env` file; see the
-[configuration inventory](qa_visual/README.md#configuration-ownership-and-precedence)
-for optional environment overrides and future CI usage.
-
-## Optional Allure reports
-
-Visual tests can emit an [Allure](https://allurereport.org/) report showing, per scenario, the approved golden, the actual native screenshot, the red diff, the comparison JSON and the pixel metrics; the intentional reference-mismatch demo is reported separately. It is optional: normal pytest and PyCharm runs need neither the Allure CLI nor any flag. Quick start (from `qa_visual/`; Allure Report 2 CLI 2.36.0 verified):
+**Terminal 4 — checks and test execution**
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -m visual --alluredir=artifacts/allure-results/visual --clean-alluredir --junitxml=artifacts/junit/visual.xml
-allure generate artifacts/allure-results/visual -o artifacts/allure-report/visual --clean
-allure open artifacts/allure-report/visual
+adb devices -l
+adb -s emulator-5554 shell getprop sys.boot_completed
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
 ```
 
-Results and reports are written under the Git-ignored `qa_visual/artifacts/`. See [Allure reporting](qa_visual/README.md#allure-reporting-exec-038) for the intentional-failure report, attachments, CI notes and limitations. Manually triggered GitHub Actions workflows also exist (see the next section for what they have and have not verified).
+Wait for `emulator-5554 device`, boot status `1`, Metro ready on port 8081 and Appium ready on port 4723. Leave runner overrides unset, especially `VVP_QA_LAUNCH_URL`, `VVP_GOLDEN_PROFILE`, `VVP_CHANNEL_TOLERANCE` and `VVP_MAX_CHANGED_RATIO`.
 
-## GitHub Actions: Android build and advisory visual tests
+**Machine-specific values:** The commands use the tested AVD name `Pixel_10` and ADB serial `emulator-5554`. On another host, run `adb devices -l` to identify the actual serial and adjust the ADB commands; use the configured AVD name when launching the emulator. **The golden-capture helper currently requires both `Pixel_10` and `emulator-5554`**, so changing these command values alone does not make that helper compatible with a different device. The documented API level, resolution, density and font scale must also match the reference profile.
 
-Two independent, manually triggered workflows (`workflow_dispatch` only). Neither uses secrets, EAS or Expo/Play credentials; both use only the built-in `GITHUB_TOKEN`.
+From this same terminal, still at the repository root:
 
-| Workflow | File | Purpose | Permissions |
-| --- | --- | --- | --- |
-| Android debug build | [`android-build.yml`](.github/workflows/android-build.yml) | Builds the debug APK on `ubuntu-24.04` (`pnpm install --frozen-lockfile`, Expo prebuild, Gradle `assembleDebug` x86_64) and uploads `android-debug-apk-x86_64` (kept 7 days). | `contents: read` |
-| Android visual tests (advisory) | [`android-visual-tests.yml`](.github/workflows/android-visual-tests.yml) | Downloads an APK from an earlier build run, boots a headless emulator, starts Metro and Appium and runs only `python -m pytest -m visual -v` (five approved scenarios; no unit tests, no intentional-failure demo). **Never rebuilds the app.** | `contents: read`, `actions: read` |
+```powershell
+# All five normal visual scenarios
+.\qa_visual\.venv\Scripts\python.exe -m pytest .\qa_visual\tests -m visual -v
 
-Build and test are separate because the native compile takes about 34 minutes and one APK can be reused for many visual runs.
+# One scenario: substitute another name from the table below
+.\qa_visual\.venv\Scripts\python.exe -m pytest .\qa_visual\tests\test_breaking_news.py -v -s
 
-**1. Build an APK (when you need a new one):** GitHub > Actions > "Android debug build" > Run workflow on `main`.
+# Python unit tests only; emulator, Metro and Appium are not required
+.\qa_visual\.venv\Scripts\python.exe -m pytest .\qa_visual\unit_tests -q
+```
 
-**2. Find the run ID:** open the finished build run; the ID is the number in its URL (`.../actions/runs/<run id>`).
+These test selections have been exercised locally. Each visual test cold-launches its own scenario and checks identity and readiness before capture. No manually assembled deep link or Metro restart between scenarios is needed.
 
-**3. Run the visual tests:** Actions > "Android visual tests (advisory)" > Run workflow, enter `source_run_id` and choose `visual_scope` (`all` = the five approved scenarios, default; `breaking_news` or `no_image` = that single test, for diagnostic runs). CLI: `gh workflow run android-visual-tests.yml --ref main -f source_run_id=<run id> -f visual_scope=breaking_news`.
+## Test scenarios
 
-**4. Re-run on the same APK:** start the visual workflow again with the same run ID while the artifact is still available. Artifacts expire after 7 days; then run the build again and use the new ID.
+| Scenario | Component captured |
+| --- | --- |
+| `long_headline` | Article teaser with a long German headline |
+| `breaking_news` | Development-only breaking-news banner |
+| `dark_article` | Dark-theme article teaser |
+| `no_image` | Text-only article teaser with absent media |
+| `empty_feed` | Message after a successful empty-feed response |
 
-**Source checks (run first, fail clearly):** the ID must be numeric; the run must belong to this repository, be the Android build workflow and have completed successfully; the artifact must exist, be unexpired and non-empty. The source commit must be an ancestor of the commit under test, and none of these may have changed between them: `app/` (except Markdown), `qa_visual/baselines/`, `demo_assets/`, `visualqa/`, `tests/`, `conftest.py`, `requirements.txt` or `pytest.ini`. Workflow, script and documentation changes do not invalidate an APK. If the check fails, rebuild the APK from the current revision. The source run ID, source commit, visual workflow commit and APK SHA-256 are written to the job summary.
+Goldens capture specific UI components, not the full phone screen. Full-screen context is diagnostic only. `empty_feed` excludes donation controls and does not cover offline/error behavior; `no_image` is a test-only adaptation, not general production optional-media support.
 
-**5. Inspect results:** the visual job's Summary shows passed / comparison mismatch / other failure / error / not-executed counts with the provenance. Artifacts:
+Optional intentional reference-mismatch demonstration, from the repository root:
 
-| Artifact | Contents | Retention |
-| --- | --- | --- |
-| `visual-evidence` | actual, reference, diff, comparison metadata, retained failure packages and `launch-diagnostics/<scenario>/` (screen, UI hierarchy, app state, logcat and a classification captured when a scenario launch fails before the test body) | 14 days |
-| `visual-allure-report` | Allure HTML report (open `index.html` via a local server, for example `allure open <dir>`) | 14 days |
-| `visual-allure-results` | raw Allure results and JUnit XML | 14 days |
-| `visual-infra-logs` | emulator, Appium, Metro, pytest and logcat logs, environment metadata | 7 days |
+```powershell
+.\qa_visual\.venv\Scripts\python.exe -m pytest .\qa_visual\tests\test_intentional_visual_failure.py -m intentional_failure -v -s
+```
 
-**Why visual failures are advisory:** the pytest step has `continue-on-error`, so the job can be green while the step is red. The real exit code stays visible (failed step, warning annotation, summary banner); a green job does not mean five passing comparisons, so read the summary. Setup problems (source checks, artifact download, no KVM, emulator not booting, Appium or Metro not ready, app not starting) fail the job. There are no retries, and CI never changes goldens or thresholds.
+This is **expected to fail with exit code 1** against a deliberately incorrect reference. It demonstrates comparison failure evidence, not an application defect, and is excluded from normal runs.
 
-**Cross-environment limitation:** the goldens were reviewed on a Windows-hosted Pixel_10 emulator. CI uses the same API 37 image, 1080x2424, 420 dpi and software rendering (`swiftshader_indirect`; local runs used `-gpu software`), but host OS, emulator build, image revision and GPU backend differ. A mismatch is **unresolved**: environment drift, the documented intermittent rendering instability, or a real regression. A CI-specific baseline strategy needs separate human review.
+## Regenerate golden images
 
-**Implemented versus GitHub-verified:** the build workflow passed on GitHub (run `42616325655`, commit `d48e8d7`). The visual workflow ran on GitHub: run `42620071563` (`visual_scope=breaking_news`) passed with 0 changed pixels, and a full-suite run on the same APK passed golden comparison for `breaking_news`, `dark_article`, `empty_feed` and `long_headline` (0 changed pixels each) while `no_image` failed before capture because the app process crashed natively (`SIGSEGV` in React Native Fabric, cause unresolved). **The full five-scenario suite has therefore not passed on GitHub.** An isolated `no_image` run (`visual_scope=no_image`) could not be executed because of GitHub platform errors. First-launch Expo developer-menu overlays are dismissed by the test runner. No iOS testing and no required PR check.
+The two PowerShell helpers keep **candidate capture**, **human review** and **golden promotion** separate. Both support the five scenarios above and only the `pixel10-api37` profile. The profile name does not guarantee identical rendering; the helpers check observable device settings.
 
-## Documentation
+**Verification status:** 50 mocked safety checks passed, but the helpers have **not** been tested end to end with real ADB/native screenshot capture. Keep default runner settings; unset `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` for capture, and do not run other pytest/device operations concurrently. The helper lock cannot control unrelated processes.
 
-- [Android runner, setup and golden workflow](qa_visual/README.md)
-- [Notice: provenance, licenses and brand-asset limitation](NOTICE.md)
-- [AI assistance disclosure (draft for author review)](deliverables/ai_prompt_disclosure.md)
-- [Cross-platform Android/iOS screenshot-testing strategy (PDF)](deliverables/strategy.pdf) ([editable Markdown](deliverables/strategy.md))
+**1. Capture a candidate** — With the emulator, Metro and Appium running, execute from the repository root:
 
-## Results and limitations
+```powershell
+.\scripts\goldens\capture-candidate.ps1 -Scenario breaking_news
+```
 
-The local Android visual test passed against the human-reviewed golden after repeat-capture verification. The current implementation covers five Android fixture scenarios (`long_headline`, `breaking_news`, `dark_article`, `no_image`, `empty_feed`) with human-approved references. They are captured as native element screenshots of the outer card, the banner or the empty-state message region; full-screen context images are diagnostic only. The capture targets depend on the current UiAutomator2 accessibility hierarchy. Comparison thresholds are unchanged: channel delta >12 and a maximum changed-pixel ratio of 0.002. The first three references were committed in local checkpoint `f0b38e9` and `no_image` in `8c54f0f`. The `empty_feed` reference and its implementation are also tracked in Git. Rendering consistency depends on using the matching app and emulator profile. There is no executed iOS test or verified CI job. A marker-controlled intentional failure demonstration (EXEC-033) fails against a deliberately incorrect reference; it shows the failure path and artifacts, not a detected application UI regression.
+The command preserves previous rolling artifacts and reports a unique review folder under `qa_visual/artifacts/review/` with the candidate, hashes, provenance, JUnit results and logs. It does **not** change approved goldens. It accepts a captured comparison mismatch or missing golden only with consistent evidence; startup, readiness, cleanup and ambiguous failures are rejected.
 
-## Attribution and license
+**2. Review the candidate** — Open the reported folder. Compare `candidate.png`, `context.png`, the existing `reference.png` (if present), and available `diff.png`/comparison metrics. Check content, capture boundaries, headline wrapping, theme and image rendering. Make a second independent capture to check stability before approving a visual change. Record the reason for the change and the **exact candidate SHA-256** printed by the helper. A passing comparison is not approval. Keep the reviewed packet unchanged.
 
-The application is adapted from [Volksverpetzer/vvp_app](https://github.com/Volksverpetzer/vvp_app), upstream `prerelease` commit `8b421753a17a18cd648447319adcca61a288f97f`. The app directory includes [its MIT license and notice](app/LICENSE.md); retain the upstream attribution and license terms. MIT covers the code, not logos, trademarks, mascot artwork or animations; see [NOTICE.md](NOTICE.md) for the unresolved brand-asset limitation. This does not establish redistribution clearance for every logo, image, or other third-party asset bundled with the app.
+**3. Promote only after approval** — Use the reviewed folder and exact approved hash:
 
+```powershell
+.\scripts\goldens\promote-golden.ps1 `
+  -ReviewDir "<review-directory>" `
+  -ApprovedHash "<approved-sha256>"
+```
 
-The additional `dark_article` implementation reuses the same article and real VVP
-dark palette through a development-only, nonpersistent theme override. The exact reviewed native PNG was human-approved and promoted in EXEC-028;
-independent cold-launch comparisons passed against its separate dark reference. See the [dark-article runner notes](qa_visual/README.md#dark-article-approved-android-reference).
+Review the displayed destination and hashes, then type `PROMOTE` only if you approve that specific candidate. The helper verifies the hash, rejects a changed original reference, backs up the existing golden, protects any prior backup and checks the copied bytes. It never stages, commits or pushes.
 
-The `no_image` scenario (EXEC-029) renders the same synthetic article through the real
-`ArticlePost` with genuinely absent featured media and no image panel. This is a
-deliberate, challenge-scoped, development-only QA adaptation keyed to an explicit QA
-media contract; it is not verified upstream VVP production support for image-less
-cards, and normal production article rendering is unchanged. The exact reviewed native
-PNG was human-approved and promoted in EXEC-030; two independent cold-launch comparisons
-passed against it with zero changed pixels. See the
-[no-image runner notes](qa_visual/README.md#no-image-approved-android-reference).
+**4. Verify before committing** — Promotion reports `PROMOTED  NATIVE VERIFICATION PENDING`. Run the printed scenario-specific pytest command and destination hash check, require a passing native comparison, and review the Git diff before committing the image. If verification fails, preserve the candidate, promoted reference, backup and failure evidence; there is **no automatic retry, rollback or approval**. Any restoration requires a separate human decision.
 
-The `empty_feed` scenario (EXEC-031) is a challenge-specific, deterministic
-**successful-empty** case: one configured synthetic feed source resolves successfully
-with zero articles. The real feed then shows VVP's existing empty-state message. It is
-not offline, error or loading coverage. A development-only outcome record separates a
-successful empty response from a failed fetch, which the production utilities also turn
-into an empty list. The reference captures only the empty-state message region (icon and
-text) and excludes the donation card below it. The exact reviewed native PNG was
-human-approved and promoted byte for byte in EXEC-032. Two independent cold-launch
-comparisons then passed against it with zero changed pixels, as did the four other
-scenarios. The reference is tracked in Git. See the
-[empty-feed runner notes](qa_visual/README.md#empty-feed-approved-android-reference).
+If Windows blocks `.ps1` execution, consult the applicable PowerShell execution-policy guidance rather than changing a machine-wide policy solely for this demo.
+
+## Review results
+
+After a test, inspect its actual screenshot and visual difference. A passing comparison means the image matches the approved golden within the configured tolerance. If a comparison fails, review the images to decide whether the change is intentional; if the app fails before capture, investigate the startup diagnostics instead.
+
+Normal test output is under the Git-ignored `qa_visual/artifacts/android/pixel10-api37/`:
+
+- `<scenario>.actual.png`: native component screenshot.
+- `<scenario>.diff.png` and `.comparison.json`: visual difference and metrics, written when comparison runs.
+- `<scenario>.context.png`: uncompared full-screen diagnostic context.
+- `failures/<unique-directory>/`: best-effort retained comparison/missing-golden evidence and manifest.
+- `launch-diagnostics/<scenario>/` or `failure-*` files: available startup, hierarchy and driver diagnostics.
+
+Approved goldens are in `qa_visual/baselines/android/pixel10-api37/`. Ordinary artifact filenames roll over on later runs; preserve evidence before rerunning. Helper review packets are isolated under `qa_visual/artifacts/review/`.
+
+A visual mismatch means capture reached comparison. A missing golden means capture completed without an approved reference; no new diff is produced. Setup, identity, readiness, driver and application failures are separate failures and must not be accepted as golden candidates. Check current logs and timestamps rather than interpreting leftover images as a completed run.
+
+The unchanged comparison policy counts a pixel when any RGB channel differs by more than 12, allows at most 0.2% changed pixels and fails different image dimensions. Do not adjust tolerances or accept a new golden to hide an unexplained mismatch.
+
+### Allure reporting — inspect screenshots and comparisons
+
+Allure provides a browsable view of the test run: **pass/fail status, scenario details and visual evidence** in one place. For completed visual captures, open a test to inspect the approved reference, actual native screenshot, highlighted diff, full-screen context and comparison metrics (where available). Evidence is attached before the visual assertion, so an intentional comparison failure retains its images. Allure shows captured evidence **after it is produced**, not a live video of the emulator.
+
+**Run the complete demo suite**, including unit tests, all five normal visual scenarios and the intentionally failing comparison. With the emulator, Metro and Appium ready, run from the repository root:
+
+```powershell
+.\qa_visual\.venv\Scripts\python.exe -m pytest -m "unit or visual or intentional_failure" -v `
+  --alluredir=qa_visual/artifacts/allure-results/full-demo `
+  --clean-alluredir `
+  --junitxml=qa_visual/artifacts/junit/full-demo.xml
+```
+
+**An exit code of 1 is expected for this demonstration** because the intentional test compares a real screenshot with a deliberately incorrect reference. In a previously verified local run, the selection produced 79 passes and one intentional failure; results can differ if a real test or infrastructure problem occurs. The normal passing suite remains the command under **Run the demo**.
+
+**Start the Allure report server** to generate the report and open it in your browser:
+
+```powershell
+allure serve qa_visual/artifacts/allure-results/full-demo
+```
+
+For a persistent HTML report instead, use:
+
+```powershell
+allure generate qa_visual/artifacts/allure-results/full-demo -o qa_visual/artifacts/allure-report/full-demo --clean
+allure open qa_visual/artifacts/allure-report/full-demo
+```
+
+Use the **Allure Report 2 CLI** (version 2.36.0 verified; Java required), distinct from the `allure-pytest` package installed with the Python requirements. `allure serve` uses a temporary report directory; `allure generate` saves a report under Git-ignored `qa_visual/artifacts/`. Stop the local server with `Ctrl+C`. Neither Allure nor the intentional failure changes goldens or comparison thresholds; regular pytest runs do not require the Allure CLI.
+
+## GitHub Actions
+
+Two independent workflows are manually triggered through **Actions → Run workflow**:
+
+1. Run [Android debug build](.github/workflows/android-build.yml) when a new APK is needed. It builds and uploads `android-debug-apk-x86_64` for seven days.
+2. Open the successful build run and copy the numeric run ID from its URL.
+3. Run [Android visual tests (advisory)](.github/workflows/android-visual-tests.yml), supplying that ID as `source_run_id`.
+4. Choose `visual_scope`: `all` (five normal scenarios), `breaking_news` or `no_image`.
+5. Inspect the summary, actual pytest results and artifacts: `visual-evidence`, `visual-allure-results`, `visual-allure-report` and `visual-infra-logs`.
+
+The visual workflow reuses the APK rather than rebuilding it. Source/run compatibility and artifact availability are checked first; rebuild if the source is incompatible or the artifact has expired. The summary records APK and source provenance.
+
+**Workflow status is not pytest status.** Visual pytest failures are advisory (`continue-on-error`), so a green job can contain failing tests. Setup failures fail the job. Neither workflow changes goldens or thresholds.
+
+Recorded hosted evidence: APK build `42616325655` succeeded; isolated `breaking_news` run `42620071563` passed with zero changed pixels. A full-suite execution passed comparisons for `breaking_news`, `dark_article`, `empty_feed` and `long_headline`; `no_image` crashed natively before comparison. **The hosted five-scenario suite has not passed.** No full-suite run ID is claimed here.
+
+There is no pull-request-triggered blocking visual check or native iOS execution.
+
+## Known limitations
+
+- Reference images were reviewed on a Windows-hosted emulator. Differences in emulator images, host rendering, font settings or GPU behavior can affect comparisons even when the display profile appears to match.
+- Intermittent local rendering mismatches and Appium transport errors remain unresolved. Repeating a test is not proof that the underlying issue has been fixed.
+- The demo uses an Expo development client and Metro, not a verified standalone release build. It does not demonstrate app-wide network isolation or native iOS execution.
+
+The outstanding hosted `no_image` crash, manual/advisory CI scope and unverified clean-host/helper onboarding are described where those workflows are introduced above.
+
+## Attribution
+
+Adapted from [Volksverpetzer/vvp_app](https://github.com/Volksverpetzer/vvp_app), pinned upstream revision `8b42175` on `prerelease`. Retain the application's [MIT code license and copyright notice](app/LICENSE.md).
+
+MIT licensing of code does not establish rights to logos, trademarks, illustrations or animations. Brand-asset redistribution rights remain unresolved; see [NOTICE.md](NOTICE.md).

@@ -14,4 +14,4 @@ alpha and dimensions are unchanged. Regenerate it from `qa_visual/` with
 `.\.venv\Scripts\python.exe demo_assets\generate_intentional_mismatch.py`; the script
 verifies the golden's hash and never writes to `baselines/`.
 
-See the [runner guide](../README.md#intentional-visual-failure-demonstration).
+See the [demo guide](../../README.md#test-scenarios).

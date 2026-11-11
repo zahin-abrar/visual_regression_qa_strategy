@@ -30,7 +30,7 @@ an existing upstream VVP production feature. It is not an iOS reference; native
 iOS and CI execution remain unverified. The unchanged comparison policy is RGB
 channel delta >12 with maximum changed-pixel ratio 0.002.
 
-Replacing a baseline requires explicit human review of the newly captured native element screenshot and comparison evidence. Never update a reference automatically to make a test pass. See the [runner README](../README.md#review-and-manually-promote-a-replacement) for the documented capture and promotion procedure.
+Replacing a baseline requires explicit human review of the newly captured native element screenshot and comparison evidence. Never update a reference automatically to make a test pass. See the [golden workflow](../../README.md#regenerate-golden-images) for the documented capture and promotion procedure.
 
 
 ### dark_article
@@ -46,7 +46,7 @@ This uses the unchanged article data, bundled image and real VVP dark palette.
 The development-only QA theme override is nonpersistent; light and dark scenarios
 have separate reference PNGs. Thresholds remain channel delta >12 and maximum
 changed-pixel ratio 0.002. Review is required before any replacement. See the
-[runner guide](../README.md#dark-article-approved-android-reference) for launch commands.
+[demo guide](../../README.md#run-the-demo) for launch commands.
 Native iOS and CI execution remain unverified.
 
 
