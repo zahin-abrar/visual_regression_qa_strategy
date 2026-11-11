@@ -1,0 +1,668 @@
+# EXEC-042K — Expo Developer-Menu Dismissal and First CI Golden Comparison
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Expected starting commit:** `27abb47`  
+**Branch:** `main`  
+**Latest successful Android APK build run:** `42602902168`  
+**Execution mode:** Bounded implementation, verification and one local commit. No push or tag.
+
+## 1. Objective
+
+Correct the confirmed Expo development-client overlay obstruction preventing GitHub Actions from verifying `qa-scenario:breaking_news`.
+
+The implementation must:
+
+1. Recognize the specific Expo developer-menu onboarding overlay.
+2. Dismiss it through a safe, deterministic UI interaction.
+3. Verify that the overlay disappears.
+4. Continue the existing strict scenario-identity check.
+5. Preserve failure diagnostics and Allure attachments.
+6. Allow the test to reach a genuine golden-image comparison.
+
+Do not redesign the testing architecture.
+
+Do not change screenshot baselines, comparison thresholds, fixture contents or emulator configuration.
+
+The immediate target is **one working `breaking_news` visual scenario in GitHub Actions**.
+
+---
+
+## 2. Authoritative failure evidence
+
+The latest GitHub run used an APK from build run:
+
+`42602902168`
+
+The visual workflow executed only:
+
+`breaking_news`
+
+### Confirmed observations
+
+- Android API 37 emulator booted successfully.
+- Post-boot health verification passed.
+- APK installation succeeded.
+- Metro served the JavaScript bundle.
+- Appium and UiAutomator2 initialized successfully.
+- The application's QA scenario parser reported `status=active id=breaking_news`.
+- The application logged `marker rendered qa-scenario:breaking_news`.
+- The app process remained alive.
+- Appium could not find the expected scenario identity.
+- The test failed before screenshot comparison.
+
+### Decisive diagnostic screenshot
+
+The failure screenshot shows:
+
+- The actual Volksverpetzer application behind an overlay.
+- The application logo and feed-loading indicator.
+- An Expo development-client developer-menu onboarding screen.
+- A prominent `Continue` button.
+- A `Close` control.
+
+The captured Android UI hierarchy contains developer-menu controls but does not expose the underlying `qa-scenario:breaking_news` marker.
+
+The application is not simply stuck before JavaScript initialization. It initialized and rendered behind the overlay.
+
+### Relevant timestamps
+
+All times UTC, November 9, 2026:
+
+- 11:37:59 — Appium launches the development-client deep link.
+- 11:38:38 — React Native JavaScript starts.
+- 11:38:44 — QA parser reports `breaking_news` active.
+- 11:38:44 — QA marker is rendered.
+- 11:38:58–11:39:02 — Screenshot and hierarchy capture show the Expo overlay.
+- 11:39:03 — Application process remains alive.
+
+### Root-cause interpretation
+
+**Confirmed for this run:** An Expo developer-menu overlay covered the running application and prevented access to the expected scenario marker in the captured accessibility hierarchy.
+
+**Not yet verified:** Whether dismissing the overlay allows Appium to find the marker and complete the screenshot comparison.
+
+Do not treat the overlay as the proven cause of the four failures from the earlier full-suite run.
+
+The earlier `no_image` native crash remains a separate unresolved finding.
+
+---
+
+## 3. Evidence review and protection
+
+The previous local evidence directory is:
+
+`.local-evidence/exec-042j/`
+
+The latest analysis document is:
+
+`EXEC-042J_CI_Visual_Failure_Analysis_2026-11-09.md`
+
+The latest GitHub artifacts are:
+
+- `visual-infra-logs_4.zip`
+- `visual-evidence.zip`
+- `visual-allure-results_2.zip`
+- `visual-allure-report_2.zip`
+
+If the latest evidence files have been placed in the repository's ignored `.local-evidence/` directory, inspect them before implementation.
+
+Verify their actual paths. Do not assume they exist at a particular location.
+
+Use the original screenshot, hierarchy and logs as primary evidence. The analysis report is secondary interpretation.
+
+### Evidence protection
+
+- Keep `.local-evidence/` ignored.
+- Do not stage, commit or publish these archives.
+- Do not modify or delete original evidence.
+- Do not force-add ignored evidence.
+- Do not copy large logs into tracked documentation.
+- Preserve unrelated untracked `app/` entries.
+
+The root `.gitignore` exclusion was already committed in EXEC-042J. Preserve it.
+
+---
+
+## 4. Repository preflight
+
+Before implementation:
+
+1. Confirm current branch, HEAD and Git status.
+2. Verify expected starting commit `27abb47`.
+3. Read the latest local `.project-private/03_HANDOFF.md`.
+4. Read `.project-private/02_DECISIONS.md`.
+5. Read the existing private AI prompt log.
+6. Inspect the actual scenario launch and Appium identity-verification implementation.
+7. Inspect EXEC-042J failure diagnostics and Allure integration.
+8. Inspect the GitHub visual workflow and `visual_scope` input.
+9. Inspect the source-run compatibility verification rules.
+
+Use actual repository paths and conventions.
+
+Do not make assumptions about implementation file locations.
+
+---
+
+## 5. Implement safe Expo overlay recognition
+
+Add a bounded, reusable check for the exact Expo developer-menu/onboarding overlay.
+
+Use native Appium/UiAutomator2 accessibility information.
+
+Do not use coordinate-based tapping.
+
+Do not recognize the overlay solely because a generic `Continue` button exists.
+
+### Recognition requirements
+
+Combine distinctive evidence such as:
+
+- Expo development-client title or developer-menu text.
+- Relevant runtime/development-build information.
+- The identifiable onboarding explanation.
+- Its associated `Continue` control.
+
+Avoid depending exclusively on the literal runtime version `exposdk:57.0.0`; that value may change after a future dependency upgrade.
+
+Require sufficient independent evidence to distinguish the Expo overlay from normal application content.
+
+### Required behavior
+
+**Overlay present and unambiguous:**
+
+- Identify the unique intended `Continue` control.
+- Click once.
+- Wait for the overlay to disappear.
+- Confirm the developer-menu controls are no longer obstructing the foreground hierarchy.
+- Resume strict scenario identity verification.
+
+**Overlay absent:**
+
+- Do nothing.
+- Continue the existing scenario verification.
+
+**Ambiguous screen:**
+
+- Do not click.
+- Preserve diagnostics.
+- Report the ambiguity.
+
+**Click fails:**
+
+- Preserve diagnostics.
+- Report the interaction failure.
+- Do not silently retry indefinitely.
+
+**Overlay remains after dismissal:**
+
+- Fail with a meaningful reason.
+- Preserve screenshot, hierarchy and application state.
+
+An explicitly identified `Close` control may be considered as a narrowly justified fallback, but only if it clearly belongs to the confirmed Expo overlay.
+
+Do not introduce arbitrary Back-button presses, screen swipes, blind taps or generic dialog dismissal.
+
+---
+
+## 6. Integrate with scenario initialization
+
+The failure occurs during scenario setup before the test body begins.
+
+Therefore, the overlay handler must execute in the same initialization path responsible for deep-link launch and strict scenario identity verification.
+
+The intended sequence is:
+
+```text
+Create Appium session
+        |
+        v
+Launch scenario deep link
+        |
+        v
+Observe application startup
+        |
+        v
+Check for known Expo onboarding overlay
+        |
+        +-- Present --> Dismiss exactly once
+        |                    |
+        |                    v
+        |              Confirm disappearance
+        |
+        +-- Absent ----+
+                       |
+                       v
+Verify exact qa-scenario:<id> identity
+                       |
+             +---------+---------+
+             |                   |
+            PASS                FAIL
+             |                   |
+             v                   v
+    Capture actual UI      Capture diagnostics
+             |                   |
+             v                   v
+   Compare with golden     Preserve exception
+```
+
+### Timing requirements
+
+The overlay may appear before or after the application's JavaScript becomes active.
+
+Do not implement a single early check that can miss an overlay appearing later during scenario initialization.
+
+Use a bounded observation strategy compatible with the existing scenario wait.
+
+The handler should remain responsive when:
+
+- The overlay appears immediately.
+- The overlay appears during startup.
+- The overlay never appears.
+- The intended marker appears normally.
+- The app crashes or becomes unresponsive.
+
+Do not introduce an unconditional startup delay.
+
+Do not wait for the marker indefinitely while the overlay remains visible.
+
+A small, separately bounded dismissal allowance is acceptable if justified, but do not substantially extend the test timeout without evidence.
+
+Preserve the original exact scenario identity requirement.
+
+**Do not consider successful overlay dismissal equivalent to successful scenario activation.**
+
+---
+
+## 7. Preserve and improve diagnostics
+
+Reuse the EXEC-042J diagnostics.
+
+For dismissal-related failures, capture:
+
+- Current screenshot.
+- Android UI hierarchy.
+- Expected scenario identifier.
+- Detected Expo overlay evidence.
+- Whether dismissal was attempted.
+- Which control was selected.
+- Whether the overlay disappeared.
+- Application foreground activity.
+- Application PID/state.
+- Relevant logcat.
+- Original exception.
+- Diagnostic collection errors.
+
+Preserve the existing storage convention:
+
+`artifacts/android/<profile>/launch-diagnostics/<scenario>/`
+
+Use existing Allure attachment mechanisms.
+
+### Classification improvement
+
+Add or refine a specific classification:
+
+`expo-dev-menu-overlay`
+
+Distinguish it from:
+
+- `dev-client-screen`
+- `app-process-missing`
+- `wrong-scenario`
+- `marker-not-exposed`
+- `native-crash`
+- `unknown`
+
+If dismissal succeeds but the scenario marker is still missing, do not continue reporting the overlay as the confirmed final failure.
+
+Capture the new foreground screen and classify the remaining issue independently.
+
+Preserve the original exception semantics.
+
+A secondary diagnostic failure must not replace the primary test failure.
+
+---
+
+## 8. No accessibility workaround without evidence
+
+Do not:
+
+- Remove the strict scenario identity assertion.
+- Replace the marker with a generic application element.
+- Accept application process existence as scenario readiness.
+- Select a scenario based only on console log messages.
+- Use a fixed sleep as a substitute for accessibility verification.
+- Disable UiAutomator2 hierarchy checks.
+- Change accessibility/testID behavior speculatively.
+
+The React Native logs already establish that the marker was rendered at the application level.
+
+The next experiment must prove whether the exact marker becomes available to Appium once the overlay disappears.
+
+If it remains missing, preserve the evidence and stop the investigation at that new finding.
+
+---
+
+## 9. Local verification
+
+Implement focused automated tests for:
+
+1. Expo overlay present with unique Continue control.
+2. Overlay successfully dismissed.
+3. Overlay absent — no interaction.
+4. Ordinary application Continue control — not clicked.
+5. Ambiguous or duplicate Continue controls — rejected.
+6. Overlay identified but click fails.
+7. Overlay remains visible after click.
+8. Overlay disappears but scenario marker remains missing.
+9. Overlay disappears and expected marker becomes visible.
+10. Marker already present — no unnecessary dismissal.
+11. Overlay appears after the initial startup check.
+12. Appium hierarchy lookup fails.
+13. Appium interaction times out.
+14. App process exits during dismissal.
+15. Diagnostics capture dismissal failure.
+16. Allure attachments remain valid.
+17. The original exception is preserved.
+18. No unbounded retry or wait.
+19. No golden regeneration.
+20. Existing full-suite selection remains unchanged.
+
+### Real local emulator
+
+If the verified local Android environment is available:
+
+- Run `breaking_news` normally.
+- Verify that the overlay-absent path still passes.
+- If practical, test an isolated fresh installation or cleared development-client onboarding state.
+- Verify that onboarding dismissal works without manual interaction.
+- Run the scenario again to confirm the handler is safe when onboarding no longer appears.
+
+Do not destroy the existing working local emulator state unnecessarily.
+
+If reproducing onboarding requires clearing data, document the effect and restoration steps.
+
+If onboarding cannot be reproduced locally, report that limitation rather than claiming live coverage from mocks.
+
+---
+
+## 10. Screenshot and golden integrity
+
+The following remain unchanged:
+
+- Existing golden PNGs.
+- Screenshot comparison thresholds.
+- `breaking_news` fixture.
+- Other four scenario fixtures.
+- Visual assertion logic.
+- Device dimensions.
+- Device density.
+- Android system-image selection.
+- Fixture contract.
+- Golden regeneration commands.
+
+After successful scenario identity verification, use the existing test's normal capture and comparison logic.
+
+Do not introduce special-case screenshot acceptance for CI.
+
+Do not automatically regenerate a golden because the GitHub image differs.
+
+If the test reaches comparison and reports a mismatch, retain:
+
+- Actual screenshot.
+- Expected golden.
+- Difference image, if produced.
+- Comparison metrics.
+- Allure failure result.
+
+A genuine mismatch is a new diagnostic result, not a reason to overwrite the reference.
+
+---
+
+## 11. Infrastructure preservation
+
+Do not modify:
+
+- `.github/workflows/android-build.yml`
+- Android API 37.0 system image.
+- Google Play Store 16 KB variant.
+- `Pixel_10` AVD.
+- 1080×2424 resolution.
+- 420 dpi.
+- 4 GB guest RAM.
+- KVM configuration.
+- Emulator GPU flags.
+- Android Command-line Tools correction.
+- EXEC-042I post-boot health gate.
+- ADB authentication.
+- APK installation mechanism.
+- Metro/Appium versions.
+- UiAutomator2 version.
+- Runner type.
+- Native React Native dependencies.
+- Existing artifact-reporting behavior.
+
+Do not change application source unless a direct implementation dependency requires it.
+
+Do not rebuild the APK locally as part of an unrelated investigation.
+
+Do not investigate the earlier `no_image` SIGSEGV in this work package.
+
+Do not spend money on a larger runner.
+
+---
+
+## 12. Build provenance and APK reuse
+
+The last successful APK build run was:
+
+`42602902168`
+
+However, the repository's source-run compatibility rule can reject an APK built before modifications to monitored source paths, including visual automation code.
+
+**Preserve that safeguard.**
+
+Before the next GitHub run:
+
+1. Identify the exact paths modified by EXEC-042K.
+2. Inspect the existing source-run compatibility check.
+3. Determine whether those changes invalidate APK build `42602902168`.
+4. Report the result explicitly.
+
+Do not bypass or relax the source-run validation just because the changes are Python-only.
+
+If EXEC-042K changes monitored paths, instruct the human to run **Android debug build** again and use the new successful build-run ID.
+
+If the current APK remains provably compatible under the existing rule, explain why it can be reused.
+
+Do not assume a new APK is unnecessary merely because native Android code is unchanged.
+
+---
+
+## 13. GitHub workflow scope
+
+Keep the EXEC-042J selection mechanism:
+
+`visual_scope=breaking_news`
+
+Do not change the default `all` behavior.
+
+Do not automatically run all five scenarios.
+
+Do not introduce automatic retries.
+
+The next GitHub execution should contain exactly one selected visual test, plus any normal setup and reporting steps.
+
+Preserve advisory pytest handling and infrastructure failure reporting.
+
+---
+
+## 14. Quality gates
+
+Run relevant checks:
+
+- Focused Python unit tests.
+- Existing relevant Python regression tests.
+- Relevant TypeScript tests only if app source changes.
+- Python syntax/import checks.
+- Shell syntax checks if shell files change.
+- Workflow YAML validation if workflow files change.
+- Allure attachment tests.
+- Scenario-selection regression tests.
+- `git diff --check`.
+- Golden-file diff verification.
+- APK compatibility assessment.
+
+Inspect the staged diff.
+
+Explicitly verify that no files from `.local-evidence/`, `debug-logs/` or unrelated untracked `app/` entries are staged.
+
+Document exact commands and results.
+
+Distinguish mocked verification from real emulator execution.
+
+Do not claim GitHub success before a real GitHub run succeeds.
+
+---
+
+## 15. Documentation
+
+Update the canonical local private records:
+
+- `.project-private/03_HANDOFF.md`
+- `.project-private/02_DECISIONS.md` only if decisions change.
+- Existing private AI prompt log.
+
+Use the repository's actual latest private document locations.
+
+Record:
+
+1. EXEC-042K objective.
+2. Confirmed Expo overlay evidence.
+3. Exact overlay recognition conditions.
+4. Dismissal behavior and safety guards.
+5. Timing and retry limits.
+6. Failure diagnostic behavior.
+7. Test results.
+8. Live versus mocked validation.
+9. Golden and fixture preservation.
+10. APK compatibility outcome.
+11. New commit SHA.
+12. Next GitHub workflow instructions.
+13. Outstanding native crash and other scenario uncertainties.
+
+The previous agent confirmed that private documents reside in an ignored local directory and are intentionally not committed.
+
+Preserve that privacy decision.
+
+Do not force-add private documents.
+
+Do not delete local evidence.
+
+---
+
+## 16. Commit
+
+Create one bounded local commit.
+
+Suggested message:
+
+`test(visual): dismiss Expo onboarding before scenario checks`
+
+Stage only the relevant implementation and test files.
+
+Do not use `git add -A`.
+
+Do not stage:
+
+- `.local-evidence/`
+- `debug-logs/`
+- GitHub artifact archives.
+- Generated screenshots.
+- Temporary extracted logs.
+- Unrelated untracked `app/` entries.
+- Ignored private project documents.
+
+Before committing, run:
+
+```powershell
+git diff --cached --stat
+git diff --cached --name-only
+git diff --cached --check
+```
+
+Verify staged files are within scope.
+
+Do not amend the previous commit.
+
+Do not push.
+
+Do not tag.
+
+Do not regenerate golden images.
+
+---
+
+## 17. Final agent report
+
+Return:
+
+1. Starting and ending commit SHA.
+2. Files changed.
+3. Overlay detection implementation.
+4. Exact conditions required before clicking Continue.
+5. How an ordinary app Continue button is protected.
+6. How late-appearing onboarding is handled.
+7. Overlay dismissal timeout and retry rules.
+8. Strict scenario marker verification after dismissal.
+9. Diagnostic capture on failure.
+10. Updated Allure classification.
+11. Automated test outcomes.
+12. Real local emulator results, if executed.
+13. Whether onboarding was reproduced locally.
+14. Confirmation unchanged goldens and thresholds.
+15. Confirmation unchanged emulator and infrastructure configuration.
+16. Existing APK compatibility assessment.
+17. Whether a fresh Android build is required.
+18. One local commit hash.
+19. Remaining uncertainties.
+20. Exact next GitHub execution instructions.
+
+**STOP AFTER ONE LOCAL COMMIT.**
+
+No push, tag or evidence cleanup.
+
+---
+
+## 18. Next GitHub experiment
+
+After human review and push:
+
+1. Run a fresh Android debug build if required by the existing compatibility check.
+2. Record the successful build run ID.
+3. Manually trigger Android visual tests (advisory).
+4. Set `visual_scope=breaking_news`.
+5. Set `source_run_id` to the accepted compatible build run.
+6. Inspect pytest, Allure and visual-evidence artifacts.
+
+### Minimum acceptable result
+
+The workflow either:
+
+- Dismisses the confirmed Expo overlay and successfully verifies the scenario marker; or
+- Captures precise evidence explaining why dismissal or marker verification failed.
+
+### Target result
+
+The workflow:
+
+1. Starts the application.
+2. Activates `breaking_news`.
+3. Dismisses any first-launch Expo onboarding overlay.
+4. Verifies the exact `qa-scenario:breaking_news` identity.
+5. Captures a screenshot from actual rendered application UI.
+6. Compares it against the existing committed golden.
+7. Reports the real comparison outcome through pytest and Allure.
+
+**Do not describe the visual test as passing unless the screenshot comparison itself passes.**

@@ -1,0 +1,171 @@
+# EXEC-002 — Appium Runtime Readiness
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-001 — PASS
+
+## Objective
+
+Verify that the existing Appium 3.3.0 installation, UiAutomator2 7.1.2 driver, and Android emulator are ready for a native automation session.
+
+Additionally, confirm that the emulator recognizes its updated 4 GB RAM configuration and that the existing Volksverpetzer application process remains alive.
+
+**This task covers runtime readiness only. Do not initiate an Appium test session or modify the framework.**
+
+## Instructions
+
+1. Read `AGENTS.md` (if present) and `docs/AGENT_TASK_HISTORY.md`.
+2. Run UiAutomator2's prerequisite doctor.
+3. Verify that the existing `Pixel_10` Android emulator is online and fully booted.
+4. Inspect the emulator's current memory configuration and application process using read-only ADB commands.
+5. Check whether port 4723 already has a listening Appium server.
+6. If no server is running, start Appium using `appium.cmd`, preferably in a separate terminal.
+7. Query Appium's `/status` endpoint.
+8. Record all verified results in `docs/AGENT_TASK_HISTORY.md` under EXEC-002.
+9. Stop and return the evidence. Do not proceed to screenshot testing.
+
+## PowerShell commands
+
+### 1. Navigate to the project
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy
+```
+
+### 2. Check UiAutomator2 prerequisites
+
+```powershell
+appium.cmd driver doctor uiautomator2
+```
+
+Record any required dependency failures and optional warnings separately.
+
+### 3. Verify emulator connectivity
+
+```powershell
+adb devices -l
+adb shell getprop sys.boot_completed
+```
+
+Confirm that the expected `Pixel_10` emulator is online and that `sys.boot_completed` returns `1`.
+
+### 4. Verify RAM and application process
+
+```powershell
+adb shell cat /proc/meminfo | Select-String 'MemTotal|MemAvailable'
+adb shell pidof de.volksverpetzer.app
+```
+
+Record:
+
+- `MemTotal` and `MemAvailable` values.
+- Whether `MemTotal` is consistent with approximately 4 GB of emulator RAM.
+- Whether `pidof` returns a process ID for `de.volksverpetzer.app`.
+- Any command failures or unexpected results.
+
+**Important:** A running process confirms that the application is currently alive. It does not independently prove long-term stability or that the correct QA fixture is displayed.
+
+Do not terminate, relaunch, background, or interact with the application.
+
+### 5. Inspect Appium server status
+
+```powershell
+Get-NetTCPConnection -LocalPort 4723 -State Listen `
+    -ErrorAction SilentlyContinue
+```
+
+If an Appium server is already listening, inspect its status without starting a duplicate instance.
+
+If no server is running, start Appium in a separate terminal:
+
+```powershell
+appium.cmd --address 127.0.0.1 --port 4723
+```
+
+Keep the server running if startup succeeds.
+
+### 6. Query Appium readiness
+
+From another terminal:
+
+```powershell
+Invoke-RestMethod `
+    -Uri 'http://127.0.0.1:4723/status' `
+    -TimeoutSec 10 |
+    ConvertTo-Json -Depth 6
+```
+
+Record the response and any meaningful server startup messages.
+
+## Acceptance criteria
+
+EXEC-002 is PASS when:
+
+- UiAutomator2 doctor completes without required dependency failures.
+- Appium server starts successfully and loads the installed UiAutomator2 driver.
+- `/status` returns a valid ready response.
+- `adb devices -l` identifies the expected emulator as online.
+- Android boot-completed status is `1`.
+- Memory information is successfully retrieved and recorded.
+- Application process status is successfully determined and recorded.
+
+If the app process is absent or reported memory differs from the expected configuration, document the discrepancy and mark the relevant check as failed or blocked. Do not attempt repairs.
+
+Optional doctor warnings should be documented but must not trigger unnecessary installations.
+
+## Strict restrictions
+
+- Do not install or upgrade Appium, UiAutomator2, Python, or Android tools.
+- Do not change PowerShell execution policy.
+- Do not modify `app/`, `qa_visual/`, or framework source files.
+- Do not restart Metro or rebuild the application.
+- Do not close, restart, wipe, resize, or reconfigure the emulator.
+- Do not close, force-stop, relaunch, or otherwise disturb the running application.
+- Do not execute pytest or take screenshots.
+- Do not initialize Git.
+- Do not implement POM in this task.
+- Do not extract the previous starter ZIP.
+- Do not automatically proceed to EXEC-003.
+
+If a blocker appears, capture the first meaningful failure and report it. Avoid unrelated troubleshooting.
+
+## Task history update
+
+Append an EXEC-002 entry to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Include:
+
+- Task ID and title
+- Date/time
+- Status: PASS / FAIL / BLOCKED
+- Objective and scope
+- Commands executed and actual results
+- Appium doctor findings
+- Server startup and readiness evidence
+- Emulator connectivity and boot status
+- RAM verification (`MemTotal`, `MemAvailable`)
+- Application process status (PID or absence)
+- Verified findings
+- Remaining blockers or unverified items
+- Files changed (task history only)
+- Recommended next smallest task
+
+Preserve all existing history entries.
+
+## Required completion report
+
+Return a concise report covering:
+
+1. **EXEC-002 status:** PASS / FAIL / BLOCKED
+2. Commands executed, results, and exit codes
+3. UiAutomator2 doctor findings
+4. Appium server readiness and driver loading evidence
+5. Android emulator connectivity and boot status
+6. Emulator RAM values and application PID
+7. Remaining blockers or discrepancies
+8. Files changed
+9. Recommended next smallest task
+
+**Stop after EXEC-002. Wait for human review and authorization before proceeding.**

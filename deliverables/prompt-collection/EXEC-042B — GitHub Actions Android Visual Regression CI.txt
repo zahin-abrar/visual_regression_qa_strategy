@@ -1,0 +1,298 @@
+EXEC-042B — GitHub Actions Android Visual Regression CI
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Expected latest implementation commit: 38fb58d
+
+Remote:
+https://github.com/zahin-abrar/visual_regression_qa_strategy.git
+
+OBJECTIVE
+
+Extend the verified Android GitHub Actions workflow with
+a separate emulator-based visual testing job.
+
+Run the five normal Appium visual scenarios against the
+existing approved golden screenshots.
+
+Publish test results, screenshot comparison evidence and
+Allure reporting artifacts.
+
+This is an initial advisory CI implementation, not a
+mandatory PR quality gate.
+
+VERIFIED CONTEXT
+
+- GitHub Actions Android build #2 PASSED.
+- Total workflow duration: 33m 38s.
+- Free disk before Gradle: 27 GB.
+- Free disk after Gradle: 13 GB.
+- Android APK generated using local Expo/Gradle build.
+- Five normal Appium visual tests have passed locally.
+- Allure reporting works locally.
+- Recurrent screenshot-rendering instability remains open.
+- The intentional-failure scenario is excluded from
+  normal visual execution.
+
+A. PREFLIGHT
+
+1. Read current private handoff and decisions.
+2. Inspect the existing workflow and pytest configuration.
+3. Verify current branch, HEAD and Git status.
+4. Preserve all ten excluded untracked app/ entries.
+5. Inspect current Appium configuration and fixture injection.
+6. Inspect screenshot baseline metadata and emulator settings.
+7. Identify required Python, Node, Appium and UiAutomator2
+   versions from the existing project.
+
+Do not assume Windows golden screenshots will match
+Linux-hosted Android emulator screenshots.
+
+B. CI JOB ARCHITECTURE
+
+Extend:
+
+.github/workflows/android-build.yml
+
+Keep the existing APK build job intact.
+
+Introduce one dependent visual-test job:
+
+- Use needs: <actual build job ID>.
+- Run on a fresh Ubuntu 24.04 runner.
+- Download android-debug-apk-x86_64 from the
+  same workflow run.
+- Verify that the expected APK exists.
+- Do not run Expo prebuild or Gradle in the visual job.
+- Do not repeat the native APK compilation.
+- Preserve workflow_dispatch-only triggering.
+
+Use the existing artifact-upload mechanism and a
+compatible download-artifact action.
+
+Pin action versions following the existing repository
+conventions.
+
+C. EMULATOR CONFIGURATION
+
+Inspect existing local baseline capture settings:
+
+- Android API level
+- Emulator device profile
+- Display resolution and density
+- Font scaling
+- Theme
+- Locale
+- Animation settings
+- GPU/rendering configuration
+- Relevant environment metadata
+
+Choose one Android emulator configuration for CI.
+
+Match the reviewed baseline environment where practical.
+
+Document all differences from the local golden environment.
+
+Check whether KVM acceleration is available on the runner.
+
+Use a maintained emulator runner action or a small
+documented setup script.
+
+Prefer a headless x86_64 emulator.
+
+Pin the system image/configuration where supported.
+
+Do not introduce an emulator matrix or device cloud.
+
+If essential emulator acceleration or compatibility
+is unavailable, report the limitation rather than
+silently switching to an expensive runner.
+
+D. APP AND TEST INFRASTRUCTURE
+
+Configure the visual job to:
+
+1. Install Python dependencies from existing requirements.
+2. Install the required Node/pnpm environment.
+3. Install or provision Appium and UiAutomator2.
+4. Start Metro in the appropriate dev-client mode.
+5. Install the downloaded debug APK.
+6. Configure adb reverse for Metro when required.
+7. Start Appium.
+8. Check service readiness before executing pytest.
+9. Confirm the intended Android application launches.
+10. Execute the five normal visual scenarios.
+
+Use the existing application package, fixture mechanism,
+scenario definitions and Python test framework.
+
+Do not reimplement test logic in GitHub Actions YAML.
+
+Avoid arbitrary long sleeps.
+
+Prefer bounded readiness checks with clear failure messages.
+
+Keep Metro and Appium logs available for diagnostics.
+
+E. TEST EXECUTION
+
+Run only:
+
+python -m pytest -m visual -v
+
+Do NOT run:
+
+- Unit tests
+- The intentional-failure scenario
+- The combined intentional-failure demonstration
+- Any new scenario not already approved
+
+Execute the existing five visual cases.
+
+Preserve:
+- Synthetic fixtures
+- Screenshot comparison thresholds
+- Existing golden PNGs
+- Failure-evidence retention
+- Allure attachments
+- Current diagnostic behavior
+
+Do not regenerate or modify golden screenshots.
+
+F. ADVISORY FAILURE HANDLING
+
+Initial visual CI must not block the workflow solely
+because of screenshot mismatches or Appium instability.
+
+However, do not hide failures.
+
+Requirements:
+
+- Preserve the actual pytest exit code.
+- Distinguish comparison failures from infrastructure errors.
+- Report the number of passed, failed and unexecuted tests.
+- Clearly identify advisory failures in the GitHub job summary.
+- Upload evidence even when pytest exits nonzero.
+- Do not silently replace a failed command with success.
+- Do not add automatic retries to manufacture a pass.
+- Do not automatically approve new baselines.
+
+Scope non-blocking behavior to the visual execution phase.
+Configuration errors, missing APKs and failed artifact
+downloads must remain visible as setup failures.
+
+G. REPORTING
+
+Upload narrowly scoped artifacts containing:
+
+- Allure raw results
+- Allure HTML report if generation is feasible
+- Actual screenshots
+- Reference screenshots used in comparisons
+- Diff images
+- Comparison metadata
+- Failure-evidence packages
+- Relevant Appium/Metro diagnostic logs
+
+Use clear artifact names and bounded retention periods.
+
+Do not upload:
+- Private handoff files
+- Agent instructions
+- Credentials
+- Entire node_modules directories
+- Android SDK installations
+- Unrelated local artifacts
+
+If the test environment fails before screenshots are taken,
+upload available infrastructure logs and report the reason.
+
+H. BASELINE COMPATIBILITY
+
+This is a critical part of the first CI execution.
+
+If Linux-hosted emulator screenshots differ from the
+Windows-reviewed goldens:
+
+1. Preserve the actual images.
+2. Preserve the reference and diff images.
+3. Record environment metadata.
+4. Classify the mismatch as unresolved.
+5. Distinguish likely environment drift from confirmed
+   application regressions where evidence supports it.
+
+Do not change thresholds or regenerate goldens to get
+a passing pipeline.
+
+A future CI-specific baseline strategy requires
+separate human review and approval.
+
+I. LOCAL VERIFICATION
+
+Perform available static and local checks:
+
+- Workflow YAML validation
+- Step ordering and dependency checks
+- Artifact upload/download consistency
+- Appium and Metro command verification
+- Python dependency verification
+- Shell script syntax validation
+- git diff --check
+- Golden reference hash verification
+
+Do not claim emulator-based CI works without
+a real GitHub-hosted execution.
+
+J. DOCUMENTATION
+
+Update the relevant README to explain:
+
+- How to trigger the workflow
+- Why build and visual tests use separate jobs
+- How to inspect visual-test results
+- How to download Allure and screenshot evidence
+- Why visual failures are initially advisory
+- Known cross-environment baseline limitations
+
+Document what is implemented versus actually verified.
+
+K. COMMIT
+
+If local validation passes, create one local commit:
+
+ci(visual): add advisory Android emulator screenshot tests
+
+Stage only approved workflow, support scripts and
+necessary documentation.
+
+Do not use git add -A.
+
+Do not tag, push, amend or rewrite history.
+
+Do not modify unrelated application files.
+
+L. FINAL REPORT
+
+Provide:
+
+1. Files changed.
+2. Visual job architecture.
+3. APK artifact handoff.
+4. Emulator/API/profile configuration.
+5. Appium and Metro startup method.
+6. Exact pytest command.
+7. Failure handling and job-summary behavior.
+8. Artifacts produced.
+9. Local validation results.
+10. Commit hash.
+11. Known feasibility risks.
+12. Exact steps for human GitHub execution.
+
+Update the private handoff, decisions and AI prompt log.
+
+STOP.
+
+Do not claim a successful GitHub visual test run.
+Do not start any additional CI optimization.

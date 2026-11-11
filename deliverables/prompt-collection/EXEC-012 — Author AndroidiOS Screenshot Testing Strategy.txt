@@ -1,0 +1,273 @@
+# EXEC-012 — Author Android/iOS Screenshot Testing Strategy
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-011 — PASS  
+**Deliverable:** `deliverables/strategy.md`
+
+## Objective
+
+Create a concise, interview-ready, 1–3-page screenshot-testing strategy covering Android and iOS for the Axel Springer Tech Senior QA Manager take-home challenge.
+
+The strategy must explain the technical architecture, tooling rationale, deterministic mocking, golden management, CI/CD, flakiness controls, scaling, team ownership and incremental adoption.
+
+Ground the strategy in our verified Android prototype while clearly distinguishing that evidence from the proposed production architecture.
+
+**This is a strategy-writing task. Do not implement new functionality.**
+
+## Step 1 — Inspect authoritative sources and implementation
+
+Read:
+
+- Root `AGENTS.md`, if present.
+- `docs/AGENT_TASK_HISTORY.md`, particularly EXEC-001 through EXEC-011.
+- Root `README.md`.
+- `qa_visual/README.md`.
+- Current Android runner, POM, fixture injection and comparator implementations.
+- Existing approved architecture/decision/handoff documents, where locally available.
+- The original employer challenge requirements, if available privately.
+
+The employer's original brief is authoritative. Do not include, reproduce, or link the private challenge PDF in the public deliverable.
+
+Distinguish the employer's requirements from the candidate's engineering objectives.
+
+## Step 2 — Write the strategy
+
+Create:
+
+`deliverables/strategy.md`
+
+Target approximately 900–1,150 words, adjusting for tables and headings so the final document can fit within 1–3 readable pages.
+
+Use a professional, concise engineering-manager voice. Prefer decisions, reasoning, trade-offs and rollout actions over generic testing explanations.
+
+Structure the document as follows.
+
+### 1. Executive recommendation and quality objectives
+
+Briefly explain the central problem:
+
+- News applications contain data-dependent and visually complex states.
+- Frequent releases make exhaustive manual visual verification impractical.
+- The goal is deterministic visual feedback on PRs without creating an expensive or flaky automation bottleneck.
+
+Recommend a layered strategy:
+
+- Shared, cross-platform scenario contracts and higher-level Appium automation where appropriate.
+- Fast component-level screenshot tests for supported UI technologies.
+- A small number of real-device/emulator visual integration checks.
+- Human review of intentional visual changes.
+
+Explain that the exact native component tool depends on the actual production codebases. Do not assume Axel Springer apps use React Native, Jetpack Compose or SwiftUI.
+
+### 2. Tooling architecture and trade-offs
+
+Describe the verified demo:
+
+- Adapted Volksverpetzer React Native app.
+- Appium 3.3.0 and UiAutomator2 7.1.2.
+- Python/pytest runner.
+- `HomeScreen` and `ArticleCard` POM.
+- Pillow-based visual comparison.
+- Android Pixel_10/API 37 emulator.
+
+Explain why Appium was chosen for the demonstration:
+
+- Actual rendered native application UI.
+- Reusable high-level Python test logic.
+- Potential Android/iOS driver integration.
+- Platform-specific locators, launch configuration and references where needed.
+
+Address its limitations: device startup cost, slower execution, accessibility-tree dependencies and rendering variability.
+
+Compare this with native component snapshot approaches such as Android Paparazzi/Roborazzi and iOS swift-snapshot-testing, where technically applicable.
+
+Do not imply Compose snapshot tools can directly render arbitrary React Native components.
+
+Describe the production decision rule: use the lowest-cost test layer that gives the needed confidence, avoiding duplicated assertions across layers.
+
+### 3. Deterministic mock-data architecture
+
+Explain the actual demo's test seam:
+
+- A development-only scenario gate using `__DEV__` and `EXPO_PUBLIC_QA_SCENARIO=long_headline`.
+- Synthetic article data injected into the app's existing WordPress fetcher/mapping flow.
+- The real `Feed`, `GenericPost` and `ArticlePost` components render the data.
+- The fixture includes a bundled image and controlled headline, metadata and summary.
+- The test waits for a UI-ready condition before native capture.
+
+Make clear that Appium does not itself provide the mocks.
+
+For production adoption, propose a shared fixture schema and scenario identifiers, with platform-specific data-source adapters.
+
+Where feasible, inject fixtures at the repository/data-source boundary; where that seam is unavailable, use a controlled local mock API/server.
+
+Specify controls for images, time, locale, theme, fonts/font scale, animation, asynchronous loading, session state and network dependence.
+
+Mocking must be isolated from normal production behavior.
+
+### 4. Golden image management and review
+
+Explain:
+
+- Platform/device/rendering-profile-specific reference PNGs.
+- Commit only approved goldens.
+- Actual, expected, diff and JSON comparison artifacts.
+- Clear handling of missing baselines, dimension mismatches and visual differences.
+- Human-reviewed baseline changes through PR review.
+- Golden changes must never be silently accepted to make a test green.
+
+Include the verified Android baseline:
+
+`qa_visual/baselines/android/pixel10-api37/long_headline.png`
+
+Verified evidence:
+
+- Native card image: 1028 × 1237.
+- Two repeated captures were byte-identical.
+- Local Appium visual test: 1 passed, exit 0.
+- Existing comparison tolerance: RGB channel difference greater than 12 counts as changed; maximum changed-pixel ratio 0.2%.
+- Passing comparison: 0 changed pixels.
+
+Do not imply these values are suitable defaults for every app or device.
+
+Explain why screenshot boundaries matter: the investigation found that the original inner element omitted 105 pixels of the outer card; the corrected capture includes the complete container.
+
+### 5. CI/CD and Scrum integration
+
+Propose a concrete PR workflow:
+
+1. Build an appropriate test variant.
+2. Select deterministic fixtures.
+3. Run fast affected-component visual checks where supported.
+4. Execute a focused device-based visual smoke suite for critical journeys.
+5. Compare against reviewed platform-specific references.
+6. Fail on unexpected changes and publish actual/golden/diff/metrics/logs.
+7. Require human review for intentional baseline updates.
+
+Explain platform infrastructure:
+
+- Android emulator on a suitably provisioned runner.
+- iOS simulator on macOS, using an appropriate iOS automation driver such as Appium XCUITest.
+- Optional device cloud for broader coverage, not a mandatory dependency.
+
+Distinguish fast PR tests from the wider nightly/release matrix covering themes, font scales, device sizes, OS versions, offline/error states and premium content.
+
+Describe how developers, QA engineers, designers and product owners handle visual changes during Scrum refinement, implementation and PR review.
+
+**Do not claim a working CI pipeline.** Local execution is verified; CI is proposed.
+
+### 6. Flakiness, scaling and rollout
+
+Describe prevention and diagnosis:
+
+- Pinned emulator/simulator and rendering profiles.
+- Stable fonts/assets and deterministic application state.
+- Explicit readiness instead of arbitrary sleeps.
+- No automatic baseline updates.
+- Screenshot and accessibility-tree diagnostics.
+- Classification of environment failures versus real UI regressions.
+- Limited, observable retries that do not hide defects.
+
+Provide a short incremental rollout:
+
+- Pilot with a few high-risk components and one representative device profile.
+- Stabilize comparisons and establish baseline ownership.
+- Integrate focused checks into PR quality gates.
+- Extend to iOS and additional fixture variants.
+- Expand nightly/release coverage based on risk and measured stability.
+- Mentor developers and QA engineers through pairing, review guidelines and documentation.
+
+Propose measurements without fabricating outcomes: PR feedback latency, false-positive rate, escaped visual defects, CI cost, flaky-test frequency and manual verification effort.
+
+### 7. Demonstrated scope and limitations
+
+Finish with a concise evidence statement distinguishing:
+
+**Implemented and verified:**
+
+- Android real-app fixture scenario.
+- Native Appium component screenshot.
+- Reviewed golden and repeatability.
+- Passing local visual comparison.
+
+**Not implemented or verified:**
+
+- Native iOS execution.
+- A completed CI pipeline.
+- Wider scenario/device coverage.
+- A deliberate failing regression and diff, unless task history explicitly demonstrates it.
+- Git commit/push, unless separately verified.
+
+State that the demo demonstrates one representative article-card scenario, not a complete production test matrix.
+
+## Step 3 — Validate the strategy
+
+Check that:
+
+1. The content meets the employer's requested strategy areas.
+2. Android and iOS both receive a concrete implementation approach.
+3. Shared versus platform-specific responsibilities are explicit.
+4. Mock injection is explained independently of Appium.
+5. CI stages and review responsibilities are actionable.
+6. The proposed production approach is compatible with differing app technologies.
+7. All reported demo metrics match verified execution history.
+8. No unimplemented capabilities are described as complete.
+9. The document is concise enough for a 1–3-page submission.
+
+If rendering or exporting to PDF would require additional packages or tooling, leave the deliverable as Markdown. The employer accepts Markdown.
+
+Do not claim a verified PDF page count without actually rendering one.
+
+## Step 4 — Update task records
+
+Append EXEC-012 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Update the local handoff with the strategy-document status if that handoff is maintained in the repository.
+
+Record the material AI prompt in the existing sanitized prompt disclosure according to the project's established convention, without introducing private or sensitive details.
+
+Preserve previous entries.
+
+## Acceptance criteria
+
+EXEC-012 is PASS when:
+
+- `deliverables/strategy.md` exists.
+- It addresses both Android and iOS.
+- It includes tool choices and meaningful trade-offs.
+- It describes deterministic mocking, goldens, CI/CD, stability and rollout.
+- It explicitly connects the strategy to the verified Android evidence.
+- It distinguishes implemented features from proposed architecture.
+- The content is suitable for a concise 1–3-page submission.
+- No application, runner, golden, emulator or CI implementation changes occur.
+
+## Restrictions
+
+- Do not modify `app/` or `qa_visual/`.
+- Do not add iOS automation code.
+- Do not implement or run CI.
+- Do not regenerate goldens.
+- Do not introduce a visual regression.
+- Do not initialize Git or publish the repository.
+- Do not rewrite the root README during this task.
+- Do not automatically proceed to EXEC-013.
+
+## Required completion report
+
+Return:
+
+1. EXEC-012 status: PASS / FAIL / BLOCKED.
+2. Strategy document path.
+3. Document structure and approximate word count.
+4. Android/iOS architecture recommendation.
+5. Tooling trade-offs documented.
+6. Requirement coverage verification.
+7. Evidence claims checked against task history.
+8. Files created or changed.
+9. Any open concerns.
+10. Recommended next smallest task.
+
+**Stop after EXEC-012. Await human review and authorization.**

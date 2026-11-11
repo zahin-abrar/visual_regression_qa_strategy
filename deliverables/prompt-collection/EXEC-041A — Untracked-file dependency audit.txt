@@ -1,0 +1,95 @@
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Expected HEAD: 8ed5ac2
+Branch: main
+
+OBJECTIVE
+
+Determine whether excluding the ten untracked upstream app/
+entries creates any build, runtime or CI dependency problems.
+
+Do not commit them simply for completeness.
+
+SCOPE
+
+Inspect these entries:
+
+- app/.github/
+- app/.gitleaks.toml
+- app/.husky/
+- app/.watchmanconfig
+- app/CODE_OF_CONDUCT.md
+- app/Gemfile
+- app/Gemfile.lock
+- app/fastlane/
+- app/eas.json
+- app/lint-staged.config.ts
+
+TASKS
+
+1. Verify Git status and preserve all existing files.
+
+2. Inspect the tracked Android build scripts, package.json,
+   Expo configuration and existing setup documentation.
+
+3. Identify references to the ten excluded entries.
+
+4. Pay particular attention to eas.json:
+   - Is it required by the documented Android build command?
+   - Is EAS Build used, or is the build performed locally?
+   - Would its absence break the proposed CI workflow?
+
+5. Distinguish:
+   - Required for Android build or visual testing
+   - Optional developer tooling
+   - Release/deployment-only configuration
+   - Documentation or unrelated repository metadata
+
+6. Where practical, validate the Android build from a clean
+   tracked-only checkout that excludes all ten entries.
+
+   Do not delete or move the original untracked files.
+   Do not modify the existing golden references.
+   Record exactly what was and was not verified.
+
+7. Check whether any excluded configuration would introduce
+   credentials, deployment requirements or unwanted CI behavior.
+
+8. Report whether the current tracked repository is sufficient
+   for our planned Android Appium visual-testing pipeline.
+
+DECISION
+
+For each entry, recommend:
+- Keep excluded
+- Commit because required
+- Defer until a corresponding workflow needs it
+
+Do not change Git tracking or ignore rules yet.
+
+CONSTRAINTS
+
+- No staging, commits, tags or pushes.
+- No remote configuration.
+- No CI/CD implementation.
+- No app refactoring.
+- No changes to fixtures, goldens or thresholds.
+- Preserve private instructions and historical artifacts.
+
+DELIVERABLE
+
+Provide a concise table showing:
+- Entry
+- Actual dependency/reference
+- CI impact if excluded
+- Recommendation
+
+Conclude with:
+1. Whether the existing committed files are sufficient.
+2. Whether any specific excluded entry is essential.
+3. Any uncertainty that requires a clean-checkout build.
+4. The minimum action needed before the first GitHub push.
+
+Update private handoff and prompt log.
+Stop for human review.

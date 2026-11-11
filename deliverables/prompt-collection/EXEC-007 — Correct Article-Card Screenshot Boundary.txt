@@ -1,0 +1,170 @@
+# EXEC-007 — Correct Article-Card Screenshot Boundary
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-006 — PASS
+
+## Objective
+
+Correct the existing `ArticleCard` screenshot method so Appium captures the complete outer article-card container, rather than the inner `UiPressable`.
+
+The correction must be minimal, contained within the Python POM, and verified with one real native screenshot.
+
+Do not create or approve a golden baseline yet.
+
+## Evidence from EXEC-006
+
+The agent confirmed:
+
+- `qa-article-card-ready` identifies an `android.widget.Button` corresponding to the inner React Native `UiPressable`.
+- Current screenshot bounds: `[26,720][1054,1852]`, measuring 1028 × 1132.
+- Its direct parent `android.view.ViewGroup` has bounds `[26,720][1054,1957]`, measuring 1028 × 1237.
+- The outer `UiCard` provides the card background and rounded corners.
+- The current screenshot excludes the lower 105 px.
+
+These observations are specific to the inspected Android UI hierarchy and must not be assumed valid universally.
+
+## Step 1 — Inspect implementation
+
+Read:
+
+- `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- `qa_visual/visualqa/components/article_card.py`
+- `qa_visual/visualqa/screens/home_screen.py`
+- `qa_visual/tests/test_long_headline.py`
+- Relevant driver and comparator code
+
+Identify the smallest change needed to capture the verified parent element.
+
+Preserve all existing fixture assertions, readiness checks, paths, and comparator thresholds.
+
+## Step 2 — Implement the correction
+
+Modify `ArticleCard.capture_screenshot()` to:
+
+1. Locate the existing ready element through the current POM implementation.
+2. Resolve its direct parent using a supported Appium locator.
+3. Retrieve both elements' actual rectangles.
+4. Verify that the parent contains the ready element.
+5. Verify that the parent has a larger bottom extent, consistent with the card container.
+6. Capture the parent using Appium's native element screenshot operation.
+
+If the parent relationship or required bounds check fails, raise a clear error. Do not silently fall back to the inner screenshot or crop a full-screen PNG.
+
+Keep the implementation concise. Do not introduce a generic hierarchy-traversal framework.
+
+The expected parent bounds from EXEC-006 are verification evidence, not coordinates to hard-code in production logic.
+
+## Step 3 — Static and unit verification
+
+Use the existing virtual environment:
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy\qa_visual
+
+.\.venv\Scripts\python.exe -m compileall -q .\visualqa .\tests
+
+.\.venv\Scripts\python.exe -m pytest -m unit -q
+```
+
+Record command results and exit codes.
+
+If a focused unit test can reasonably cover the parent containment check with mocked elements, add one. Avoid extensive test infrastructure for this small change.
+
+## Step 4 — Take one corrected native capture
+
+Verify the existing emulator, Appium and Metro services are available.
+
+Run the existing visual test once:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+    .\tests\test_long_headline.py `
+    -m visual -v -s
+```
+
+The missing-baseline assertion remains expected.
+
+Before this run, preserve the original EXEC-005 article screenshot under a distinct filename if not already preserved.
+
+Do not overwrite or remove existing diagnostic evidence without retaining a copy.
+
+## Step 5 — Validate the screenshot
+
+Inspect the newly generated article-card PNG.
+
+Verify:
+
+- The target is the verified outer container.
+- The capture dimensions match the actual target element rectangle.
+- The lower white padding and rounded bottom corners are included.
+- The fixture image, complete headline, metadata and summary remain visible.
+- There is no unrelated application UI in the element screenshot.
+- The full-screen context image still shows the article card in the app.
+
+Report actual bounds and image dimensions. The previously measured 1028 × 1237 size is a useful expectation, not an acceptance criterion that must be forced.
+
+If the parent still does not represent the complete visual `UiCard`, stop and report the evidence instead of guessing another ancestor.
+
+## Acceptance criteria
+
+EXEC-007 is PASS when:
+
+1. The POM screenshot target resolves to the verified outer card container.
+2. A bounds-containment check is implemented.
+3. Available unit tests pass.
+4. One native Appium capture succeeds.
+5. Human-readable evidence shows the complete article-card boundary.
+6. No baseline, fixture, emulator or comparator configuration changes occur.
+
+A pytest failure solely due to the missing approved golden is acceptable and must be explicitly identified.
+
+## Restrictions
+
+- Do not modify `app/`.
+- Do not add a new React Native test ID.
+- Do not rebuild or reinstall the application.
+- Do not restart or reconfigure the emulator.
+- Do not change comparator tolerances.
+- Do not create or regenerate a golden PNG.
+- Do not conduct repeatability verification yet.
+- Do not deliberately introduce regressions.
+- Do not initialize Git.
+- Do not automatically proceed to EXEC-008.
+
+## Task history
+
+Append EXEC-007 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Include:
+
+- Status: PASS / FAIL / BLOCKED
+- Exact code changes
+- Verification commands and results
+- Original versus corrected screenshot bounds
+- New screenshot dimensions and path
+- Whether the full card boundary is visible
+- Pytest outcome and missing-baseline behavior
+- Remaining risks
+- Recommended next smallest task
+
+Preserve all earlier entries.
+
+## Completion report
+
+Return:
+
+1. EXEC-007 status
+2. Files changed
+3. Summary of the POM correction
+4. Unit-test results
+5. Visual-test result and exit code
+6. Parent element bounds and captured PNG dimensions
+7. Confirmation of lower padding and rounded corners
+8. Any remaining blockers
+9. Recommended next task
+
+**Stop after EXEC-007. Await human review and authorization.**

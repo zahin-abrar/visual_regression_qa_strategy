@@ -1,0 +1,147 @@
+
+EXEC-042G — Fix AVD Creation and Emulator Discovery Path Mismatch
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Last reported commit: d641154
+
+OBSERVED FAILURE
+
+The latest GitHub visual workflow passed KVM verification
+and successfully created the Android Virtual Device.
+
+The creation log confirmed:
+
+AVD config:
+/home/runner/.config/.android/avd/Pixel_10.avd/config.ini
+
+AVD name: Pixel_10
+Resolution: 1080x2424
+Density: 420 dpi
+RAM: 4096 MB
+Android API: 37
+
+However, the emulator process exited with status 1:
+
+Unknown AVD name [Pixel_10]
+
+HOME is defined but there is no file Pixel_10.ini
+in $HOME/.android/avd
+
+ROOT CAUSE
+
+The AVD manager created the device under a different
+configuration directory from the one searched by the
+emulator launcher.
+
+The previous AVD creation fix worked.
+
+OBJECTIVE
+
+Ensure avdmanager and the emulator launcher use the
+same explicit AVD directory.
+
+Make AVD discovery a verified pre-launch requirement.
+
+TASKS
+
+1. Read the current handoff and inspect start-emulator.sh.
+
+2. Identify the Android environment variables currently
+   affecting AVD creation and emulator discovery.
+
+3. Choose one deterministic writable AVD directory for
+   the GitHub runner.
+
+4. Set and export ANDROID_AVD_HOME before AVD creation.
+
+5. Ensure the same environment is inherited by:
+   - avdmanager create avd
+   - avdmanager list avd
+   - emulator -list-avds
+   - The actual emulator launch process
+
+6. Do not merely copy files between two default Android
+   configuration directories.
+
+7. Preserve the current explicit noninteractive "no"
+   answer and avdmanager exit-code handling.
+
+8. After creation, verify:
+   - Pixel_10.ini exists in the selected AVD home
+   - Pixel_10.avd/config.ini exists
+   - The AVD path and registration file are consistent
+   - avdmanager list avd recognizes Pixel_10
+   - emulator -list-avds includes Pixel_10
+
+9. Fail before emulator launch with actionable diagnostics
+   if either tool cannot recognize the device.
+
+10. Preserve existing timeout and process-death detection.
+
+11. Log the resolved AVD home and relevant paths without
+    dumping unnecessary environment variables.
+
+12. Preserve:
+    - Android API 37
+    - Existing system image
+    - AVD name Pixel_10
+    - 1080x2424 resolution and 420 dpi
+    - 4 GB RAM
+    - KVM acceleration
+    - Headless cold boot
+
+13. Do not change emulator graphics flags unless actual
+    subsequent runtime logs justify doing so.
+
+VALIDATION
+
+- Run bash syntax checks.
+- Run git diff --check.
+- Mock different Android configuration defaults.
+- Verify both tools receive the same AVD home.
+- Verify missing registration files cause clear failures.
+- Verify emulator -list-avds must recognize the AVD.
+- Verify a successful mock proceeds to emulator launch.
+- Confirm the previous timeout and failure checks remain.
+- Confirm app/, qa_visual/ and goldens are unchanged.
+
+PRESERVE
+
+- Existing Android build workflow
+- APK reuse and source-run compatibility
+- KVM functional preflight
+- libpulse0 provisioning
+- Bounded final log collection
+- Appium, Metro and pytest configuration
+- Five normal visual scenarios
+- Allure reporting and advisory behavior
+
+DOCUMENTATION
+
+Update the private handoff and canonical AI prompt log.
+Record this real GitHub failure and the targeted correction.
+
+COMMIT
+
+Make one bounded local commit.
+
+Do not amend, push, tag or rebuild the APK.
+Do not touch the ten unrelated untracked app/ entries.
+
+FINAL REPORT
+
+Report:
+- Files changed
+- Explicit AVD home selection
+- Device registration and discovery checks
+- Local validation results
+- Commit hash
+- Remaining real-CI risks
+- Rerun instructions
+
+Rerun with source_run_id 42494990156 if the existing
+APK artifact remains available.
+
+STOP.

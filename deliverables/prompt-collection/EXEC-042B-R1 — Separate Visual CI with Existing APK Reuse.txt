@@ -1,0 +1,362 @@
+
+EXEC-042B-R1 — Separate Visual CI with Existing APK Reuse
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Expected HEAD: 1639858
+
+Remote:
+https://github.com/zahin-abrar/visual_regression_qa_strategy.git
+
+OBJECTIVE
+
+Refactor the locally committed EXEC-042B implementation
+into a separate, manually triggered visual-testing workflow.
+
+Reuse an APK from a previous successful GitHub Actions
+build run instead of recompiling the application.
+
+Preserve the existing emulator, Appium, screenshot comparison,
+Allure reporting and failure-evidence implementation.
+
+BACKGROUND
+
+EXEC-042A successfully built an Android debug APK on
+GitHub Actions in approximately 33m 38s.
+
+The successful workflow uploaded:
+android-debug-apk-x86_64
+
+The artifact retention period is seven days.
+
+EXEC-042B implementation exists locally at commit 1639858,
+but has NOT been pushed or executed on GitHub.
+
+The current implementation has two jobs inside:
+.github/workflows/android-build.yml
+
+We now want independent build and visual-test workflows.
+
+APPROVED ARCHITECTURE
+
+Workflow A:
+.github/workflows/android-build.yml
+
+Purpose:
+Build and publish Android APK.
+
+Keep it independently runnable through workflow_dispatch.
+
+Workflow B:
+.github/workflows/android-visual-tests.yml
+
+Purpose:
+Download an existing APK and run the five normal
+Android visual scenarios.
+
+Trigger:
+workflow_dispatch only.
+
+Required input:
+source_run_id — the GitHub Actions run ID of the APK
+build being reused.
+
+No build job inside the visual workflow.
+
+No Expo prebuild or Gradle compilation in the visual
+workflow.
+
+A. PREFLIGHT
+
+1. Read the current private handoff, decisions and
+   existing EXEC-042B implementation.
+
+2. Verify branch, HEAD, Git status and remote.
+
+3. Inspect the existing build and visual jobs before
+   modifying them.
+
+4. Preserve all ten excluded upstream app/ entries.
+
+5. Preserve current emulator and Appium configuration.
+
+6. Verify that the existing successful build workflow
+   uploaded the expected APK artifact.
+
+Do not assume the old artifact is still available:
+the workflow must validate that at execution time.
+
+B. RESTORE BUILD-ONLY WORKFLOW
+
+Update:
+.github/workflows/android-build.yml
+
+Remove the new visual-tests job introduced in EXEC-042B.
+
+Preserve the already verified build job, including:
+- Disk cleanup and diagnostic reporting
+- Expo prebuild
+- Gradle build
+- APK artifact upload
+- Build workflow permissions
+- Existing manually triggered execution
+
+Do not rewrite or optimize the build implementation.
+
+C. CREATE INDEPENDENT VISUAL WORKFLOW
+
+Create:
+.github/workflows/android-visual-tests.yml
+
+Use:
+- workflow_dispatch
+- Required source_run_id input
+- Ubuntu 24.04
+- Appropriate timeout
+- Minimal permissions:
+  contents: read
+  actions: read
+
+Use the existing SHA-pinned action conventions.
+
+Checkout the selected visual-test workflow revision.
+
+Download:
+android-debug-apk-x86_64
+
+from the explicitly supplied source_run_id.
+
+Prefer the official actions/download-artifact action
+with github-token, repository and run-id inputs.
+
+Use the built-in GITHUB_TOKEN.
+
+Do not introduce a personal access token or unrelated
+credential.
+
+D. SOURCE ARTIFACT VALIDATION
+
+Before using the APK:
+
+1. Validate that source_run_id is a valid numeric run ID.
+
+2. Query GitHub for source-run metadata using the
+   authenticated GitHub API or CLI.
+
+3. Verify that the source run belongs to this repository.
+
+4. Verify that the source run is the expected Android
+   build workflow and completed successfully.
+
+5. Record the source run ID and source commit SHA.
+
+6. Verify the requested artifact exists and has not
+   expired.
+
+7. Download the artifact.
+
+8. Verify the expected APK exists and is nonempty.
+
+9. Record the APK SHA-256 checksum.
+
+10. Fail clearly if the artifact is unavailable.
+
+IMPORTANT — SOURCE COMPATIBILITY
+
+The APK may have been built from an earlier commit
+than the visual workflow currently being executed.
+
+Compare the source commit with the checked-out commit
+for application and visual-test inputs.
+
+If application source, fixtures, screenshot comparison
+configuration or golden references have changed
+incompatibly, reject the artifact and explain why.
+
+Do not silently test an outdated APK against a
+different application revision.
+
+Workflow-only changes should not invalidate an otherwise
+compatible APK.
+
+For the initial run, the successful build predates the
+visual-workflow commit. This is expected.
+
+Use an explicit, evidence-based compatibility check.
+
+Do not simply require the two commit SHAs to be identical.
+
+E. REUSE EXISTING VISUAL INFRASTRUCTURE
+
+Transfer the existing EXEC-042B visual job to the new
+workflow with minimal functional changes.
+
+Preserve:
+- Emulator system image selection
+- Resolution and density checks
+- KVM setup
+- Headless emulator configuration
+- Cold boot and boot readiness checks
+- Python dependencies
+- Appium 3.3.0
+- UiAutomator2 7.1.2
+- Metro dev-client startup
+- adb reverse
+- App installation and startup checks
+- Environment metadata collection
+- Existing Allure setup
+- Existing screenshot evidence retention
+
+Reuse the existing support scripts wherever possible.
+
+Do not duplicate large scripts in YAML.
+
+Do not introduce Appium or emulator setup changes
+unless necessary for separation.
+
+F. VISUAL TEST EXECUTION
+
+Run exactly the five normal visual scenarios:
+
+python -m pytest -m visual -v
+
+Include the existing Allure and JUnit reporting options.
+
+Do NOT execute:
+- Unit tests
+- The intentional-failure demonstration
+- The combined intentional-failure suite
+
+Do not modify:
+- Existing scenarios
+- Synthetic fixtures
+- Approved goldens
+- Comparison thresholds
+- Screenshot capture behavior
+- Failure evidence handling
+
+No automatic golden regeneration.
+
+G. ADVISORY FAILURE POLICY
+
+Visual comparison failures and Appium test execution
+failures remain advisory for this first CI rollout.
+
+Keep:
+- Actual pytest exit code
+- Per-test results
+- Comparison mismatch classification
+- Infrastructure error classification
+- Human-readable job summary
+- Error/warning annotations
+- Evidence upload even after test failure
+
+A green workflow must not be presented as five passing
+visual comparisons when pytest actually failed.
+
+Report test outcomes explicitly in the job summary.
+
+Artifact retrieval failures, missing APKs, failed emulator
+startup and other setup failures must remain genuine
+workflow failures.
+
+Do not introduce automatic retries.
+
+H. REPORTING ARTIFACTS
+
+Preserve the existing four artifacts:
+
+visual-evidence
+visual-allure-results
+visual-allure-report
+visual-infra-logs
+
+Include source provenance in the summary and/or logs:
+- Source build run ID
+- Source build commit SHA
+- Visual workflow commit SHA
+- APK SHA-256
+- Emulator configuration
+- Actual pytest result
+
+Preserve retention periods and failure-time upload behavior.
+
+Do not upload secrets, private project documents or
+entire dependency directories.
+
+I. DOCUMENTATION
+
+Update README.md to describe the two workflows.
+
+Explain how to:
+
+1. Run the Android build when a new APK is needed.
+2. Locate the successful build's run ID.
+3. Start Android visual tests using that run ID.
+4. Reuse the same APK for subsequent visual CI runs.
+5. Inspect Allure, screenshot evidence and logs.
+6. Understand artifact expiry and source compatibility.
+
+Document that the visual workflow does not rebuild APKs.
+
+Preserve clear distinctions between implemented and
+GitHub-verified functionality.
+
+J. LOCAL VALIDATION
+
+- Validate both workflow YAML files.
+- Verify only one build job remains.
+- Confirm visual tests are independent of build jobs.
+- Confirm correct cross-run download configuration.
+- Validate permissions and dispatch input.
+- Verify all scripts exist.
+- Validate shell and Python syntax.
+- Check source compatibility logic using synthetic cases.
+- Check handling of missing/expired artifacts.
+- Confirm report artifact naming consistency.
+- Run git diff --check.
+- Confirm all golden hashes remain unchanged.
+
+Do not claim GitHub execution was successful.
+
+K. COMMIT
+
+Create one new local commit after successful checks:
+
+ci(visual): reuse APK from previous build workflow
+
+Stage only relevant workflow files, supporting scripts
+if changes are necessary, and documentation.
+
+Do not use git add -A.
+
+Do not amend EXEC-042B or rewrite history.
+
+Do not push or tag.
+
+Preserve the ten excluded app/ entries.
+
+L. FINAL REPORT
+
+Provide:
+
+1. Files changed.
+2. Build-only workflow structure.
+3. New visual-only workflow structure.
+4. Source run ID validation mechanism.
+5. Artifact retrieval and compatibility checks.
+6. GitHub permissions.
+7. Emulator and Appium configuration.
+8. Advisory failure behavior.
+9. Report artifacts.
+10. Local verification commands/results.
+11. Commit hash.
+12. Exact human steps for the first GitHub run.
+
+Update the private handoff, decisions and AI prompt log.
+
+STOP.
+
+Do not begin CI optimization or additional test development.

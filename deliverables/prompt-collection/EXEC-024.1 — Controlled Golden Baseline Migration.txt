@@ -1,0 +1,117 @@
+EXEC-024 — Controlled Golden Baseline Migration
+
+Objective:
+Prepare and, after explicit human approval, migrate the existing long_headline golden from the legacy environment-fallback rendering to the deterministic runtime-selected rendering.
+
+The investigation from EXEC-021 through EXEC-023 is complete. The human has approved pursuing a baseline migration instead of further native layout debugging.
+
+IMPORTANT:
+This task has two checkpoints. Execute CHECKPOINT 1 only in this invocation. Do not replace the approved golden until the human explicitly reviews and approves the candidate PNG.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+- Existing EXEC-021/022/023 artifacts
+- Current app/, qa_visual/ and relevant README files
+
+Approved existing golden:
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+
+Existing golden SHA-256:
+E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629
+
+Known verified evidence:
+
+Legacy fallback:
+- 3/3 independent native captures identical
+- Image height: 527 px
+- Card PNG: 1028 × 1237
+- Zero changed pixels against approved golden
+
+Runtime selection:
+- 3/3 independent native captures identical
+- Image height: 526 px
+- Card PNG: 1028 × 1237
+- 11,640 changed pixels (0.915356%) against existing golden
+- Exact scenario identity, fixture title and readiness verified
+
+The mismatch is stable and confined to the image region. Startup-dependent native geometry is supported by telemetry, but the underlying rounding mechanism remains unproven.
+
+CHECKPOINT 1 — Candidate baseline preparation
+
+1. Record initial Git status and verify the existing golden hash.
+
+2. Inspect the preserved EXEC-023 runtime-selected screenshots and their verification evidence.
+
+3. Verify that the candidate originates from a genuine Appium screenshot of the real rendered application and corresponds to the verified long_headline runtime scenario.
+
+4. Verify the candidate's exact dimensions, PNG validity, hash and consistency with the independent runtime captures.
+
+5. Copy the representative runtime screenshot into an ignored review directory as a CANDIDATE only. Do not place it in the approved baselines directory.
+
+6. Produce a compact human-review packet:
+   - Original approved golden
+   - Proposed runtime-selected candidate
+   - Side-by-side comparison
+   - Existing comparison diff
+   - Enlarged image-region comparison
+   - Relevant geometry and pixel metrics
+
+7. Review the candidate for clipping, missing artwork, unexpected cropping, distortion, unreadable content or other visible defects.
+
+8. State whether the evidence supports proposing the candidate for human approval. Distinguish verified measurements from subjective visual assessment.
+
+9. Document the intended baseline migration:
+   - Previous launch contract: environment fallback
+   - New launch contract: explicit runtime selection
+   - Reason: consistent, independently verified rendering under the new launch contract
+   - Previous approved golden retained in Git history
+   - No comparator threshold changes
+   - Native rounding mechanism still unresolved
+
+10. Update the private handoff and AI prompt record with the preparation results. Do not record the baseline migration as approved or completed.
+
+CHECKPOINT 1 REQUIRED OUTPUT:
+
+A. Review packet file paths.
+B. Candidate PNG path, dimensions and SHA-256.
+C. Comparison metrics and verified image differences.
+D. Visual-quality assessment and any concerns.
+E. Proposed baseline migration details.
+F. Existing golden integrity and final Git status.
+G. Explicit request for human review and baseline approval.
+
+STOP HERE.
+
+CHECKPOINT 2 — After separate explicit human approval only
+
+The following is the intended later scope, NOT authorized for execution in this invocation:
+
+1. Confirm the exact approved candidate PNG and hash.
+2. Preserve the original golden in Git history.
+3. Replace only the approved long_headline reference with the approved candidate.
+4. Run two independent runtime-selected native visual regressions.
+5. Confirm both pass against the new reference using unchanged thresholds.
+6. Verify repeatability, scenario identity and screenshot bounds.
+7. Run relevant unit/type checks.
+8. Update README, decisions, handoff and AI prompt records to explain the revised baseline contract.
+9. Report changed files, original/new hashes, executed commands and results.
+10. Stop before implementing additional visual scenarios.
+
+Constraints for both checkpoints:
+- No automatic golden approval.
+- No comparator tolerance changes.
+- No source image, fixture content or production UI changes.
+- No new visual scenarios.
+- No unrelated architectural changes.
+- No emulator wipe or unnecessary rebuild.
+- Preserve existing tracked/untracked work and private documents.
+- Do not commit or push without authorization.
+- Do not claim a passing regression against the new golden until executed.
+
+Execute CHECKPOINT 1 now and return the review packet. Await explicit human approval before CHECKPOINT 2.

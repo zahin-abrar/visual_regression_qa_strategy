@@ -1,0 +1,166 @@
+EXEC-039 — Screenshot Reproducibility Investigation
+
+Project: D:\Projects\visual_regression_qa_strategy
+Phase: EXECUTION
+Expected HEAD: dfe9b16eb4a803f0bc994d962d13c8f5ccdc36f9
+
+OBJECTIVE
+
+Investigate intermittent visual differences observed during EXEC-038.
+
+Affected scenarios:
+- dark_article: previously 11,147 changed pixels.
+- long_headline: previously 11,640 changed pixels.
+
+The differences appeared to involve approximately 1px image shifts.
+Later executions produced zero changed pixels.
+
+The cause is unknown.
+
+This is a bounded, evidence-driven investigation.
+Do not implement fixes without human approval.
+
+A. PREFLIGHT
+
+1. Read current project instructions, decisions and handoff.
+2. Verify branch, HEAD and working-tree status.
+3. Inspect existing evidence in debug-logs/exec038/.
+4. Inspect capture readiness, screenshot boundaries, image comparison,
+   scenario isolation and relevant test implementation.
+5. Verify the approved goldens and comparison configuration.
+
+Preserve the ten unrelated untracked app entries.
+
+B. EXISTING EVIDENCE ANALYSIS
+
+Before running new tests:
+
+1. Locate the original mismatch screenshots and diff images.
+2. Determine which image regions changed.
+3. Check whether the difference represents:
+   - Whole-screen displacement.
+   - Image-only displacement.
+   - Layout/container movement.
+   - Rendering or pixel-color differences.
+   - Screenshot cropping or coordinate differences.
+4. Compare available hierarchy, capture metadata and timing logs.
+5. Identify evidence that supports or contradicts specific causes.
+
+Do not assume emulator degradation is the cause.
+
+C. CONTROLLED REPRODUCTION
+
+Use the existing verified Android environment and commands.
+
+Keep constant:
+- Emulator/device profile.
+- Resolution and density.
+- Android configuration.
+- App and fixture versions.
+- Golden profile.
+- Screenshot thresholds.
+- Test implementation.
+
+Initial experiment:
+
+1. Run dark_article individually 6 times.
+2. Run long_headline individually 6 times.
+3. Run the normal five-scenario suite 3 times:
+   - Twice without Allure.
+   - Once with Allure.
+4. Include one unaffected scenario as a control if useful.
+
+Archive actual screenshots, diffs, comparison JSON and relevant
+metadata separately for each run BEFORE the next run overwrites
+the existing artifact paths.
+
+Store investigation evidence under:
+debug-logs/exec039/
+
+Use unique run identifiers.
+
+Record:
+- Scenario and execution order.
+- Pass/fail.
+- Changed pixel count and ratio.
+- Capture duration where available.
+- Emulator state and relevant system information.
+- Whether Allure was enabled.
+- Any Appium, Metro or device errors.
+
+Time-box execution to approximately 30 minutes.
+Do not run indefinitely.
+
+If failures recur, prioritize analyzing the evidence rather than
+increasing sample count.
+
+If failures do not recur, report that explicitly. Do not claim
+the original problem has been resolved.
+
+D. ROOT-CAUSE INVESTIGATION
+
+Evaluate the following hypotheses based on actual evidence:
+
+1. Capture happens before image/layout rendering has settled.
+2. Image loading or decoding finishes at variable times.
+3. Layout measurement or rounding differs between captures.
+4. Emulator rendering/performance affects screenshot timing.
+5. Previous scenarios leave behind relevant application state.
+6. Allure instrumentation affects execution timing.
+7. Screenshot crop/bounds occasionally change.
+8. Another cause supported by the evidence.
+
+For each hypothesis, distinguish:
+- Confirmed.
+- Supported but not proven.
+- Contradicted.
+- Not evaluated.
+
+If a mismatch occurs:
+- Preserve the original failed capture.
+- Analyze pixel-change regions and displacement.
+- Compare it with the nearest matching capture.
+- Inspect relevant logs and capture metadata.
+
+Do not automatically retry failures away.
+
+E. SCOPE AND SAFETY
+
+Do not:
+- Change app code or fixture data.
+- Regenerate or modify golden images.
+- Increase tolerance thresholds.
+- Add sleeps, retries or synchronization fixes.
+- Change Appium session lifecycle.
+- Modify Allure reporting.
+- Introduce new dependencies.
+- Implement CI workflows.
+- Start EXEC-040.
+- Stage, commit, tag or push.
+
+Diagnostic scripts or temporary analysis files are allowed
+only under ignored investigation directories.
+
+If investigation reveals a likely fix, recommend it with evidence,
+estimated effort and regression risk. Do not implement it.
+
+F. REQUIRED REPORT
+
+1. Starting commit and environment.
+2. Findings from existing EXEC-038 evidence.
+3. Exact experiment commands and run counts.
+4. Results table for every capture.
+5. Mismatch frequency observed.
+6. Screenshot/diff analysis.
+7. Hypothesis assessment with supporting evidence.
+8. Most likely cause, or explicit unresolved conclusion.
+9. Recommended corrective action, if justified.
+10. Whether the framework is suitable for mandatory CI gates.
+11. Remaining risks and limitations.
+12. Final Git status.
+
+Update ignored private handoff and prompt records.
+Do not change public documentation unless necessary to correct
+a materially inaccurate statement.
+
+STOP after reporting findings for human review.

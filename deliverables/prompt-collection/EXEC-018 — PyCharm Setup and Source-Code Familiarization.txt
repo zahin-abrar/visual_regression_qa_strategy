@@ -1,0 +1,131 @@
+# EXEC-018 — PyCharm Setup and Source-Code Familiarization
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION — Interview preparation  
+**Previous task:** EXEC-017R — PASS
+
+## Objective
+
+Help the human owner open the existing project in PyCharm and understand the verified screenshot-testing implementation.
+
+This is a guided inspection and familiarization task, not a development task.
+
+Do not run visual tests yet; that belongs to EXEC-019.
+
+## 1. Preserve the verified environment
+
+Read the latest local handoff and `qa_visual/README.md`.
+
+Confirm the previously verified project paths and Python interpreter.
+
+Do not restart or stop the running emulator, Metro or Appium services.
+
+Do not install packages, rebuild the Android app, modify source files or change Git history.
+
+## 2. Provide PyCharm setup instructions
+
+Give exact, short human-executable steps to:
+
+1. Open `D:\Projects\visual_regression_qa_strategy` as the project root in PyCharm.
+2. Select the existing interpreter at `qa_visual\.venv\Scripts\python.exe`.
+3. Navigate the Python source and tests.
+4. Locate the app-side TypeScript/React Native fixture code.
+5. Locate the approved golden PNG and existing comparison artifacts.
+
+Explain how to make the `qa_visual/` directory the working directory for future pytest configurations.
+
+Avoid assuming a particular PyCharm edition or installed JavaScript/TypeScript plugin. Identify any actual IDE limitation without installing plugins.
+
+Do not create run configurations yet.
+
+## 3. Inspect the real implementation
+
+Read the relevant source files rather than relying only on README descriptions.
+
+Produce an accurate code map identifying:
+
+- Pytest configuration and fixtures
+- Android Appium session creation
+- Test scenario and assertions
+- HomeScreen page object
+- ArticleCard component abstraction
+- Readiness and title selectors
+- Screenshot element selection and boundary handling
+- Image comparison implementation
+- Baseline path and profile selection
+- Artifact generation
+- App-side scenario activation
+- Synthetic fixture contents
+- WordPress mapping and rendered UI component chain
+
+For each item, provide the actual repository-relative file path and important function/class names.
+
+If a particular responsibility is implemented elsewhere than expected, report the actual location.
+
+## 4. Explain execution step by step
+
+Trace the `long_headline` test from:
+
+Pytest invocation → Appium session → application readiness → fixture assertion → element screenshot → golden comparison → artifacts → test outcome.
+
+Then separately trace the application data flow from:
+
+Environment scenario selector → fixture fetcher → WordPress model mapping → React Native article components → rendered article card.
+
+Explain how these two flows interact.
+
+Clearly distinguish code that is implemented from proposed architecture described only in the strategy.
+
+## 5. Prepare the human walkthrough
+
+Provide a concise, ordered list of files to open during a 10–15-minute PyCharm familiarization session.
+
+For each file explain:
+
+- What to look at
+- Which class/function matters
+- Why it exists
+- What the human owner should be able to explain to an interviewer
+
+Include short, grounded explanations of:
+
+- Why Appium is not responsible for mocking
+- Why page objects are used
+- Why the outer article-card element is captured
+- How deterministic fixtures are selected
+- What the pixel tolerance and changed-pixel ratio mean
+- Why Android and iOS require separate goldens
+- Which functionality has not been implemented
+
+## 6. Verification and boundaries
+
+This task is read-only.
+
+Do not:
+
+- Modify or format source files
+- Run tests
+- Generate or replace baselines
+- Create IDE configurations
+- Install dependencies or plugins
+- Change Git configuration or create commits
+- Stop emulator, Metro or Appium
+- Begin CI/CD implementation
+- Invent code details or execution results
+
+Do not create a large new architecture document. Return the code map and walkthrough directly in the execution report.
+
+## Completion report
+
+Return:
+
+1. EXEC-018 PASS / BLOCKED.
+2. Exact PyCharm interpreter and working-directory paths.
+3. Source-file map with actual class/function names.
+4. Ordered human walkthrough.
+5. Explanation of the two interacting execution/data flows.
+6. Any confusing implementation details or technical risks worth discussing.
+7. What the human must do manually in PyCharm.
+8. Confirmation that no files or running services were changed.
+
+**Stop after EXEC-018. Await human review before EXEC-019.**

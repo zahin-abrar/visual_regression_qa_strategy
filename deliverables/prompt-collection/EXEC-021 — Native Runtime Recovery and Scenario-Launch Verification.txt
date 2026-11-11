@@ -1,0 +1,172 @@
+EXEC-021 — Native Runtime Recovery and Scenario-Launch Verification
+
+Objective:
+Verify the runtime scenario-selection foundation implemented in EXEC-020 against the real Android application. Confirm the restored local environment, prove the development-only launch contract, and rerun the existing long_headline visual regression.
+
+This is a verification and narrowly bounded remediation task, not a new-feature implementation.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Sources:
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+- Current app/, qa_visual/, relevant README files and agent instructions.
+
+Baseline:
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+
+Expected baseline SHA-256:
+E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629
+
+Environment note — IMPORTANT:
+
+The user has started the Android emulator and restored Metro connectivity.
+
+The previous Android development-client failure was associated with Metro listening only on IPv6 loopback (::1), while the development-client launch URL used IPv4 (127.0.0.1:8081).
+
+The Metro process was identified as Expo's node.exe process. IPv6 access returned HTTP 200 and packager-status:running, while IPv4 connections were refused.
+
+Metro was subsequently restarted using:
+
+$env:NODE_OPTIONS = "--dns-result-order=ipv4first"
+$env:EXPO_PUBLIC_QA_SCENARIO = "long_headline"
+pnpm.cmd exec expo start --dev-client --localhost --port 8081 --clear
+
+The user reports that Metro now runs successfully. Independently confirm IPv4 connectivity before Appium execution; do not assume the issue is resolved solely from the report.
+
+Preserve the currently running Metro instance where possible. Do not restart it unnecessarily or change EXPO_PUBLIC_QA_SCENARIO between launch tests. The new runtime selector must be tested against a stable Metro environment.
+
+Tasks:
+
+1. Record initial Git branch, HEAD, tracked modifications and untracked files. Preserve the existing working tree and approved golden.
+
+2. Inspect the EXEC-020 implementation, particularly:
+   - QaLaunchGate.tsx
+   - +native-intent.tsx
+   - qaScenario.ts
+   - scenario_launch.py
+   - android.py
+   - Updated long_headline visual test.
+
+   Understand the intended startup and termination sequence before running commands.
+
+3. Verify the existing Pixel_10 Android emulator:
+   - ADB reports the emulator as device, not offline.
+   - Confirm Android API level and available memory.
+   - Check the installed application package.
+   - Do not recreate, wipe or reinstall the emulator unnecessarily.
+
+4. Verify Metro:
+   - Confirm http://127.0.0.1:8081/status returns packager-status:running over IPv4.
+   - Confirm Metro serves the correct project.
+   - Check that the existing Expo development-client build is compatible with the running bundle.
+   - Establish or verify adb reverse tcp:8081 tcp:8081.
+   - Preserve the same Metro environment throughout scenario-selection tests.
+
+5. Start or verify Appium using the project's documented commands. Confirm the server is reachable and UiAutomator2 is available.
+
+6. Inspect and test the intended launch URL:
+
+   exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=long_headline
+
+   Verify that the scenario parameter reaches the application selection gate before fixture-dependent providers or feed components initialize.
+
+   Do not treat successful Android intent delivery or a healthy Metro endpoint as proof of correct scenario selection.
+
+7. Verify that Appium observes the exact active-scenario identity:
+
+   qa-scenario:long_headline
+
+   Then verify:
+   - qa-article-card-ready
+   - Expected synthetic article title containing QA-FIXTUR:
+   - Correct outer article-card screenshot boundary.
+
+8. Run the existing long_headline visual test against the unchanged approved golden.
+
+   Repeat from a second independently terminated and relaunched application session.
+
+   Record for both runs:
+   - Exact command
+   - Exit code
+   - Screenshot dimensions
+   - Changed-pixel count and ratio
+   - PASS/FAIL
+   - Artifact paths.
+
+   Compare the two actual captures for repeatability where possible.
+
+9. Verify negative and consecutive launch behavior:
+   - Unknown scenario must be rejected or blocked, never falsely ready.
+   - Recognized but unimplemented scenario must remain unavailable.
+   - Explicit qa_scenario=none must disable the environment fallback.
+   - A subsequent long_headline launch must restore correct identity and readiness.
+
+   Keep Metro's environment unchanged between these checks.
+
+   Do not capture or approve goldens for unsupported scenarios.
+
+10. Investigate whether consecutive cold launches retain unexpected scenario or feed state.
+
+    Distinguish:
+    - Application process termination
+    - JavaScript runtime initialization
+    - Persisted application storage.
+
+    Verify the existing supported scenario's isolation. Record remaining risks for future theme, feed and media scenarios.
+
+11. Rerun relevant verification:
+    - TypeScript checks
+    - Focused app tests
+    - Broad application test suite where feasible
+    - Python unit tests
+    - Pytest collection
+    - Existing Appium visual regression.
+
+    The previous EXEC-020 combined application check failed because of an existing FIXTUR spelling issue in an untouched fixture. Identify its exact impact and report it separately. Do not modify fixture text or the approved golden merely to make the combined check pass.
+
+Remediation boundary:
+
+If native verification exposes a localized defect in EXEC-020's launch URL handling, scenario identity, initialization ordering or Appium launch helper, investigate and apply only the smallest necessary correction.
+
+Record the defect, code changes and before/after verification evidence. Rerun affected tests.
+
+If remediation requires broader architectural changes, unexpected native rebuilds, changes to fixture data/rendering or changes to the approved golden, stop and request human review.
+
+Do not:
+- Implement breaking_news, dark_article, no_image or empty_feed UI.
+- Add new Appium visual scenarios or goldens.
+- Change screenshot comparison thresholds.
+- Modify existing long_headline fixture content or approved PNG.
+- Replace the runtime-selection architecture without approval.
+- Introduce CI workflows.
+- Perform unrelated refactoring.
+- Commit or push.
+- Use blanket git reset or git clean.
+
+Required report:
+
+A. Runtime environment and service status.
+B. Actual native launch commands and URL-delivery evidence.
+C. Scenario identity and readiness verification.
+D. First and second visual-test results, comparison metrics and artifacts.
+E. Negative-launch and consecutive-launch isolation results.
+F. Localized fixes, if any, with regression evidence.
+G. Final automated-test summary and known validation failures.
+H. Golden SHA-256, final Git status and remaining blockers.
+I. Recommendation on whether EXEC-020 acceptance can close and EXEC-022 can begin.
+
+Documentation:
+Update .project-private/docs/03_HANDOFF.md and the relevant private AI prompt log with actual commands, results and limitations.
+
+Preserve existing private records and keep .project-private excluded from Git.
+
+Stop condition:
+If the development-client launch contract cannot reliably establish the scenario before feed initialization, stop and report the blocker with evidence. Do not force a fragile workaround.
+
+Otherwise, stop after EXEC-021 native verification.
+
+Do not begin implementing the four new visual scenarios, create goldens, commit or push without human review.

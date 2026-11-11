@@ -1,0 +1,159 @@
+EXEC-040B — Failure Evidence Retention and Publication Readiness
+
+Project: D:\Projects\visual_regression_qa_strategy
+
+OBJECTIVE
+
+Complete the approved EXEC-040 follow-up:
+1. Preserve diagnostic evidence automatically when visual comparisons fail.
+2. Verify fresh-clone readiness.
+3. Complete repository publication checks.
+4. Prepare the housekeeping changes for human review.
+
+Do not begin CI/CD implementation.
+
+A. PREFLIGHT
+
+- Read AGENTS.md, CLAUDE.md, latest private handoff and decisions.
+- Verify branch, HEAD and Git status.
+- Preserve all existing uncommitted EXEC-040 changes.
+- Preserve all ten unrelated untracked app/ entries.
+- Use .project-private/ consistently.
+
+B. FAILURE EVIDENCE RETENTION
+
+Implement the smallest maintainable change that automatically
+preserves evidence whenever a visual comparison fails.
+
+Requirements:
+
+- Save evidence in a unique per-run/per-test location so later
+  executions cannot overwrite it.
+- Preserve the actual screenshot, golden/reference, diff image,
+  comparison JSON, capture metadata and relevant UI hierarchy.
+- Preserve or reference Appium diagnostics when available.
+- Record scenario identity, timestamps and relevant environment
+  metadata where already accessible.
+- Keep the original visual assertion and failure status intact.
+- Do not mask primary failures if evidence collection also fails.
+- Avoid attaching stale artifacts from previous runs to Allure.
+- Keep normal successful-run behavior unchanged unless necessary.
+
+Add focused unit tests for evidence preservation and error handling.
+
+Do not modify:
+- Application code or fixtures
+- Approved golden PNGs
+- Comparison thresholds
+- Screenshot comparison semantics
+- Intentional-failure expectations
+- Sleeps, retry behavior or Appium lifecycle
+
+Verify the intentional-failure scenario generates a complete,
+retained diagnostic package and still exits as a genuine failure.
+
+C. DOCUMENTATION AND FRESH-CLONE READINESS
+
+- Delete the obsolete archived AGENT_TASK_HISTORY.md from
+  .project-private/archive/.
+- Verify that no active instructions reference the discontinued
+  AGENT_TASK_HISTORY.md or docs/ai_prompts_used.md.
+- Audit the ignored AGENTS.md and CLAUDE.md setup.
+
+Recommend whether a sanitized AGENTS.md should be tracked to
+support agents working from a fresh clone.
+
+Keep private instructions, handoff records and prompt logs private.
+Do not accidentally publish private documentation.
+
+Check that the public READMEs contain enough setup and execution
+instructions for a new developer without local agent files.
+
+Do not recreate the discontinued prompt-history files.
+
+The final human-reviewed AI prompt disclosure remains outstanding.
+
+D. PUBLICATION READINESS AUDIT
+
+1. Review all ten untracked app/ entries individually.
+
+Classify each as:
+- Required for reproducible build/demo
+- Optional upstream tooling
+- Unnecessary for this submission
+
+Recommend include/exclude decisions. Do not stage them.
+
+2. Review upstream licensing and attribution.
+
+Check the original app's license, existing MIT notices,
+third-party assets and Volksverpetzer/Mimikama brand imagery.
+
+Distinguish confirmed rights from unresolved permission questions.
+Recommend the minimum attribution and asset-handling changes needed.
+
+3. Run a dedicated repository secret scan if feasible,
+preferably with gitleaks.
+
+Cover current files and reachable Git history where supported.
+
+Record the exact tool version, command, scope and findings.
+Do not claim a completed scan if it could not run.
+
+4. Review publication risks:
+
+- Personal Gmail in commit metadata
+- Partial AI prompt file retained in historical commits
+- Generic challenge-related wording
+- Any sensitive or employer-specific material
+- Ignored/private files and generated artifacts
+
+Recommend whether the existing history can be published safely
+to a private remote or whether a clean public history is preferable.
+
+Do not rewrite history or alter commit authors.
+
+E. VERIFICATION
+
+Run:
+- Focused unit tests
+- Full default pytest suite
+- Intentional visual failure with evidence retention
+- Relevant normal visual tests where practical
+- git diff --check
+
+Confirm:
+- No golden or threshold changes
+- No app fixture changes
+- No unexpected test behavior changes
+- No unrelated untracked file modifications
+- Existing Allure reporting remains functional
+- Diagnostic artifacts are preserved after subsequent runs
+
+Record actual commands, results, exit codes and evidence paths.
+
+If the intermittent fixture-image mismatch recurs, preserve its
+complete evidence immediately. Do not rerun it away or alter
+comparison thresholds.
+
+F. FINAL REPORT
+
+Provide:
+
+1. Starting and final Git state.
+2. Files changed, with justification.
+3. Evidence-retention behavior and verification results.
+4. Test results, including genuine failure behavior.
+5. Fresh-clone documentation assessment.
+6. Classification of all ten untracked app files.
+7. License and brand-asset findings.
+8. Secret scan results and limitations.
+9. Git history/publication risks.
+10. Explicit remaining decisions before first push.
+11. Recommended commit boundaries.
+
+Update private handoff, decisions and prompt log.
+
+Do not stage, commit, tag, add a remote, push or rewrite history.
+
+Stop for human review.

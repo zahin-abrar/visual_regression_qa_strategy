@@ -1,0 +1,152 @@
+EXEC-040 — Repository Housekeeping and Test Execution Verification
+
+Project: D:\Projects\visual_regression_qa_strategy
+Expected HEAD: dfe9b16eb4a803f0bc994d962d13c8f5ccdc36f9
+
+OBJECTIVE
+
+Complete repository documentation cleanup, verify consolidated
+pytest execution, and assess readiness for remote publication.
+
+SCOPE EXCLUSIONS — HUMAN DECISIONS
+
+1. Do NOT investigate or correct the visible "FIXTUR" spelling.
+   This is a low-value cosmetic issue that would require golden
+   regeneration. We are intentionally deferring it.
+
+2. Do NOT investigate or refactor the duplicate
+   wait_for_scenario_identity(driver, "breaking_news") call.
+
+3. Do NOT regenerate goldens or modify app fixtures, visual
+   assertions, comparison thresholds or test logic unless
+   separately authorized.
+
+A. PREFLIGHT
+
+- Read current AGENTS.md, CLAUDE.md, private handoff and decisions.
+- Verify branch, HEAD, working tree and ignore rules.
+- Preserve the ten unrelated untracked app/ entries.
+- Use the existing .project-private/ directory (hyphen).
+
+B. DOCUMENTATION CLEANUP
+
+The human has decided to discontinue:
+
+- docs/AGENT_TASK_HISTORY.md
+- docs/ai_prompts_used.md
+
+Reasons:
+
+AGENT_TASK_HISTORY.md is stale and redundant. The private
+03_HANDOFF.md is the maintained operational handoff/history.
+
+ai_prompts_used.md is incomplete and must not be presented
+as the complete disclosure of AI assistance.
+
+The human will manually consolidate the final AI prompt record
+from ChatGPT and coding-agent conversations.
+
+Tasks:
+
+1. Audit AGENTS.md, CLAUDE.md, README files and all other
+   authoritative agent instructions and relevant references.
+
+2. Remove both discontinued tracked files.
+
+3. Update instructions and links so future agents do not
+   recreate, append to or require those files.
+
+4. Continue maintaining the existing private handoff,
+   decisions and prompt records as applicable.
+
+5. Preserve the requirement for a complete, human-reviewed
+   AI prompt disclosure in the final employer submission.
+   Record this as outstanding work, not completed work.
+
+6. Remove the root docs/ directory only if it becomes empty
+   and nothing still legitimately depends on it.
+
+Do not expose private operational notes in public documents.
+
+C. PYTEST EXECUTION VERIFICATION
+
+Inspect actual pytest configuration, markers and test inventory.
+
+Verify and document:
+
+1. One command executing exactly five normal visual tests,
+   all expected to pass.
+
+2. One command executing all six visual scenarios together,
+   with five passes and one genuine intentional visual failure.
+
+3. One command executing unit + normal visual tests together,
+   excluding the intentional failure.
+
+4. One command executing the complete suite including the
+   intentional failure, with the expected nonzero exit status.
+
+5. Allure displaying the five passed and one failed visual
+   test results together, with appropriate screenshot and
+   comparison attachments.
+
+Use separate Allure result directories to prevent contamination.
+
+Do not change test outcomes using xfail, skipping, adjusted
+thresholds or baseline regeneration.
+
+Run the commands and record actual test counts, durations,
+results and exit codes.
+
+Update qa_visual/README.md with concise VERIFIED commands.
+Do not label an unexecuted command as verified.
+
+D. PRE-PUBLICATION AUDIT
+
+Audit both the CURRENT tracked files and reachable Git HISTORY.
+
+Look for:
+- Employer-specific or assignment-specific private material
+- The employer challenge PDF
+- Secrets, tokens or personal information
+- Internal handoff/prompt files accidentally tracked
+- Absolute machine-specific paths
+- Unnecessary generated files
+- Licensing and attribution concerns
+
+Deleting a tracked file does not erase it from Git history.
+
+Identify any publication blockers and propose the safest
+solution without implementing Git history changes.
+
+Do NOT rewrite Git history, configure a remote, push, tag
+or publish anything.
+
+E. FINAL VERIFICATION
+
+- Verify documentation references resolve.
+- Verify discontinued files are no longer required by agents.
+- Confirm existing golden hashes remain unchanged.
+- Confirm app and visual-test implementation remain unchanged.
+- Run git diff --check.
+- Report tracked, untracked and ignored file state.
+- Preserve unrelated app/ entries.
+
+F. REPORT
+
+Provide:
+
+1. Starting and final Git state.
+2. Deleted files and updated instruction files.
+3. Remaining authoritative documentation locations.
+4. Exact verified pytest commands and results.
+5. Six-test Allure outcome and evidence location.
+6. Pre-publication audit findings, including historical risks.
+7. Outstanding AI prompt disclosure requirement.
+8. Recommended next steps before remote publication.
+
+Update the private handoff and prompt log.
+
+Do not stage, commit, tag, push or begin CI/CD work.
+
+Stop for human review.

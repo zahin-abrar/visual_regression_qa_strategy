@@ -1,0 +1,363 @@
+
+EXEC-042E — GitHub Actions KVM Preflight Reliability and Diagnostics
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Last reported commit: 21f9b1f
+
+PHASE
+EXECUTION — Bounded CI infrastructure remediation
+
+OBJECTIVE
+
+Investigate and improve the KVM acceleration preflight
+used by the independent GitHub Android visual-test workflow.
+
+Resolve avoidable false negatives and produce actionable
+diagnostics when KVM is genuinely unavailable.
+
+Hardware acceleration remains mandatory.
+
+Do not introduce software emulation, change runners,
+rebuild the APK, or modify visual tests.
+
+BACKGROUND
+
+The latest GitHub Actions visual-test execution failed at:
+
+Check KVM acceleration
+
+The step completed almost immediately.
+
+Observed output:
+
+crw-rw-rw- 1 root kvm 10, 232 ... /dev/kvm
+
+Error:
+/dev/kvm is missing or not accessible on this runner.
+A hardware-accelerated x86_64 emulator is not possible here.
+
+Process completed with exit code 1.
+
+The script responsible is:
+
+.github/scripts/enable-kvm.sh
+
+Previous visual workflow executions progressed beyond
+the KVM step.
+
+A read-only investigation compared commits:
+
+18db02a
+f47a4fa
+21f9b1f
+
+CONFIRMED FINDINGS
+
+1. enable-kvm.sh is byte-identical across those commits.
+
+2. The KVM workflow step, its ordering, runner label,
+   permissions and environment are unchanged.
+
+3. The libpulse installation and emulator script changes
+   occur after the KVM step.
+
+4. The existing KVM script applies a udev rule, reloads
+   and triggers udev, then checks:
+
+   -c /dev/kvm
+   -r /dev/kvm
+   -w /dev/kvm
+
+5. The script rejects the runner when any check fails.
+
+6. The failed run's screenshot proves that /dev/kvm
+   existed and was displayed as:
+
+   crw-rw-rw- 1 root kvm
+
+UNCONFIRMED
+
+- Whether udev timing caused the failure.
+- Whether shell access tests misrepresented actual access.
+- Whether the runner's kernel/hypervisor denied KVM access.
+- Whether KVM was genuinely usable on that particular VM.
+
+Do not assert any of these as the established root cause.
+
+TASK A — PREFLIGHT
+
+1. Read the latest private handoff and relevant decisions.
+
+2. Inspect:
+   - .github/scripts/enable-kvm.sh
+   - .github/workflows/android-visual-tests.yml
+   - Existing timeout and diagnostics conventions
+
+3. Check branch, HEAD and working-tree status.
+
+4. Identify the smallest implementation change.
+
+5. Preserve the ten unrelated untracked app/ entries.
+
+TASK B — KVM DEVICE SYNCHRONIZATION
+
+Review the existing udev rule application:
+
+- Writing the rule
+- Reloading udev rules
+- Triggering the kvm device
+- Checking access
+
+1. Introduce a bounded udevadm settle operation after
+   the relevant trigger, where supported.
+
+2. Keep the wait short and explicitly bounded.
+
+3. Distinguish a synchronization failure from an
+   unavailable KVM interface.
+
+4. Do not introduce an arbitrary long sleep.
+
+5. Do not change system-wide device permissions beyond
+   the existing minimum required KVM configuration.
+
+6. Do not repeatedly modify permissions to force a pass.
+
+TASK C — IMPROVE DIAGNOSTICS
+
+Record sufficient information to understand a failure
+from the GitHub Actions logs.
+
+Include:
+
+- Runner identity information available locally
+- Current user and group membership (id)
+- /dev/kvm existence
+- ls -l /dev/kvm
+- stat information
+- Character-device check result
+- Individual shell readable and writable check results
+- Relevant udev synchronization outcome
+- Direct device-access result
+
+Print each result separately.
+
+Do not combine all failures into a single generic
+"missing or inaccessible" message.
+
+Avoid exposing unrelated environment variables or secrets.
+
+TASK D — VERIFY ACTUAL KVM ACCESS
+
+Replace the overly simplistic KVM acceptance decision
+with an appropriately bounded functional check.
+
+Prefer using Python's standard library, already available
+on the GitHub Ubuntu runner, if suitable.
+
+1. Verify /dev/kvm exists and is a character device.
+
+2. Attempt to open /dev/kvm with read/write access.
+
+3. Capture the precise OSError/errno if opening fails.
+
+4. If opening succeeds, attempt the Linux
+   KVM_GET_API_VERSION ioctl.
+
+5. Verify the expected KVM API version according to
+   the Linux KVM interface.
+
+6. Report the returned version or the exact failure.
+
+7. Close the file descriptor reliably.
+
+8. Ensure the check does not hang.
+
+9. Treat a genuinely unusable KVM interface as a
+   blocking infrastructure failure.
+
+10. Do not treat a successful chmod/stat or shell
+    -r/-w check alone as proof of usable KVM.
+
+11. Conversely, do not reject KVM solely because a
+    shell permission heuristic fails if a direct
+    functional check succeeds.
+
+12. Do not weaken the requirement for acceleration.
+
+A passing preflight means the KVM interface is accessible,
+not that Android emulator boot is guaranteed.
+
+The existing real emulator boot checks must remain.
+
+TASK E — FAILURE CLASSIFICATION
+
+Produce distinct actionable failure messages for:
+
+1. /dev/kvm missing
+2. /dev/kvm exists but is not a character device
+3. Device permission/access denied
+4. Device open fails for another reason
+5. KVM ioctl fails
+6. Unexpected KVM API version
+7. udev synchronization problems, where relevant
+
+Avoid generic messages that hide the actual cause.
+
+Do not automatically retry the entire CI job.
+
+TASK F — PRESERVE EXISTING WORKFLOW
+
+Do not modify:
+
+- Android build workflow
+- APK reuse and source-run validation
+- Artifact download
+- APK compatibility logic
+- Android API 37 system image
+- Emulator resolution and density
+- Emulator boot timeout
+- Existing libpulse0 provisioning
+- Existing bounded final-log collection
+- Appium 3.3.0
+- UiAutomator2 7.1.2
+- Metro configuration
+- Five normal visual scenarios
+- Intentional-failure scenario
+- Synthetic fixtures
+- Golden PNGs
+- Screenshot comparison thresholds
+- Allure or JUnit reporting
+- Advisory testing behavior
+
+Modify android-visual-tests.yml only if needed to
+support the improved KVM preflight.
+
+Do not introduce a different runner or software
+emulation fallback.
+
+TASK G — LOCAL VALIDATION
+
+Perform validation available on the development machine.
+
+At minimum:
+
+1. Validate shell syntax.
+
+2. Validate workflow YAML if modified.
+
+3. Exercise the missing-device case.
+
+4. Exercise a non-character-device case.
+
+5. Exercise permission-denied behavior.
+
+6. Exercise a direct-open failure.
+
+7. Exercise an ioctl failure.
+
+8. Exercise an unexpected API-version response.
+
+9. Exercise a successful functional KVM check.
+
+10. Verify diagnostic messages distinguish the cases.
+
+11. Verify synchronization and diagnostic commands
+    remain bounded.
+
+12. Confirm a successful functional check allows the
+    workflow to proceed.
+
+13. Confirm a genuine KVM failure exits nonzero.
+
+14. Run git diff --check.
+
+15. Confirm existing app, qa_visual, fixtures and golden
+    references are unchanged.
+
+Use mocks or controlled substitutions where necessary.
+
+Explicitly distinguish mocked validation from real
+hardware verification.
+
+Do not claim KVM has been successfully validated on
+GitHub until a real workflow execution confirms it.
+
+TASK H — DOCUMENTATION
+
+Update the existing private project records:
+
+- .project-private/03_HANDOFF.md
+- Relevant decisions, if changed
+- Canonical AI prompt log
+
+Record:
+
+- Evidence from the failed GitHub run
+- Findings from the commit comparison
+- Root-cause uncertainty
+- Exact remediation
+- Local validation results
+- Remaining GitHub-only risks
+- Next verification actions
+
+Do not create duplicate source-of-truth documents.
+
+TASK I — COMMIT
+
+Create one bounded local commit:
+
+ci(visual): improve KVM preflight reliability
+
+Stage only relevant files.
+
+Do not use git add -A.
+
+Do not amend previous commits.
+
+Do not rewrite history.
+
+Do not push or tag.
+
+Preserve the ten unrelated untracked app/ entries.
+
+TASK J — FINAL REPORT
+
+Provide:
+
+1. Exact files changed.
+2. Previous KVM preflight behavior.
+3. New synchronization behavior.
+4. New functional KVM verification mechanism.
+5. KVM failure classifications and diagnostics.
+6. Whether the earlier failure's exact root cause
+   remains unconfirmed.
+7. Local validation commands and results.
+8. Confirmation that APK reuse is unchanged.
+9. Confirmation that emulator configuration is unchanged.
+10. Confirmation that visual tests and goldens are unchanged.
+11. New commit hash.
+12. Remaining real-run uncertainties.
+13. Exact instructions to rerun the visual workflow.
+
+Use the existing successful APK source run ID:
+
+42494990156
+
+provided its artifact remains available.
+
+STOP CONDITIONS
+
+Stop after the bounded KVM remediation,
+local validation, documentation and local commit.
+
+Do not push.
+Do not rebuild the APK.
+Do not change runners.
+Do not introduce software emulation.
+Do not modify screenshot baselines.
+Do not expand test coverage.
+Do not perform unrelated CI optimization.

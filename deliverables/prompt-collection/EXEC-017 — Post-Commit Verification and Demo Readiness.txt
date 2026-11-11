@@ -1,0 +1,179 @@
+# EXEC-017 — Post-Commit Verification and Demo Readiness
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-016 — PASS  
+**Expected HEAD:** `cb334e91a9225334f9e53db71ed414007c8df78f`
+
+## Objective
+
+Verify the first committed submission against the actual local Android execution environment.
+
+Confirm that all required artifacts are present in the commit, the existing tests still pass, and the repository is ready for an interview demonstration.
+
+This is a verification task, not a development task.
+
+## 1. Verify committed repository contents
+
+Confirm:
+
+- Current branch is `main`.
+- HEAD matches the expected initial commit.
+- No remote is configured.
+- Root README and runner README are tracked.
+- Strategy Markdown and PDF are tracked.
+- Sanitized AI prompt disclosure is tracked.
+- Android fixture source, runner and tests are tracked.
+- Approved golden PNG is tracked.
+- Application license and necessary source assets are tracked.
+
+Verify the **committed golden blob**, not just the working-directory copy.
+
+Expected SHA-256:
+
+`E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629`
+
+Check that the committed golden and local working copy are identical.
+
+## 2. Check packaging concerns
+
+Inspect the following without changing files:
+
+- Whether Git treats the committed strategy PDF as binary.
+- The nature and severity of reported whitespace warnings.
+- Whether the historical fixture patch is present and readable.
+- Any untracked auxiliary paths that may be required for reproduction.
+- Whether private, generated, credential or local-only paths remain excluded.
+
+Do not print sensitive contents.
+
+Distinguish cosmetic diagnostics from actual submission blockers.
+
+Do not modify `.gitattributes`, patch files or repository history merely to eliminate warnings.
+
+## 3. Verify the Python unit suite
+
+From `qa_visual/`, use the existing virtual environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m unit -q
+```
+
+Record:
+
+- Test count.
+- PASS/FAIL.
+- Exit code.
+- Any warnings.
+
+Do not install or upgrade dependencies.
+
+## 4. Run one Android visual smoke test
+
+First verify that the existing Android environment is ready:
+
+- Emulator online and booted.
+- Correct fixture-enabled development app available.
+- Metro serving the `long_headline` fixture.
+- Appium server ready.
+
+Do not rebuild, wipe or reconfigure the app or emulator.
+
+If required services are unavailable, report which prerequisite is missing. Do not perform an extensive recovery procedure.
+
+If the environment is ready, run exactly one visual test:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest .\tests\test_long_headline.py -m visual -v -s
+```
+
+Record:
+
+- Exit code.
+- Test result.
+- Captured screenshot dimensions.
+- Changed-pixel count and ratio.
+- Comparison decision.
+- Paths to actual, context, diff and comparison JSON.
+
+Verify the approved golden checksum remains unchanged.
+
+Do not regenerate or promote a golden.
+
+## 5. Check final submission consistency
+
+Confirm:
+
+- Root README links resolve to the strategy PDF/Markdown, runner README and AI disclosure.
+- Baseline README accurately identifies the approved PNG.
+- Strategy PDF remains readable and contains two pages.
+- Test commands in both READMEs still match the implementation.
+- The final PDF and source Markdown remain consistent.
+- No private employer PDF is tracked.
+- No mandatory deliverable relies on an untracked auxiliary file.
+
+Do not edit documentation in this task.
+
+## 6. Final Git inspection
+
+After verification:
+
+- Report tracked modifications, if any.
+- Report relevant untracked paths separately.
+- Confirm no baseline mutation.
+- Confirm HEAD is unchanged.
+- Confirm no remote was configured and nothing was pushed.
+
+Generated ignored test artifacts are permitted.
+
+## 7. Record results
+
+Append EXEC-017 to the local, uncommitted `docs/AGENT_TASK_HISTORY.md`.
+
+Update the local handoff if appropriate.
+
+Do not amend the initial commit just to include internal task history.
+
+## Restrictions
+
+- No application or test implementation changes.
+- No baseline modifications.
+- No new dependencies.
+- No CI work.
+- No new fixture or scenario.
+- No deliberate visual regression.
+- No Git amend, rebase or additional commit.
+- No remote creation or publication.
+- No destructive environment changes.
+- Stop if a prerequisite is unavailable rather than attempting broad remediation.
+
+## Acceptance criteria
+
+EXEC-017 is PASS when:
+
+- Committed submission artifacts are verified.
+- The committed golden checksum matches the approved image.
+- The unit suite passes.
+- The Android visual test passes against the approved golden.
+- No required submission material depends on untracked files.
+- No relevant privacy or packaging blocker is found.
+- The commit remains unchanged.
+
+If Android services are unavailable, report a partial result and the specific blocker without claiming end-to-end PASS.
+
+## Completion report
+
+Return:
+
+1. EXEC-017 status.
+2. HEAD and remote verification.
+3. Committed artifact verification.
+4. Committed golden checksum.
+5. Unit-test result and exit code.
+6. Android visual-test result and exit code.
+7. Comparison metrics.
+8. Packaging and whitespace findings.
+9. Remaining risks.
+10. Recommended next bounded task.
+
+**Stop after EXEC-017. Await review and authorization.**

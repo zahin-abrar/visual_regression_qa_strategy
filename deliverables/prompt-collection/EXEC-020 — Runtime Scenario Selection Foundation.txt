@@ -1,0 +1,119 @@
+EXEC-020 — Runtime Scenario Selection Foundation
+
+Objective:
+Implement and verify a minimal development-only runtime scenario-selection mechanism for the existing VVP Android visual automation framework, using cold-launch isolation. This establishes the foundation for five visual scenarios without implementing the four new UI tests yet.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Private sources:
+.project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+.project-private/docs/02_DECISIONS.md
+.project-private/docs/03_HANDOFF.md
+.project-private/docs/04_AI_PROMPT_LOG.md (if present)
+
+Historical reference:
+reference/patches/ (inspect if needed; never reapply)
+
+Approved decision:
+Use Option B from EXEC-019: a development-only runtime scenario selector with explicit cold-launch initialization and state isolation. The intended architecture is one QA-enabled app artifact supporting multiple scenarios, without requiring Metro environment-variable changes between tests.
+
+Retain the existing EXPO_PUBLIC_QA_SCENARIO mechanism as a compatibility fallback until the new path is verified. Do not remove or break the working long_headline scenario.
+
+Scope:
+
+1. Inspect the existing Expo Router, Android application startup, development-client and Appium launch paths. Select the smallest reliable development-only mechanism for passing a scenario ID during a fresh app launch (for example, a guarded launch URL/deep link if supported). Do not assume that deep-link delivery occurs before the feed initializes. Verify the actual startup ordering.
+
+2. Implement a typed scenario registry containing long_headline, breaking_news, dark_article, no_image and empty_feed. Include an explicit implementation/readiness distinction: only long_headline is currently supported for visual capture. Unknown or unsupported scenarios must fail clearly or remain unavailable, never silently render long_headline as if another scenario were active.
+
+3. Establish an immutable active-scenario selection for each fresh application launch. The selected scenario must be resolved before fixture-dependent feed requests and UI initialization. If Expo Router or the current app lifecycle prevents this reliably, report the blocker and stop rather than implementing a fragile post-render switch.
+
+4. Preserve the existing real-UI fixture pipeline: synthetic WordPress-like article → mapper → Feed → GenericPost → ArticlePost. Do not change long_headline data, rendering, selectors, screenshot bounds or approved baseline.
+
+5. Keep all QA controls and synthetic data inaccessible in normal production/release behavior. Retain the existing __DEV__ safety boundary unless an equally explicit build-time QA gate is needed and justified. Do not introduce a publicly usable production test-control endpoint. Do not modify production behavior merely to simplify test execution.
+
+6. Provide a stable, nonvisual active-scenario identity marker for Appium. The runner must be able to verify the exact selected scenario before asserting readiness or capturing a screenshot. Keep this marker outside the existing golden image's capture region.
+
+7. Establish a deterministic launch lifecycle:
+   - Terminate the previous app process.
+   - Launch with an explicit scenario selection.
+   - Initialize a fresh fixture/feed state before requests begin.
+   - Verify active scenario identity.
+   - Wait for the existing scenario-specific UI readiness condition.
+   - Capture and compare using the existing framework.
+   - Terminate before the next scenario.
+
+   Preserve the possibility of independent CI jobs and sequential local execution. Do not implement live scenario switching within a mounted feed.
+
+8. Investigate state carried across launches, especially persisted theme settings, cached feed data, pagination, announcements, notification behavior and asynchronous requests. Cold-launching does not automatically clear persistent storage. Implement only the minimal isolation necessary for this foundation; report remaining scenario-specific isolation requirements for later increments. Do not globally wipe user data as a shortcut.
+
+9. Add focused automated tests covering scenario validation, selection precedence, QA gating, unsupported scenarios and compatibility with existing long_headline behavior. Keep tests independent of Appium where practical.
+
+10. Establish a repeatable Windows/PowerShell launch procedure suitable for later CI automation. Verify the actual commands against the installed app and development environment. Avoid introducing a large orchestration framework in this increment.
+
+Out of scope:
+No breaking-news banner implementation.
+No dark-theme override.
+No image-less card rendering.
+No successful-empty feed implementation.
+No four new Appium visual tests.
+No new goldens or automatic baseline approval.
+No screenshot comparator refactoring.
+No CI workflow implementation.
+No native iOS implementation.
+No unrelated framework cleanup.
+
+Verification:
+
+A. Run applicable TypeScript checks and focused app tests. Run the existing qa_visual unit tests.
+
+B. Verify a fresh launch selecting long_headline and confirm Appium reads the exact scenario identity before UI readiness.
+
+C. Run the existing long_headline visual regression against its unchanged approved golden. Record dimensions, comparison metrics, exit code and baseline SHA-256.
+
+D. Repeat the long_headline launch/capture to evaluate stability.
+
+E. Verify negative behavior: unknown scenario, unsupported scenario and launch without an authorized QA selection must not falsely report a ready long_headline fixture.
+
+F. Exercise consecutive cold launches and verify the new selection mechanism does not silently inherit an earlier selection. Use supported/non-ready states for isolation checks; do not claim new scenario UI coverage.
+
+G. Where possible, verify that QA selection is disabled outside the development/QA gate. If production-build behavior cannot be executed, report source-level checks separately from runtime proof.
+
+H. Record whether the launch procedure works without changing Metro's scenario environment between executions. A working development-client procedure is not yet proof of a standalone CI-ready QA build.
+
+If emulator, Metro or Appium is unavailable, complete the independently verifiable work and report runtime verification as blocked. Do not claim PASS without execution.
+
+Acceptance criteria:
+- Runtime selection is resolved before scenario-dependent feed initialization.
+- Exact scenario identity is observable through Appium.
+- long_headline remains visually unchanged and passes its existing golden comparison.
+- Unsupported scenarios cannot produce false-ready captures.
+- Cold-launch selection and isolation behavior are demonstrated with actual evidence.
+- No production QA-control exposure or unintended persistent-state modification.
+- No existing golden, comparison threshold or established test interface is silently changed.
+- The launch mechanism is documented sufficiently for later pytest/CI integration.
+
+Git safety:
+Record initial branch, HEAD and working-tree status.
+Preserve the pre-existing docs/ai_prompts_used.md modification and unrelated untracked files.
+Keep .project-private excluded from Git.
+Do not use blanket git reset or git clean.
+Do not commit or push.
+
+Required report:
+A. Files changed and reasons.
+B. Runtime selection architecture and initialization order.
+C. Exact launch and reset procedure.
+D. Tests executed, results and evidence.
+E. Existing golden hash and regression result.
+F. State-isolation findings and unresolved risks.
+G. CI portability considerations.
+H. Recommended bounded EXEC-021 implementation scope.
+I. Final Git status.
+
+Update .project-private/docs/03_HANDOFF.md and the relevant private AI prompt log with verified findings, preserving existing content. Reflect the approved Option B decision in the private decisions record. Do not copy private employer material into tracked files.
+
+Stop condition:
+If reliable pre-feed scenario initialization is not feasible with the current startup architecture, stop at a technical findings report and recommend the smallest alternative. Do not force a fragile implementation.
+
+Otherwise stop after EXEC-020 verification. Do not begin the four new scenarios, create goldens, commit or push without further approval.

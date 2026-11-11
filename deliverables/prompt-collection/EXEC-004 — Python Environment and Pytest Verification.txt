@@ -1,0 +1,161 @@
+# EXEC-004 — Python Environment and Pytest Verification
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-003 — Structural PASS; pytest verification blocked
+
+## Objective
+
+Prepare an isolated Python environment for the existing `qa_visual/` runner and verify that pytest can import and collect its tests.
+
+Run existing unit tests where available.
+
+Do not modify framework architecture, application code, emulator configuration, or screenshot baselines.
+
+## Step 1 — Inspect the dependency contract
+
+Read:
+
+- Root `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- `qa_visual/requirements.txt`
+- `qa_visual/pytest.ini` or other pytest configuration
+- Relevant dependency instructions in `qa_visual/README.md`
+
+Determine whether a suitable `.venv` already exists.
+
+Do not reinstall packages unnecessarily if the existing virtual environment is healthy.
+
+Report the declared dependencies and their versions. Do not silently update pins.
+
+## Step 2 — Prepare an isolated Python environment
+
+From PowerShell:
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy\qa_visual
+```
+
+If no usable local virtual environment exists:
+
+```powershell
+py -3.13 -m venv .venv
+```
+
+Use the virtual environment's Python executable directly:
+
+```powershell
+.\.venv\Scripts\python.exe --version
+.\.venv\Scripts\python.exe -m pip --version
+```
+
+If required packages are absent, install only dependencies declared by the existing runner:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Do not install packages globally, change system Python, or modify dependency pins.
+
+If installation fails because of Python 3.13 compatibility or package-resolution issues, preserve the complete error and report the blocker. Do not independently switch Python versions or rewrite requirements.
+
+## Step 3 — Verify dependency health
+
+```powershell
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pytest --version
+```
+
+Record actual outputs and exit codes.
+
+## Step 4 — Verify pytest collection
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest --collect-only -q
+```
+
+Record:
+
+- Number and names of collected tests
+- Import or collection errors, if any
+- Command exit code
+
+Successful collection does not count as successful test execution.
+
+## Step 5 — Run existing unit tests
+
+If the existing configuration defines the `unit` marker:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m unit -q
+```
+
+Record passed, failed, skipped, or deselected counts.
+
+If no tests carry the `unit` marker, document that explicitly. Do not report zero collected tests as a passing unit-test suite.
+
+Do not run the Appium integration test. Do not run an unfiltered pytest execution command that may create a device session.
+
+## Acceptance criteria
+
+EXEC-004 is PASS when:
+
+1. An isolated Python environment is available.
+2. Dependencies from the existing `requirements.txt` are installed and importable.
+3. `pip check` reports no broken requirements.
+4. Pytest successfully collects the existing tests.
+5. Available unit tests pass, with absent unit coverage explicitly documented.
+6. No application, emulator, Appium server, framework logic, golden image, or Git changes occur.
+
+A package-installation failure or pytest import error must be reported rather than masked.
+
+## Restrictions
+
+- Do not modify `app/`.
+- Do not modify POM, driver, test, or comparator source code.
+- Do not restart the emulator or the running application.
+- Do not restart the Appium server.
+- Do not create an Appium session.
+- Do not execute device-based visual tests.
+- Do not take screenshots.
+- Do not regenerate baselines.
+- Do not initialize Git.
+- Do not automatically proceed to EXEC-005.
+
+The local `.venv/` is an environment artifact, not framework source. Do not commit or publish it.
+
+## Task history
+
+Append EXEC-004 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Include:
+
+- Status: PASS / FAIL / BLOCKED
+- Python and dependency versions
+- Virtual environment path
+- Commands, outputs and exit codes
+- Pytest collection results
+- Unit-test results, if available
+- Any compatibility problems
+- Files created or changed
+- Recommended next smallest task
+
+Preserve the previous entries.
+
+## Completion report
+
+Return:
+
+1. EXEC-004 status
+2. Virtual environment and Python version
+3. Dependency installation result
+4. `pip check` result
+5. Test collection results
+6. Unit-test execution results
+7. Remaining blockers
+8. Files changed or created
+9. Recommended next task
+
+**Stop after EXEC-004. Await review and authorization.**

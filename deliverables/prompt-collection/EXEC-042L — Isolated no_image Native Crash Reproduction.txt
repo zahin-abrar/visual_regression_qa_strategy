@@ -1,0 +1,531 @@
+# EXEC-042L — Isolated `no_image` Native Crash Reproduction
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Expected starting commit:** `d48e8d7`  
+**Branch:** `main`  
+**Latest successful source APK build:** `42616325655`  
+**Execution mode:** Bounded workflow change, local verification and one local commit. No push or tag.
+
+## 1. Objective
+
+Enable a manually triggered, `no_image`-only GitHub Actions visual test to establish whether the previously observed React Native native crash reproduces when `no_image` runs first on a fresh Android emulator.
+
+**Primary question:**
+
+Does `no_image` crash when executed as the first and only visual scenario on a fresh GitHub-hosted API 37 emulator?
+
+Do not attempt to fix the native crash before this question has been investigated.
+
+Do not modify application code, native dependencies, fixtures or golden references as part of the primary experiment.
+
+---
+
+## 2. Established evidence
+
+The latest full-suite GitHub-hosted execution produced:
+
+| Scenario | Result | Changed pixels |
+|---|---|---|
+| `breaking_news` | PASS | 0 |
+| `dark_article` | PASS | 0 |
+| `empty_feed` | PASS | 0 |
+| `long_headline` | PASS | 0 |
+| `no_image` | FAIL | Comparison not reached |
+
+**Pytest:** 4 passed, 1 failed, 130 deselected.
+
+All four successful scenarios completed actual golden comparisons.
+
+The `no_image` failure occurred during scenario initialization, before screenshot comparison.
+
+### Native crash
+
+Android logcat reported at approximately 17:38:51 UTC on November 9, 2026:
+
+```text
+Fatal signal 11 (SIGSEGV)
+Code: SEGV_ACCERR
+Process: de.volksverpetzer.app
+Thread: mqt_v_js
+Page size: 16384 bytes
+
+Cause: trying to execute non-executable memory.
+```
+
+The native stack included:
+
+```text
+libreactnative.so
+
+facebook::react::MountingCoordinator::pullTransaction
+facebook::react::FabricUIManagerBinding::schedulerDidFinishTransaction
+facebook::react::Scheduler::uiManagerDidFinishTransaction
+```
+
+Further observations:
+
+- JavaScript startup occurred about two seconds before the crash.
+- No confirmed `status=active id=no_image` or `marker rendered qa-scenario:no_image` event was present.
+- The Android launcher was foregrounded after the crash.
+- The application process was no longer running.
+- The Expo onboarding overlay was not detected.
+- Previous full-suite execution also recorded a similar native crash during `no_image`.
+
+### What remains unproven
+
+We do not know whether:
+
+1. The `no_image` fixture or its rendering triggers the crash.
+2. The fifth consecutive application launch contributes to the crash.
+3. Repeated Appium sessions create problematic native lifecycle state.
+4. The Android 16 KB system image contributes to the crash.
+5. Host or guest resource pressure contributes to the crash.
+
+Do not promote any of these hypotheses to confirmed root cause without evidence.
+
+---
+
+## 3. Repository preflight
+
+Before changing anything:
+
+1. Confirm branch, HEAD and Git status.
+2. Read the latest private handoff, decisions and AI prompt log.
+3. Review `.github/workflows/android-visual-tests.yml`.
+4. Inspect the current `visual_scope` selection mechanism.
+5. Inspect source APK provenance and compatibility verification.
+6. Inspect the `no_image` pytest entry point.
+7. Inspect the existing crash/failure diagnostics from EXEC-042J.
+8. Confirm that the four successful scenarios and existing golden references are unchanged.
+
+Use actual repository files and paths.
+
+Do not assume source files are located somewhere merely because previous reports mentioned a location.
+
+The root `.gitignore` already excludes `.local-evidence/`. Preserve that rule.
+
+### Local evidence
+
+If the latest ZIP artifacts and analysis report are available in the ignored local evidence directory, review them:
+
+- Full-suite infrastructure logs.
+- Full-suite visual evidence.
+- Raw Allure results.
+- Full-suite crash analysis report.
+
+Treat original CI logs as primary evidence.
+
+Do not stage, commit, modify or delete the original evidence.
+
+If the files are unavailable locally, record that and use the established failure evidence above. Do not invent missing log details.
+
+---
+
+## 4. Add `no_image` workflow selection
+
+Extend the existing `workflow_dispatch` input:
+
+`visual_scope`
+
+Current supported choices:
+
+- `all`
+- `breaking_news`
+
+Add:
+
+- `no_image`
+
+The default must remain:
+
+`all`
+
+### Required behavior
+
+| Selected scope | Expected visual tests |
+|---|---:|
+| `all` | 5 |
+| `breaking_news` | 1 |
+| `no_image` | 1 |
+
+Use the exact test node for `no_image`:
+
+```text
+tests/test_no_image.py::test_no_image_android_card_matches_reviewed_golden
+```
+
+Verify the node exists in the repository.
+
+Preserve the existing explicit allowlist validation.
+
+Do not use arbitrary unvalidated user-provided pytest expressions.
+
+Do not permit shell injection through workflow inputs.
+
+Do not change the existing five-scenario default behavior.
+
+Do not introduce automatic retries.
+
+Do not reorder or remove tests in `all` mode.
+
+---
+
+## 5. Keep the experiment isolated
+
+The next hosted execution should:
+
+1. Create the existing Android API 37 emulator.
+2. Run the current post-boot health checks.
+3. Install the existing compatible APK.
+4. Start Metro and Appium.
+5. Execute only `no_image`.
+6. Preserve actual pytest, Allure and diagnostic outputs.
+7. Stop after the selected test.
+
+No preceding `breaking_news`, `dark_article`, `empty_feed` or `long_headline` test should execute.
+
+The scenario must still use:
+
+- Its existing synthetic QA fixture.
+- Its existing exact accessibility marker.
+- Its existing real application UI.
+- Its existing committed golden image.
+- Its existing pixel-comparison threshold.
+
+The workflow should still upload artifacts even if the selected test fails.
+
+Keep the existing distinction between advisory pytest failures and infrastructure failures.
+
+---
+
+## 6. Native crash evidence preservation
+
+Review whether the existing EXEC-042J diagnostics already preserve sufficient native crash information.
+
+At minimum, a failed isolated run should retain:
+
+- Screenshot at failure.
+- Android UI hierarchy.
+- Expected scenario identifier.
+- Application process state and PID.
+- Foreground package/activity.
+- Scenario launch timestamp.
+- Relevant logcat.
+- Native fatal signal and stack, if present.
+- Original Appium/pytest exception.
+- Allure failure attachments.
+
+Check whether the current infrastructure log collection already includes Android's crash buffer:
+
+```text
+adb logcat -b crash -d
+```
+
+If it does not, consider a minimal, bounded addition to the existing **workflow-level log collection**.
+
+Preserve process exit codes and avoid letting optional diagnostic commands cause a new infrastructure failure.
+
+If accessible without changing emulator privileges or configuration, a native tombstone would provide additional evidence.
+
+However:
+
+- Do not enable root access just to retrieve tombstones.
+- Do not alter Android permissions.
+- Do not assume `/data/tombstones` is readable.
+- Do not fail the workflow merely because a tombstone is inaccessible.
+- Do not introduce an unbounded bugreport collection.
+- Record when native evidence cannot be retrieved.
+
+**Important scope control:** Prefer reusing existing diagnostics. Do not expand this into a broad crash-reporting framework.
+
+Do not modify `qa_visual/visualqa/` merely to improve an optional diagnostic unless a real blocking gap is established.
+
+---
+
+## 7. Source APK provenance
+
+The latest successful APK source run is:
+
+`42616325655`
+
+It was built from:
+
+`d48e8d78c88e7e6df196cce179043d229ef7c87d`
+
+The repository uses a source-run compatibility check to reject APKs built before relevant application or visual-framework changes.
+
+### Required investigation
+
+1. Inspect the committed compatibility rule.
+2. Identify every file changed by EXEC-042L.
+3. Determine whether the proposed workflow-only modification is classified as APK/visual-affecting.
+4. Verify the actual compatibility decision with a focused test or script invocation.
+5. Preserve the compatibility rule unchanged.
+6. Report whether build `42616325655` is eligible for reuse.
+
+### Preferred outcome
+
+Limit implementation changes to the GitHub visual workflow and necessary workflow-selection tests.
+
+If those changes are allowed by the existing compatibility rule, reuse `42616325655`.
+
+If the rule rejects the changes, report the exact reason and require a fresh Android debug build.
+
+Do not bypass the rule.
+
+Do not rebuild the APK merely because a workflow input was added unless the rule requires it.
+
+---
+
+## 8. Local verification
+
+Run focused checks that prove:
+
+1. `visual_scope=all` selects all five visual tests.
+2. `visual_scope=breaking_news` selects only breaking news.
+3. `visual_scope=no_image` selects only no image.
+4. Invalid input is rejected before emulator setup.
+5. The selected `no_image` test node exists.
+6. Expected test counts are correct.
+7. The workflow cannot execute arbitrary pytest expressions from input.
+8. The source APK compatibility contract is preserved.
+9. Allure/JUnit output behavior remains unchanged.
+10. Infrastructure log uploads remain available.
+11. Visual evidence remains uploaded on pytest failure.
+12. No golden PNG was modified.
+13. No threshold was modified.
+14. No fixture was modified.
+15. No native dependency was modified.
+16. No Android emulator setting was modified.
+
+Run relevant shell/YAML validation and:
+
+```text
+git diff --check
+```
+
+Inspect changed files and staged changes.
+
+If only workflow selection changes, no real local emulator execution is required for this iteration.
+
+Do not claim that workflow-selection tests reproduce the native crash.
+
+---
+
+## 9. Preservation constraints
+
+Do not modify:
+
+- React Native application source.
+- The `no_image` fixture.
+- Other four QA scenarios.
+- Golden PNGs.
+- Pixel-comparison thresholds.
+- Appium/UiAutomator2 versions.
+- Expo/React Native versions.
+- Fabric architecture.
+- Native dependencies.
+- Android API level.
+- Android 16 KB system image.
+- `Pixel_10` AVD configuration.
+- Screen resolution or density.
+- Emulator RAM.
+- GPU flags.
+- Host runner capacity.
+- APK build workflow.
+- Existing source-run compatibility rules.
+- Expo overlay handler.
+- Existing strict scenario identity verification.
+
+Do not regenerate goldens.
+
+Do not add a blind retry or arbitrary startup sleep.
+
+Do not change the application to avoid the crash before isolated reproduction.
+
+Do not spend money on a larger runner.
+
+---
+
+## 10. Private documentation
+
+Update the existing local source-of-truth records:
+
+- Private handoff.
+- Private AI prompt log.
+- Decision record only if a decision changes.
+
+Use the repository's actual private document paths.
+
+Record:
+
+- Latest full-suite result: 4 passed, 1 failed.
+- Four pixel-exact comparison results.
+- Confirmed `no_image` native crash.
+- Unproven fixture-specific versus order-dependent cause.
+- Purpose of isolated reproduction.
+- Workflow selection changes.
+- Local validation results.
+- Source APK compatibility outcome.
+- Next GitHub execution instructions.
+- Remaining uncertainty.
+
+The previous implementation kept private documentation in an ignored directory.
+
+Do not force-add those files or change their privacy status.
+
+Do not commit original GitHub log ZIPs or screenshots from `.local-evidence/`.
+
+---
+
+## 11. Local commit
+
+Create one bounded local commit.
+
+Suggested message:
+
+```text
+ci(visual): enable isolated no-image crash reproduction
+```
+
+Stage only necessary tracked/new files.
+
+Do not use `git add -A`.
+
+Do not stage:
+
+- `.local-evidence/`
+- `debug-logs/`
+- Original GitHub ZIP files.
+- Generated screenshots or crash logs.
+- Private ignored documentation.
+- Unrelated untracked `app/` entries.
+
+Before committing, inspect:
+
+```text
+git diff --cached --stat
+git diff --cached --name-only
+git diff --cached --check
+```
+
+Do not amend.
+
+Do not push.
+
+Do not tag.
+
+Do not regenerate golden PNGs.
+
+---
+
+## 12. Final agent report
+
+Return:
+
+1. Starting commit.
+2. Final commit SHA.
+3. Files changed.
+4. Exact workflow input change.
+5. Exact selected `no_image` pytest node.
+6. Confirmation that `all` still selects five tests.
+7. Input-validation behavior.
+8. Diagnostics available on failure.
+9. Native crash-buffer availability.
+10. Source APK compatibility test and result.
+11. Whether build `42616325655` can be reused.
+12. Validation commands and results.
+13. Confirmation unchanged application and fixtures.
+14. Confirmation unchanged goldens and thresholds.
+15. Remaining uncertainties.
+16. Exact GitHub Actions invocation instructions.
+
+**STOP AFTER ONE LOCAL COMMIT.**
+
+No push, tag or APK rebuild.
+
+---
+
+## 13. Next GitHub Actions experiment
+
+After human review and push:
+
+Open:
+
+**Actions → Android visual tests (advisory) → Run workflow**
+
+Use:
+
+| Input | Value |
+|---|---|
+| Branch | `main` |
+| `source_run_id` | `42616325655`, if compatibility verification permits |
+| `visual_scope` | `no_image` |
+
+The existing APK artifact is scheduled to expire on **November 16, 2026**, so verify that it is still available.
+
+### If `no_image` passes
+
+Record:
+
+- Scenario activation succeeded.
+- Real screenshot comparison result.
+- Golden comparison metrics.
+- Appium session behavior.
+- Any nonfatal native warnings.
+
+This would demonstrate that `no_image` **can pass in isolation**.
+
+It would strengthen the hypothesis that repeated launches or test ordering contribute to the full-suite failure, but would not conclusively prove that hypothesis.
+
+Do not immediately change native dependencies.
+
+### If `no_image` crashes again
+
+Compare:
+
+- Native signal and stack.
+- Crash timing relative to JavaScript startup.
+- Whether `qa_scenario` was parsed.
+- Whether the marker rendered.
+- Whether the app reached the fixture UI.
+- Whether the same native crash signature occurred.
+- Android guest and host resource evidence, if already available.
+
+This would show that the crash does not require running four preceding visual scenarios.
+
+However, it would not independently prove that the fixture content causes the crash.
+
+### If infrastructure fails first
+
+Classify the result separately.
+
+A boot, ADB, package-manager or emulator failure does not answer the native crash question.
+
+Do not count it as a `no_image` pass or fail.
+
+---
+
+## 14. Success criteria
+
+**Implementation success:**
+
+- `no_image` can be selected independently.
+- Existing five-scenario execution remains intact.
+- Source APK provenance rules remain enforced.
+- Diagnostic artifacts remain available.
+- No golden, fixture or native code modifications.
+
+**Experiment success:**
+
+We obtain a real GitHub-hosted `no_image` test outcome on a fresh emulator and can distinguish:
+
+- Successful scenario activation and golden comparison;
+- Application native crash before or during scenario activation;
+- Other startup or automation failure;
+- Infrastructure failure preventing a valid experiment.
+
+The goal is **diagnostic certainty**, not manufacturing a green result.
+
+Do not claim the native crash is fixed unless supported by subsequent real execution evidence.

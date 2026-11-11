@@ -1,0 +1,234 @@
+EXEC-029 — No-Image Article Visual Scenario
+
+Objective:
+Implement and verify the approved no_image Android visual regression scenario using the existing real ArticlePost component, development-only deterministic fixture selection, Appium/Python test framework and human-reviewed baseline workflow.
+
+This increment ends with a candidate golden for human review. Do not promote it automatically.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Current Git checkpoint:
+main at f0b38e91724bac180fdcf9b1febd592184f22922
+
+Read:
+- Applicable AGENTS.md and CLAUDE.md instructions
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- Relevant app/, qa_visual/ and README files
+
+HUMAN-APPROVED SCOPE:
+
+Implement no_image as a development-only QA fixture variation using the existing real ArticlePost component.
+
+The scenario must represent legitimately absent featured media, not a broken image URL.
+
+The QA article must render without an image panel, blank placeholder, loading spinner or image-dependent readiness.
+
+Preserve normal production article behavior. Do not generalize optional-media changes to all production articles in this increment.
+
+Document this as a deliberate challenge-scoped adaptation, not verified upstream VVP production support.
+
+EXISTING APPROVED GOLDENS:
+
+long_headline.png:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+breaking_news.png:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+dark_article.png:
+6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+All are under:
+qa_visual/baselines/android/pixel10-api37/
+
+Tasks:
+
+1. Inspect current Git branch, HEAD and working-tree status.
+
+Verify all three approved golden hashes before editing. Preserve the existing local checkpoint and unrelated untracked upstream files.
+
+2. Inspect the current article fixture and rendering pipeline:
+
+- qaScenario.ts
+- qaFeed.ts
+- WordPressFetcher.ts
+- ArticlePost.tsx
+- GenericPost.tsx
+- UiCard.tsx
+- Existing ArticleCard POM and visual tests
+
+Identify why the current QA article receives the bundled cover even though its fixture currently has _links: {}.
+
+Confirm the smallest safe way to distinguish intentional absent media from the existing image-bearing fixtures.
+
+3. Implement an explicit deterministic no-image fixture contract.
+
+Requirements:
+- Activate through qa_scenario=no_image.
+- Use a synthetic article with genuinely absent featured media.
+- Prefer reusing existing headline, metadata, author, date and summary where practical, changing only what the scenario requires.
+- Represent media absence explicitly; do not use an invalid URL.
+- Avoid introducing live network or remote image dependencies.
+- Preserve the existing long_headline, dark_article and breaking_news fixture behavior.
+
+Do not rely on _links: {} alone to distinguish the scenario, because the existing image-bearing QA fixture already uses that shape.
+
+4. Implement minimal QA-only no-image rendering inside the real ArticlePost component.
+
+Requirements:
+- Render the existing article title, metadata and summary.
+- Do not render the featured-image wrapper or reserve its height.
+- Do not render an image placeholder, spinner or broken-image state.
+- Maintain normal card spacing, padding and rounded corners.
+- Keep production rendering behavior unchanged.
+- Preserve existing image-bearing article behavior.
+
+Do not create a duplicate test-only article-card component.
+
+5. Update scenario selection.
+
+Mark no_image capture-supported only after the required UI and readiness implementation is complete.
+
+Extend the existing scenario-launch allowlist to include no_image.
+
+Preserve validation, cold-launch isolation and production gating.
+
+Do not change the runtime-selection architecture.
+
+6. Implement scenario-specific readiness.
+
+The no_image ready condition must depend on the real text/card layout becoming available, not image onLoad.
+
+Provide a stable accessibility/test identifier such as qa-article-no-image-ready, or an equivalent explicit contract consistent with the existing code.
+
+Appium must verify:
+- qa-scenario:no_image
+- Expected synthetic headline
+- Effective light theme
+- Text/card layout readiness
+- Actual absence of the QA image panel
+- Complete outer-card screenshot bounds
+
+Avoid arbitrary fixed delays as the primary synchronization mechanism.
+
+7. Extend the existing ArticleCard POM and add test_no_image.py.
+
+Reuse the current Appium driver, scenario launcher, comparator, artifact reporting and Page Object Model.
+
+Capture the complete real outer article card, including title, metadata, summary, padding and corners.
+
+Save a full-screen context screenshot for diagnostics only.
+
+Never create an approved baseline automatically.
+
+8. Add focused tests covering:
+- no_image fixture selection and media absence
+- Correct development-only activation
+- Production behavior preservation
+- Image-free readiness
+- Existing image-bearing QA scenarios
+- Scenario validation and launcher allowlist
+
+Avoid unnecessary refactoring.
+
+9. Perform two independent native no_image cold launches, keeping the same Metro process/environment.
+
+For each capture record:
+- Exact launch command and exit code
+- Scenario identity
+- Theme and title assertions
+- Readiness and image-absence evidence
+- Card bounds and screenshot dimensions
+- Actual PNG and diagnostic artifact paths
+
+Compare the two actual screenshots for repeatability.
+
+Report:
+- Byte identity
+- Raw changed pixels
+- Existing tolerance-based changed pixels
+- Maximum channel difference
+
+A pytest failure solely because no approved no_image golden exists is expected at this stage. Distinguish this from genuine capture, rendering or assertion failures.
+
+10. Prepare a human-review packet in an ignored directory:
+
+debug-logs/exec029/review/
+
+Include:
+- no_image.candidate.png
+- Full-screen context PNG
+- Repeatability comparison/diff
+- Candidate SHA-256
+- JSON metrics and native bounds
+- Brief REVIEW.md explaining the rendering, visual quality, production-safety boundary and test evidence
+
+Do not put no_image.png in the approved baselines directory.
+
+11. Run all three existing approved Android visual regressions:
+
+- long_headline
+- breaking_news
+- dark_article
+
+Each must PASS against its unchanged golden.
+
+Pay special attention to regression in image loading/readiness and dark-to-light theme isolation.
+
+12. Run relevant verification:
+- TypeScript checks
+- Focused Jest tests
+- Broad Jest suite where practical
+- Python unit tests
+- Pytest collection
+
+Report actual commands and exit codes.
+
+The previously known FIXTUR spelling failure in the combined app check is unrelated unless the current implementation changes its behavior. Do not modify article text or existing goldens solely to silence it.
+
+13. Update relevant READMEs, private decisions, handoff and material AI prompt records.
+
+Record:
+- no_image implementation and QA-only limitation
+- Native capture and repeatability evidence
+- Three existing regression results
+- Candidate hash and approval-pending status
+- Actual modified/untracked files
+- Remaining risks
+
+Constraints:
+- Do not modify approved goldens.
+- Do not change comparison thresholds.
+- Do not introduce a new automation or mocking framework.
+- Do not change general production article rendering.
+- Do not implement empty_feed.
+- Do not add CI workflows or native iOS tests.
+- Do not modify unrelated notifications, Firebase or upstream scaffolding.
+- Do not regenerate or auto-approve any baseline.
+- Do not commit, stage or push.
+- Do not use blanket git reset or git clean.
+- Preserve unrelated existing files and development services.
+
+STOP CONDITION:
+If the no-image layout cannot be implemented within the approved QA-only boundary without substantial production changes, stop and report a minimal alternative for human review.
+
+REQUIRED REPORT:
+
+A. Initial Git status and approved golden hashes.
+B. Fixture contract and implementation files.
+C. QA-only rendering behavior and production-safety evidence.
+D. No-image readiness and image-absence verification.
+E. Two native captures and repeatability measurements.
+F. Candidate PNG path, dimensions, bounds and SHA-256.
+G. Existing three-scenario regression results.
+H. TypeScript/Jest/Python results.
+I. Changed files and final Git status.
+J. Remaining risks and explicit request for human golden approval.
+
+Acceptance:
+EXEC-029 passes its implementation checkpoint only if the genuine no-image article renders correctly, two independent captures are stable, existing visual regressions pass, and a candidate PNG is prepared without promoting it.
+
+Stop after returning the review packet. Await human approval before baseline promotion or beginning empty_feed.

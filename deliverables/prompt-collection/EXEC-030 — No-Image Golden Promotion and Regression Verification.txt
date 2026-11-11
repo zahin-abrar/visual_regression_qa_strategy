@@ -1,0 +1,160 @@
+EXEC-030 — No-Image Golden Promotion and Regression Verification
+
+Objective:
+Promote the human-approved no_image candidate to the official Android golden, verify it through independent native Appium executions, and ensure all three previously approved visual scenarios remain passing.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Human approval:
+On November 7, 2026, the human reviewed the no_image candidate and context. A concern about apparent missing external padding was resolved: the element screenshot intentionally captures only the outer card, while the full-screen context confirms the surrounding feed margins.
+
+The candidate was approved for promotion after review of the image, spacing, rounded corners, content and repeatability evidence.
+
+Approval applies ONLY to the exact PNG and SHA-256 below.
+
+Approved candidate:
+debug-logs/exec029/review/no_image.candidate.png
+
+Approved SHA-256:
+AC5BD84B93778F4773B3A38ABD391A89483295446A2E096DD59E21CA288B3012
+
+Target golden:
+qa_visual/baselines/android/pixel10-api37/no_image.png
+
+Existing approved golden hashes:
+
+long_headline:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+breaking_news:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+dark_article:
+6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+Current Git checkpoint:
+f0b38e91724bac180fdcf9b1febd592184f22922
+
+Read:
+- Applicable agent instructions
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- EXEC-029 review packet
+- Relevant app/, qa_visual/ and README files
+
+Tasks:
+
+1. Record initial Git status and verify all three existing golden hashes.
+
+2. Verify the approved no_image candidate:
+   - SHA-256 matches exactly.
+   - Valid 1028 × 711 RGBA PNG.
+   - Originates from the genuine EXEC-029 Appium capture.
+   - Two independent native captures are documented as byte-identical.
+   - Captured bounds are consistent with the review evidence.
+
+   Stop if any verification fails.
+
+3. Copy the approved candidate byte for byte to:
+   qa_visual/baselines/android/pixel10-api37/no_image.png
+
+   Do not regenerate or alter the PNG.
+
+4. Verify the promoted golden matches:
+   AC5BD84B93778F4773B3A38ABD391A89483295446A2E096DD59E21CA288B3012
+
+5. Run no_image through the existing explicit runtime-selection launch mechanism.
+
+   Use qa_scenario=no_image.
+
+   Keep the Metro process and environment unchanged between tests.
+
+6. Execute two independent no_image native visual regressions.
+
+   For each run verify:
+   - qa-scenario:no_image
+   - Effective light theme
+   - Exact synthetic headline
+   - qa-article-no-image-ready
+   - Zero image views inside the card
+   - Image-bearing readiness marker absent
+   - Complete outer-card bounds
+   - Screenshot dimensions
+   - Comparison result and changed-pixel ratio
+   - Pytest exit code and artifact paths
+
+   Both runs must PASS against the approved golden.
+
+7. Compare the two actual screenshots for repeatability.
+
+   Record byte identity, raw pixel differences, maximum channel delta and tolerance-based differences.
+
+8. Run the three previously approved Android visual regressions:
+
+   - dark_article
+   - long_headline
+   - breaking_news
+
+   All must PASS against their unchanged approved goldens.
+
+   Preserve dark-to-light theme isolation and existing image-bearing readiness behavior.
+
+9. Run applicable checks:
+   - TypeScript validation
+   - Focused Jest
+   - Python unit tests
+   - Pytest collection
+   - Broad Jest if practical
+
+   Report the known FIXTUR spelling issue in the combined app check separately. Do not change fixture data to silence it.
+
+10. Update relevant READMEs and baseline inventory.
+
+   Document:
+   - Four approved Android scenarios
+   - Exact runtime launch commands
+   - no_image as a development-only challenge-scoped variation
+   - No production-wide optional-media support claim
+   - Outer-card element capture versus full-screen diagnostic context
+   - Human-controlled baseline approval
+   - Existing comparator thresholds unchanged
+   - CI and iOS remain unverified
+
+11. Update private decisions, handoff and material AI prompt records with approval, hashes, commands, results and remaining limitations.
+
+Constraints:
+- Do not modify existing approved goldens.
+- Do not change comparator thresholds.
+- Do not change application rendering, fixture data or scenario architecture.
+- Do not implement empty_feed.
+- Do not introduce CI workflows or native iOS execution.
+- Do not modify unrelated Firebase/notification behavior.
+- Do not regenerate other goldens.
+- Do not stage, commit or push.
+- Do not modify unrelated upstream scaffolding.
+- Preserve all existing work.
+
+Required report:
+
+A. Promoted baseline path and verified SHA-256.
+B. Two independent no_image visual results.
+C. Repeatability metrics and artifacts.
+D. Three existing regression results.
+E. TypeScript/Jest/Python validation.
+F. Documentation changes.
+G. Final Git status and remaining limitations.
+H. Recommendation for the next bounded scenario.
+
+Acceptance:
+EXEC-030 passes only if:
+- The promoted golden matches the exact approved hash.
+- Two independent no_image visual regressions PASS.
+- All three existing visual regressions PASS.
+- All four golden hashes remain correct.
+- Comparator thresholds remain unchanged.
+
+If any regression fails, preserve evidence and stop. Do not modify goldens or thresholds to force a PASS.
+
+Stop after EXEC-030. Await human review before implementing empty_feed.

@@ -1,0 +1,231 @@
+EXEC-031 — Successful Empty Feed Visual Scenario
+
+Objective:
+Implement and verify the fifth approved Android visual scenario, empty_feed, using the existing React Native feed, deterministic development-only fixtures, runtime-selected cold launches, Appium/Python automation and human-reviewed golden workflow.
+
+End this increment with a candidate golden for human review. Do not promote it automatically.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Current Git checkpoint:
+8c54f0f711f7b4a78a8a49d25bc1728cc919b002
+
+Read:
+- Applicable AGENTS.md and CLAUDE.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- Current app/, qa_visual/ and relevant READMEs
+
+Approved scenario:
+empty_feed means a successful feed fetch returning zero articles.
+
+It must NOT represent:
+- A network failure or offline state
+- An unfinished loading state
+- Zero configured feeds
+- A cleared list that still contains stale cached state
+
+Existing approved golden hashes:
+
+long_headline:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+breaking_news:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+dark_article:
+6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+no_image:
+AC5BD84B93778F4773B3A38ABD391A89483295446A2E096DD59E21CA288B3012
+
+Tasks:
+
+1. Inspect initial Git status, branch and HEAD. Verify all four approved golden hashes. Preserve the existing checkpoint and unrelated untracked files.
+
+2. Inspect the real feed and empty-state implementation:
+   - qaScenario.ts and qaFeed.ts
+   - Home route and fixture fetcher selection
+   - FetcherUtilities.ts
+   - Feed.tsx
+   - EmptyComponent.tsx
+   - Related loading, error and pagination behavior
+
+Determine exactly how the application distinguishes successful empty results, errors, initial loading and zero configured feeds.
+
+Identify any state that could survive between launches.
+
+3. Implement a deterministic development-only empty-feed fixture.
+
+Requirements:
+- Activate through qa_scenario=empty_feed.
+- Keep one valid, configured synthetic feed source.
+- Resolve its fetch successfully with an empty article list [].
+- Do not simulate a failed HTTP request.
+- Do not make live WordPress requests.
+- Preserve all four existing fixture scenarios.
+- Keep production feed behavior unchanged.
+
+4. Ensure successful-empty completion is distinguishable from errors.
+
+Existing fetch utilities may convert exceptions to [].
+
+Implement the smallest safe development-only outcome contract or completion signal necessary to prove that empty_feed represents a successful response.
+
+Do not broadly rewrite production fetch/error handling.
+
+A failed fetch must not satisfy the successful-empty readiness contract.
+
+5. Render the existing real VVP empty-state UI through the normal feed component.
+
+Requirements:
+- Loading must finish.
+- A meaningful empty-state message is visible.
+- No stale article cards, breaking banner or spinner.
+- No fabricated full-screen test replacement.
+- Preserve the app header, navigation and normal production behavior.
+
+Inspect whether EmptyComponent includes donation-related content or other dynamic elements.
+
+Prefer capturing a stable empty-message region within the real component, excluding unrelated dynamic content.
+
+If the existing component cannot provide a stable, meaningful capture boundary without broader changes, report the trade-off before changing it.
+
+6. Add scenario-specific identity and readiness.
+
+Appium must verify:
+- qa-scenario:empty_feed
+- Effective light theme
+- Successful empty-fetch completion
+- Loading finished
+- Zero rendered article cards
+- No breaking-news banner
+- Stable empty-state layout
+
+Expose a reliable marker such as qa-empty-feed-ready, only after the successful-empty state has rendered and its target layout is available.
+
+Do not use arbitrary fixed sleeps as the primary synchronization method.
+
+7. Enable empty_feed in the scenario registry and Appium launch allowlist only after the rendering/readiness contract is implemented.
+
+Preserve the existing development-only launch gate and cold-launch isolation.
+
+8. Extend the existing POM and add test_empty_feed.py.
+
+Reuse:
+- Current Android driver
+- Scenario launch helper
+- Existing comparator
+- Artifact/JSON reporting
+- Existing pytest conventions
+
+Capture the real empty-state element or a stable containing region.
+
+Save a full-screen context screenshot for diagnostics, not as an automatically approved golden.
+
+9. Add focused application and Python tests for:
+- Successful empty fixture response
+- Completed loading state
+- Failure versus empty distinction
+- Development/release gating
+- No stale articles or announcements
+- Readiness and exact scenario identity
+- Launcher allowlist and POM behavior
+
+10. Verify state isolation through native cold launches with the same Metro environment.
+
+Use a sequence that includes:
+- Populated scenario (long_headline)
+- empty_feed
+- Populated scenario again
+- empty_feed again
+
+Confirm that previously displayed articles and pagination/announcement state do not leak into the empty result, and that normal populated fixtures still work afterward.
+
+11. Capture empty_feed twice from independent native launches.
+
+Record:
+- Exact commands and exit codes
+- Scenario identity and successful-empty evidence
+- Loading/readiness assertions
+- Screenshot dimensions and bounds
+- Actual PNG paths and hashes
+- Raw pixel differences
+- Existing comparator-tolerated differences
+- Maximum channel delta
+
+The captures must be repeatable within the unchanged comparison policy.
+
+A pytest failure solely because the approved empty_feed golden does not yet exist is expected. Distinguish it from rendering or assertion failures.
+
+12. Prepare the review packet in:
+
+debug-logs/exec031/review/
+
+Include:
+- empty_feed.candidate.png
+- Full-screen diagnostic context
+- Repeatability metrics and diff
+- Candidate SHA-256
+- Native screenshot bounds
+- REVIEW.md describing the actual empty-state UI, fetch-success evidence, capture boundary and any excluded dynamic content
+
+Do not install empty_feed.png into baselines yet.
+
+13. Run all four existing Android visual regressions:
+- long_headline
+- breaking_news
+- dark_article
+- no_image
+
+All must PASS against unchanged approved goldens.
+
+14. Run relevant checks:
+- TypeScript
+- Focused Jest
+- Full Jest where practical
+- Python unit tests
+- Pytest collection
+- git diff --check
+
+Report the known FIXTUR combined-check failure separately if it remains.
+
+15. Update relevant READMEs, private decisions, handoff and material AI prompt records.
+
+Document empty_feed as a challenge-specific deterministic successful-empty scenario, not offline/error coverage.
+
+Constraints:
+- Do not modify existing approved goldens.
+- Do not change comparator thresholds.
+- Do not rewrite production feed architecture.
+- Do not introduce a new mocking framework.
+- Do not add unrelated notification or Firebase fixes.
+- Do not create CI workflows or native iOS tests.
+- Do not auto-approve the empty-feed golden.
+- Do not commit, stage or push.
+- Do not delete unrelated scaffolding.
+- Preserve existing runtime services where possible.
+
+Stop condition:
+If the actual empty-state UI or successful-empty completion cannot be made deterministic without substantial production changes, stop with evidence and propose the smallest alternative for human review.
+
+Required report:
+
+A. Initial Git status and golden integrity.
+B. Current feed/empty-state behavior and implementation changes.
+C. Proof of successful-empty versus error/loading.
+D. Rendering, identity and readiness evidence.
+E. Populated/empty/populated isolation results.
+F. Two native captures and repeatability metrics.
+G. Candidate PNG path, dimensions, hash and review materials.
+H. Existing four-scenario regression results.
+I. TypeScript/Jest/Python validation.
+J. Changed files, final Git status and remaining risks.
+K. Explicit request for human approval of the candidate golden.
+
+Acceptance:
+EXEC-031 passes its implementation checkpoint only when the real empty-state UI is rendered from a successful zero-item fixture, readiness and state isolation are verified, two native captures are stable, all four existing regressions PASS, and a candidate PNG is prepared without promotion.
+
+Stop after EXEC-031. Await human review before baseline promotion or further implementation.

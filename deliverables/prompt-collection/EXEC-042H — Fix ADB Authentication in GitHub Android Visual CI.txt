@@ -1,0 +1,448 @@
+
+EXEC-042H — Fix ADB Authentication in GitHub Android Visual CI
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Last reported commit: 8633843
+
+PHASE
+EXECUTION — Bounded CI infrastructure remediation
+
+OBJECTIVE
+
+Fix the ADB authentication failure preventing the
+GitHub-hosted Android emulator from becoming accessible.
+
+Initialize and verify a runner-local ADB authentication
+key pair before starting the emulator.
+
+Preserve the existing Android emulator configuration,
+APK reuse, Appium setup and visual-testing behavior.
+
+Do not rebuild the APK.
+
+BACKGROUND
+
+The latest GitHub Android visual workflow passed:
+
+- Source build and artifact validation
+- APK artifact download
+- KVM functional verification
+- Emulator dependency installation
+- Android API 37 system image installation
+- AVD creation
+- AVD registration and discovery
+- Emulator process startup
+
+The AVD used:
+- Pixel_10
+- Android API 37
+- x86_64
+- 1080x2424
+- 420 dpi
+- 4096 MB RAM
+- Headless cold boot
+- SwiftShader graphics
+- KVM acceleration
+
+The emulator.log contained:
+
+WARNING | Failed to open /home/runner/.android/adbkey
+WARNING | adbkey generation failed
+WARNING | No adb private key exists
+
+The emulator also reported:
+
+INFO | Boot completed in 118960 ms
+
+However, ADB repeatedly reported:
+
+adb: device unauthorized.
+
+This adb server's $ADB_VENDOR_KEYS is not set.
+
+Eventually, the workflow failed with:
+
+sys.boot_completed not 1 within 420 s
+
+IMPORTANT DISTINCTION
+
+The emulator itself reported completing boot.
+
+The workflow could not independently verify Android
+boot completion because ADB never authorized the device.
+
+The observed key-generation failure is established.
+
+The exact reason automatic key generation failed is
+NOT established.
+
+Do not assume that setting ADB_VENDOR_KEYS alone will
+resolve the problem.
+
+TASK A — PREFLIGHT INVESTIGATION
+
+1. Read the current private handoff and relevant
+   execution decisions.
+
+2. Inspect:
+   - .github/workflows/android-visual-tests.yml
+   - .github/scripts/start-emulator.sh
+   - .github/scripts/collect-final-logs.sh
+   - Existing ADB startup and readiness commands
+
+3. Check:
+   - git status
+   - current branch
+   - current HEAD
+   - tracked and untracked changes
+
+4. Determine how the workflow currently starts ADB.
+
+5. Determine the order of:
+   - Android SDK setup
+   - ADB server startup
+   - AVD creation
+   - Emulator launch
+   - Boot readiness checks
+
+6. Inspect how HOME, ANDROID_USER_HOME,
+   ANDROID_SDK_HOME, XDG_CONFIG_HOME and relevant
+   ADB key-directory overrides affect the tools.
+
+7. Identify the minimum required implementation change.
+
+8. Preserve the ten unrelated untracked app/ entries.
+
+TASK B — INITIALIZE HOST ADB AUTHENTICATION
+
+Establish a usable ADB key pair before emulator launch.
+
+1. Use the runner-local Android configuration directory
+   expected by both ADB and the emulator.
+
+2. Prefer the standard host key location:
+
+   $HOME/.android/adbkey
+   $HOME/.android/adbkey.pub
+
+   unless existing configuration requires otherwise.
+
+3. Create the parent directory if necessary.
+
+4. Verify:
+   - Directory existence
+   - Directory ownership
+   - Directory readability and writability
+   - Current execution user
+   - Effective HOME value
+
+5. Apply suitable restrictive permissions.
+
+6. If a valid key pair already exists, do not
+   unnecessarily regenerate it.
+
+7. If the key pair is missing, generate it using the
+   supported Android platform-tools mechanism.
+
+8. Verify the installed adb version and supported
+   key-generation command before implementation.
+
+9. Prefer adb keygen if supported by the installed
+   version of platform-tools.
+
+10. Ensure generation is bounded and exits nonzero
+    when unsuccessful.
+
+11. Verify both files exist and are nonempty.
+
+12. Verify the private key can be read by the
+    runner user.
+
+13. Keep the private key restricted to that user.
+
+14. Do not print the private key or public key contents.
+
+15. Do not commit or upload generated ADB keys.
+
+16. Fail with an actionable message if initialization
+    cannot produce a usable key pair.
+
+TASK C — ENSURE ADB AND EMULATOR USE THE SAME KEY
+
+1. Verify ADB and the emulator execute under the
+   expected runner user.
+
+2. Verify their HOME and Android configuration
+   paths are consistent.
+
+3. Ensure ADB server startup occurs after successful
+   key initialization.
+
+4. If an ADB server started before key initialization,
+   shut it down cleanly and start a fresh server using
+   the verified key.
+
+5. Do not repeatedly restart ADB during normal
+   emulator boot.
+
+6. Preserve the existing ANDROID_AVD_HOME directory.
+
+7. Do not confuse the AVD registration directory with
+   the ADB authentication key directory.
+
+8. Do not introduce ADB_VENDOR_KEYS or
+   ANDROID_VENDOR_KEYS unless actual tool behavior
+   establishes that an explicit override is necessary.
+
+9. If a key-directory override is required, ensure
+   the installed tools recognize it and that both
+   processes receive the correct environment.
+
+10. Preserve the existing AVD creation and discovery
+    checks.
+
+TASK D — IMPROVE ADB AUTHORIZATION DIAGNOSTICS
+
+Enhance boot diagnostics without introducing
+unbounded waits or excessive log output.
+
+1. Record ADB version.
+
+2. Record the resolved Android configuration
+   directory and key-file existence.
+
+3. Record safe key-file metadata:
+   - file type
+   - ownership
+   - permissions
+   - nonempty status
+
+4. Never log key contents.
+
+5. During boot, observe ADB device states:
+   - absent
+   - offline
+   - unauthorized
+   - device
+
+6. Keep state polling bounded.
+
+7. Record device-state transitions and relevant
+   timestamps without repeating large identical logs.
+
+8. Distinguish:
+   - Emulator process failed
+   - Emulator process alive but no ADB transport
+   - ADB transport offline
+   - ADB transport unauthorized
+   - ADB connected but Android not boot-complete
+   - Device ready
+
+9. Only query sys.boot_completed when the device
+   is in the authorized "device" state.
+
+10. Continue requiring sys.boot_completed=1 for
+    successful boot verification.
+
+11. Preserve the existing 420-second overall boot
+    timeout unless evidence justifies changing it.
+
+12. Do not silently accept emulator.log's
+    "Boot completed" message as a substitute
+    for actual ADB readiness.
+
+13. Keep actual emulator failures blocking.
+
+14. Preserve existing log collection and artifact uploads.
+
+TASK E — SECURITY REQUIREMENTS
+
+Do not disable ADB authentication.
+
+Do not use insecure emulator authorization bypasses.
+
+Do not hardcode ADB private keys.
+
+Do not store keys in repository files.
+
+Do not use persistent shared keys between unrelated
+GitHub Actions runs.
+
+Do not create additional repository secrets or PATs.
+
+The key pair must be generated locally on the ephemeral
+GitHub runner and discarded with that runner.
+
+Ensure infrastructure artifacts cannot accidentally
+contain the private key.
+
+TASK F — PRESERVE APPROVED FUNCTIONALITY
+
+Do not modify:
+
+- Android build workflow
+- APK source-run validation
+- APK compatibility rules
+- Artifact download and checksum verification
+- KVM functional preflight
+- Android API 37 system image
+- AVD name Pixel_10
+- AVD registration path handling
+- 1080x2424 display
+- 420 dpi
+- 4096 MB RAM
+- Emulator graphics flags
+- Headless cold boot
+- libpulse0 provisioning
+- Appium 3.3.0
+- UiAutomator2 7.1.2
+- Metro configuration
+- Five normal visual scenarios
+- Intentional-failure demonstration
+- Synthetic fixtures
+- Golden PNG references
+- Screenshot thresholds
+- Allure/JUnit result handling
+- Advisory pytest behavior
+
+Do not change to a different emulator image.
+
+Do not increase the overall boot timeout simply
+to suppress the authorization failure.
+
+Do not introduce automatic CI job retries.
+
+TASK G — LOCAL VALIDATION
+
+Perform all validation available locally.
+
+At minimum:
+
+1. Validate modified shell syntax.
+
+2. Validate workflow YAML if modified.
+
+3. Verify ADB key initialization occurs before
+   emulator launch.
+
+4. Verify ADB startup uses the initialized key.
+
+5. Exercise a missing-key case.
+
+6. Exercise a valid-existing-key case.
+
+7. Exercise key-generation failure.
+
+8. Exercise unreadable/private-key permission failure.
+
+9. Exercise a mismatched HOME/key-location case.
+
+10. Exercise an ADB server started before key creation.
+
+11. Exercise the following mocked device states:
+    - offline
+    - unauthorized
+    - device
+
+12. Verify boot-complete checks occur only after
+    authorization.
+
+13. Verify persistent unauthorized state fails
+    with an actionable error within the timeout.
+
+14. Verify successful mocked authorization and
+    sys.boot_completed=1 allow progress.
+
+15. Confirm diagnostics do not expose key contents.
+
+16. Run git diff --check.
+
+17. Verify all approved screenshot goldens
+    remain unchanged.
+
+18. Verify app/ and qa_visual/ remain unchanged.
+
+Explicitly distinguish mocked validation from actual
+Android emulator execution.
+
+Do not claim the GitHub emulator is fixed until a
+real workflow run confirms authorization.
+
+TASK H — DOCUMENTATION
+
+Update the canonical project records:
+
+- .project-private/03_HANDOFF.md
+- Relevant decisions if necessary
+- Existing AI prompt log
+
+Record:
+
+- Emulator boot evidence
+- Missing ADB key evidence
+- Authorization timeout
+- Exact remediation
+- Security considerations
+- Local validation results
+- Remaining GitHub-only uncertainties
+- Recommended next execution
+
+Keep the handoff concise and current.
+
+TASK I — COMMIT
+
+Create one bounded local commit:
+
+ci(visual): initialize ADB authentication before emulator boot
+
+Stage only relevant files.
+
+Do not use git add -A.
+
+Do not amend or rewrite existing commits.
+
+Do not push or tag.
+
+Do not rebuild the APK.
+
+Do not touch unrelated upstream app/ entries.
+
+TASK J — FINAL REPORT
+
+Provide:
+
+1. Files changed.
+2. Exact key-generation implementation.
+3. Key locations and environment consistency.
+4. ADB server initialization order.
+5. Security controls.
+6. Authorization and boot-state diagnostics.
+7. Local validation commands and results.
+8. Confirmation that APK reuse is unchanged.
+9. Confirmation that Android configuration is unchanged.
+10. Confirmation that tests, fixtures and goldens
+    are unchanged.
+11. Commit hash.
+12. Unverified GitHub-specific behavior.
+13. Exact steps to rerun the visual workflow.
+
+Reuse the existing APK source run ID:
+
+42494990156
+
+provided its artifact has not expired.
+
+STOP CONDITIONS
+
+Stop after targeted ADB initialization,
+validation, documentation and local commit.
+
+Do not push.
+Do not rebuild.
+Do not modify screenshot baselines.
+Do not expand visual-test coverage.
+Do not change runner configuration.
+Do not introduce unrelated CI optimizations.

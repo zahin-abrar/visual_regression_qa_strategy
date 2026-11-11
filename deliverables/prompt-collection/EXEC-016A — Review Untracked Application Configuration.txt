@@ -1,0 +1,61 @@
+# EXEC-016A — Review Untracked Application Configuration
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`
+
+## Objective
+
+Review the currently untracked files and identify which should be committed to make the submission reproducible, maintainable and safe.
+
+This is a read-only review. Do not stage, commit, delete or modify files.
+
+## Scope
+
+Inspect the untracked paths reported by `git status`, including:
+
+- Root and app AI instruction files
+- App formatting, linting and editor configuration
+- App GitHub workflows and Git hooks
+- Expo/EAS configuration
+- Ruby Gemfile and Fastlane configuration
+- Security-scanning configuration
+- `qa_visual/.gitignore`
+
+## Review criteria
+
+For each file or directory, determine:
+
+1. Whether it is required to build or run the application.
+2. Whether it is required for the Python visual-test workflow.
+3. Whether it is useful for maintainability.
+4. Whether it is unrelated upstream tooling.
+5. Whether it contains potentially sensitive or machine-specific configuration.
+6. Whether including it could trigger unwanted Git hooks, CI jobs or deployment behavior.
+
+Inspect relevant file contents safely without printing secrets.
+
+## Output
+
+Return a table with:
+
+- File or directory
+- Purpose
+- Required / useful / optional / exclude
+- Security or operational concerns
+- Recommended action
+
+Provide a **minimal recommended inclusion set** and a separate optional set.
+
+Check whether the root `.gitignore` and nested ignore rules already cover generated files adequately.
+
+Do not modify the repository or create a commit.
+
+## Restrictions
+
+- No `git add`, `git commit`, `git push` or Git history changes.
+- No dependency installation.
+- No application or test changes.
+- No emulator/Appium/Metro changes.
+- No CI implementation.
+- No deletion or cleanup.
+
+**Stop after reporting the findings.**

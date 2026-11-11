@@ -1,0 +1,119 @@
+EXEC-024 — Checkpoint 2: Approved Golden Migration and Verification
+
+Objective:
+Promote the explicitly human-approved runtime-selected long_headline candidate to the official Android golden, then verify it using independent native Appium executions.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Approval:
+The human decision-maker reviewed the original golden, candidate, side-by-side comparison, enlarged image-region comparison and existing diff on November 7, 2026.
+
+Human verdict: APPROVED.
+
+The reviewing assistant independently checked the uploaded files, their hashes, dimensions and comparison metrics, and found no unacceptable visual regression.
+
+This approval applies ONLY to the exact candidate identified below.
+
+Approved candidate:
+debug-logs/exec024/review/candidate.runtime.png
+
+Approved candidate SHA-256:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+Target golden:
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+
+Original golden SHA-256:
+E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629
+
+Tasks:
+
+1. Read the current private decisions, handoff, AI prompt log, EXEC-024 review packet and relevant repository instructions.
+
+2. Record initial Git branch, HEAD and working-tree status. Preserve all pre-existing modifications, untracked files and private records.
+
+3. Verify that:
+   - The existing target golden matches its original SHA-256.
+   - The candidate matches the exact approved SHA-256.
+   - The candidate is a valid 1028 × 1237 RGBA PNG.
+   - The original golden is recoverable from Git history.
+
+   Stop if any identity check fails.
+
+4. Replace ONLY the target long_headline.png golden with a byte-for-byte copy of the approved candidate.
+
+5. Verify that the installed golden now hashes to:
+   6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+6. Verify the intended runtime-selected launch contract:
+
+   exp+vvpapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081&qa_scenario=long_headline
+
+   Keep the Metro process/environment unchanged between tests. Preserve the existing IPv4 configuration.
+
+7. Execute the original long_headline Appium visual regression twice using independent cold launches.
+
+   For each run, record:
+   - Exact command and exit code
+   - Verified scenario identity
+   - Readiness and fixture-title checks
+   - Screenshot bounds and dimensions
+   - Changed pixels and changed ratio
+   - Comparison PASS/FAIL
+   - Actual, diff and JSON artifact paths
+
+   Both runs must PASS against the approved new golden using the existing tolerance.
+
+8. Compare the two resulting actual screenshots for repeatability. Report exact and tolerance-based differences separately. Do not require byte-identical screenshots if the existing comparison policy accepts harmless sub-tolerance pixel variation.
+
+9. Run applicable regression checks:
+   - TypeScript validation
+   - Focused Jest tests
+   - Python unit tests
+   - Existing visual pytest test
+
+   Report any existing unrelated combined-check spelling failure separately.
+
+10. Update qa_visual/README.md and relevant submission documentation to explain:
+   - The approved baseline now represents explicit runtime-selected cold launches.
+   - The previous golden represented legacy environment-fallback rendering.
+   - The change is an intentional, human-reviewed baseline migration.
+   - The original golden remains recoverable in Git history.
+   - Legacy fallback may no longer visually match the runtime-selected reference.
+   - Existing comparison thresholds are unchanged.
+   - Native fractional-layout root cause remains unresolved.
+
+   Ensure the documented visual test command selects the runtime launch contract explicitly.
+
+11. Update private decision, handoff and material AI prompt records. Record the human approval, old/new hashes, verification evidence and remaining limitations.
+
+Constraints:
+- Do not regenerate a different golden.
+- Do not change comparator thresholds.
+- Do not modify fixture data, image assets or application layout.
+- Do not modify the approved candidate pixels.
+- Do not implement new visual scenarios.
+- Do not create CI infrastructure.
+- Do not claim iOS execution.
+- Do not wipe or rebuild the emulator unnecessarily.
+- Do not commit or push.
+- Preserve all unrelated working-tree changes.
+
+Required report:
+
+A. Exact baseline file replaced and old/new SHA-256.
+B. Human approval recorded.
+C. Two independent native visual test results.
+D. Screenshot repeatability measurements.
+E. Unit/type validation results.
+F. Documentation changes.
+G. Final Git status.
+H. Remaining risks and recommendation for proceeding with breaking_news.
+
+Acceptance:
+Checkpoint 2 passes only if the installed golden matches the approved hash and two independent runtime-selected native visual regressions PASS without threshold changes.
+
+If either test fails, stop and report the evidence. Do not automatically adjust or regenerate the golden.
+
+Stop after Checkpoint 2. Await review before beginning the next scenario.

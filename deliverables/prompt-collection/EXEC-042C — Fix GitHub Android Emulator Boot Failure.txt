@@ -1,0 +1,50 @@
+
+EXEC-042C — Fix GitHub Android Emulator Boot Failure
+
+Context:
+The first GitHub Android visual-only workflow reached
+Setup 4/5 but failed before pytest.
+
+Observed errors:
+1. libpulse.so.0: cannot open shared object file
+2. No device found matching --device pixel_10
+3. No device found matching --device pixel_9
+
+Objective:
+Make a minimal, evidence-driven fix to emulator
+provisioning on ubuntu-24.04.
+
+Tasks:
+1. Inspect android-visual-tests.yml and start-emulator.sh.
+2. Install the Ubuntu libpulse0 package before emulator
+   startup and verify the library is resolvable.
+3. Inspect available AVD device definitions using
+   avdmanager list device.
+4. Replace unsupported hardcoded device definitions
+   with a reliable supported configuration.
+5. Preserve API 37, x86_64, 1080x2424 resolution,
+   420 dpi, headless execution and KVM acceleration.
+6. Fail explicitly if the system image or required
+   emulator dependencies are unavailable.
+7. Verify AVD creation and emulator startup commands
+   propagate nonzero exit codes.
+8. Preserve the APK reuse mechanism, source validation,
+   Appium setup, tests, goldens and comparison thresholds.
+9. Do not introduce automatic fallback to a different
+   Android API level or change baseline PNGs.
+10. Run available local syntax and configuration checks.
+    Do not claim a successful Linux emulator boot without
+    real execution evidence.
+11. Update private handoff, decisions and AI prompt log.
+12. Commit only relevant changes locally; do not push.
+
+Report:
+- Root cause of each observed failure
+- Exact implementation changes
+- Validation results
+- Remaining CI risks
+- Commit hash
+- Next GitHub execution instructions
+
+Do not rebuild the APK.
+Do not expand test scope.

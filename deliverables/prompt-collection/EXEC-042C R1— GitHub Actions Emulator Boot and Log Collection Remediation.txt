@@ -1,0 +1,320 @@
+
+EXEC-042C — GitHub Actions Emulator Boot and Log Collection Remediation
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Last locally reported commit: 18db02a
+
+OBJECTIVE
+
+Fix the infrastructure failures observed during the first
+GitHub execution of the independent Android visual-test
+workflow.
+
+Ensure that diagnostic log collection cannot hang when
+emulator initialization fails.
+
+Do not rebuild the Android APK or change visual-test behavior.
+
+BACKGROUND
+
+The visual-only GitHub Actions workflow successfully reached
+the Android emulator provisioning stage.
+
+Workflow:
+.github/workflows/android-visual-tests.yml
+
+The following stage completed:
+Setup 3/5: Appium and UiAutomator2 (pinned)
+
+The following stage failed:
+Setup 4/5: boot headless emulator
+(API 37, 1080x2424, 420 dpi)
+
+Observed errors:
+
+1. Emulator executable failed to load:
+
+   error while loading shared libraries:
+   libpulse.so.0: cannot open shared object file
+
+2. AVD creation failed:
+
+   Error: No device found matching --device pixel_10
+
+3. Fallback AVD creation also failed:
+
+   Error: No device found matching --device pixel_9
+
+The workflow never reached APK installation, application
+startup or pytest.
+
+A second problem was observed during cleanup:
+
+The "Collect final logs" step remained active for more
+than 12 minutes after emulator provisioning failed.
+
+Its commands were:
+
+adb logcat -d -t 4000 > "$LOG_DIR/logcat-tail.txt" 2>&1 || true
+
+bash .github/scripts/disk-report.sh "visual job end" \
+  > "$LOG_DIR/disk-report.txt" 2>&1 || true
+
+The exact blocking command has not been confirmed.
+
+The user was advised to cancel the workflow rather than
+continue waiting indefinitely.
+
+Treat both issues as infrastructure problems, not
+visual regression failures.
+
+TASK A — PREFLIGHT
+
+1. Read the current project handoff, decisions,
+   relevant execution instructions and existing CI files.
+
+2. Check git status, branch and HEAD.
+
+3. Review:
+   - .github/workflows/android-visual-tests.yml
+   - .github/scripts/start-emulator.sh
+   - .github/scripts/enable-kvm.sh
+   - .github/scripts/disk-report.sh
+   - Existing diagnostic collection commands
+
+4. Preserve the existing build workflow.
+
+5. Preserve the ten unrelated untracked app/ entries.
+
+6. Identify the smallest safe remediation scope.
+
+TASK B — MISSING LINUX LIBRARY
+
+The emulator requires libpulse.so.0, which is not
+available in the current GitHub runner environment.
+
+1. Add a bounded dependency installation step before
+   emulator execution.
+
+2. Install the appropriate Ubuntu 24.04 package,
+   expected to be libpulse0.
+
+3. Verify the required library is resolvable.
+
+4. Preserve the existing SDK, emulator image and
+   Android environment.
+
+5. Do not broadly upgrade or replace system packages.
+
+6. Ensure package installation failures remain genuine
+   workflow failures.
+
+TASK C — AVD DEVICE PROFILE SELECTION
+
+The Android SDK's avdmanager did not recognize either:
+
+pixel_10
+pixel_9
+
+These names must not be assumed to exist.
+
+1. Inspect the current AVD creation implementation.
+
+2. Use avdmanager list device to identify available
+   device definitions at runtime.
+
+3. Select a reliable supported phone definition,
+   or create the AVD without an explicit device profile
+   if supported by the installed tooling.
+
+4. Prefer deterministic configuration over complicated
+   fallback chains.
+
+5. Preserve:
+   - Android API 37
+   - Existing x86_64 system image
+   - 1080x2424 display
+   - 420 dpi
+   - Headless operation
+   - Cold boot
+   - KVM acceleration
+   - Existing emulator readiness checks
+
+6. Verify the configured AVD was actually created.
+
+7. Fail clearly if the selected system image or
+   required emulator dependencies are unavailable.
+
+8. Ensure all AVD creation errors propagate correctly.
+
+Do not silently switch Android API levels.
+
+TASK D — PREVENT CLEANUP HANGS
+
+The "Collect final logs" step exceeded 12 minutes
+after emulator setup failed.
+
+Investigate both commands rather than assuming the
+ADB command was definitely responsible.
+
+1. Inspect the final log-collection step.
+
+2. Ensure all potentially blocking diagnostic commands
+   have explicit execution time limits.
+
+3. Before requesting logcat, check whether an Android
+   device is available.
+
+4. Do not rely on an unbounded adb devices request;
+   the availability check must also have a timeout.
+
+5. Use a short timeout, approximately 10 seconds,
+   for ADB logcat collection.
+
+6. Avoid commands that implicitly wait indefinitely
+   for a device to become available.
+
+7. Keep disk reporting, but ensure it is also bounded
+   if it invokes potentially blocking subprocesses.
+
+8. Preserve diagnostic output whenever available.
+
+9. If a device is unavailable, write a clear explanatory
+   note to the log output rather than treating missing
+   logcat as another workflow failure.
+
+10. Preserve best-effort cleanup behavior.
+
+11. Ensure failures during diagnostics do not mask
+    the original emulator provisioning failure.
+
+12. Ensure artifact-upload steps remain reachable
+    after infrastructure failures.
+
+13. Avoid introducing lengthy sleeps or automatic retries.
+
+TASK E — PRESERVE APPROVED FUNCTIONALITY
+
+Do not modify:
+
+- .github/workflows/android-build.yml
+- APK source-run validation
+- APK artifact download
+- APK compatibility rules
+- APK checksum verification
+- Existing Metro implementation
+- Appium 3.3.0
+- UiAutomator2 7.1.2
+- The five normal visual scenarios
+- Synthetic fixtures
+- Golden reference PNGs
+- Screenshot comparison thresholds
+- Intentional-failure demonstration
+- Allure reporting behavior
+- Advisory pytest classification
+
+Do not introduce a new build dependency into
+the visual-only workflow.
+
+Do not regenerate goldens.
+
+TASK F — VALIDATION
+
+Perform all validation possible in the local environment.
+
+At minimum:
+
+1. Parse and validate workflow YAML.
+
+2. Check shell syntax of modified scripts.
+
+3. Verify the dependency-installation step runs before
+   emulator execution.
+
+4. Confirm device selection does not assume unsupported
+   Pixel 10 or Pixel 9 identifiers.
+
+5. Verify AVD creation failure handling.
+
+6. Check the final log-collection commands for bounded
+   execution.
+
+7. Exercise no-device diagnostic handling with mocked
+   or synthetic command results where feasible.
+
+8. Check that failures remain non-blocking within cleanup.
+
+9. Verify all four evidence artifact uploads remain
+   configured correctly.
+
+10. Run git diff --check.
+
+11. Verify no golden reference files changed.
+
+12. Confirm that the build-only workflow remains unchanged.
+
+Do not claim the emulator starts successfully on GitHub
+unless a real GitHub Actions execution proves it.
+
+TASK G — DOCUMENTATION AND COMMIT
+
+Update:
+- .project-private/03_HANDOFF.md
+- Relevant decisions if needed
+- docs/04_AI_PROMPT_LOG.md or the project's actual
+  canonical prompt-log location
+
+Record:
+- Observed GitHub failure
+- Root-cause assessment
+- Exact remediation
+- Validation results
+- Remaining unverified assumptions
+- Next execution instructions
+
+Create one bounded local commit:
+
+ci(visual): fix emulator provisioning and bounded diagnostics
+
+Stage only relevant tracked files and approved new files.
+
+Do not use git add -A.
+
+Do not modify or stage unrelated upstream app/ files.
+
+Do not amend or rewrite existing commits.
+
+Do not push or tag.
+
+TASK H — FINAL REPORT
+
+Report:
+
+1. Root cause of missing libpulse.so.0.
+2. Root cause of unsupported AVD device profiles.
+3. Assessment of the hanging diagnostics step.
+4. Files changed.
+5. Exact emulator provisioning changes.
+6. Exact timeout and no-device handling behavior.
+7. Local validation commands and results.
+8. Confirmation that APK reuse is unchanged.
+9. Confirmation that tests, fixtures and goldens
+   remain unchanged.
+10. New commit hash.
+11. Remaining GitHub-only verification risks.
+12. Exact steps to rerun the visual-only workflow
+    using the previously successful APK build run ID.
+
+STOP CONDITIONS
+
+Stop after the targeted fixes, validation, documentation
+and local commit.
+
+Do not push.
+Do not rebuild the APK.
+Do not expand visual-test coverage.
+Do not change baseline images or comparison thresholds.
+Do not introduce unrelated CI optimizations.

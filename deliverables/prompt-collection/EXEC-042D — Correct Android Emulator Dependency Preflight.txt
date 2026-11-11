@@ -1,0 +1,108 @@
+
+EXEC-042D — Correct Android Emulator Dependency Preflight
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Last reported commit: f47a4fa
+
+CONTEXT
+
+The second GitHub visual workflow failed in Setup 4/5.
+
+The attached GitHub log confirms:
+- Emulator package installation completed.
+- API 37 x86_64 system image extraction completed.
+- Android emulator -version succeeded (37.2.13.0).
+- Direct ldd against the internal QEMU executable reported
+  numerous Android Emulator bundled libraries as "not found".
+- The script stopped with:
+  "unresolved shared libraries listed above".
+
+The emulator launcher normally configures library search paths
+for its internal QEMU engine.
+
+Therefore, direct ldd output without the launcher's runtime
+environment is not sufficient evidence of a broken installation.
+
+OBJECTIVE
+
+Correct the overly strict QEMU dependency preflight while
+preserving genuine emulator startup failure detection.
+
+TASKS
+
+1. Read the current handoff and start-emulator.sh.
+
+2. Locate the exact ldd validation responsible for the failure.
+
+3. Inspect how the emulator distribution provides its
+   bundled libraries under the Android SDK emulator directory.
+
+4. Remove the unconditional failure triggered by bare ldd
+   output against the internal QEMU executable.
+
+5. Retain ldd as an optional diagnostic if useful, clearly
+   distinguishing observations from confirmed startup errors.
+
+6. Preserve validation that:
+   - The emulator executable exists and runs.
+   - The required system image is installed.
+   - AVD creation succeeds.
+   - The emulator process actually starts.
+   - Android finishes booting.
+   - ADB recognizes the device.
+   - Display resolution and density are checked.
+
+7. If the emulator fails at runtime, preserve its exit status
+   and relevant emulator.log output. Do not ignore actual
+   missing system-library failures.
+
+8. Preserve libpulse0 installation and verification.
+
+9. Preserve the current timeout-protected final log collection.
+
+10. Do not change:
+    - APK reuse or source validation
+    - Build workflow
+    - Android API level
+    - Emulator display configuration
+    - Appium or Metro setup
+    - pytest scenarios
+    - Golden screenshots
+    - Comparison thresholds
+    - Allure reporting
+
+VALIDATION
+
+- Check shell syntax.
+- Check workflow YAML.
+- Confirm normal bundled-library ldd warnings no longer
+  automatically terminate provisioning.
+- Confirm genuine emulator launch failure still fails the job.
+- Confirm all existing startup timeouts remain.
+- Run git diff --check.
+- Confirm app and qa_visual are unchanged.
+
+DOCUMENTATION
+
+Update the private handoff and AI prompt log with:
+- Observed CI result
+- Root cause of the false-positive preflight
+- Implemented correction
+- Local verification
+- Remaining unverified emulator boot and AVD creation steps
+
+COMMIT
+
+Create one bounded local commit.
+Do not amend, push, tag, or rebuild the APK.
+Do not touch the ten unrelated untracked app/ entries.
+
+FINAL REPORT
+
+Provide the exact changes, validation results, commit hash,
+and steps to rerun the visual-only workflow with the same
+source_run_id: 42494990156.
+
+STOP after the bounded remediation.

@@ -1,0 +1,65 @@
+EXEC-024 — Runtime Baseline Review and Architecture Decision Evidence
+
+Objective:
+Prepare a human-reviewable visual comparison between the approved legacy long_headline golden and the deterministic runtime-selected rendering. Determine whether an intentional baseline migration is defensible without changing code, thresholds or approved references.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- Existing EXEC-021, EXEC-022 and EXEC-023 diagnostics
+- Current qa_visual comparator and approved golden
+
+Known evidence:
+- Legacy fallback: 3/3 identical captures, 527 px image, zero differences against approved golden.
+- Runtime selection: 3/3 identical captures, 526 px image, 11,640 changed pixels, 0.915356% against approved golden.
+- Scenario identity and readiness verified in both paths.
+- Current investigation did not establish the underlying native rounding cause.
+- Original golden remains unchanged.
+
+Tasks:
+
+1. Verify the original golden and relevant preserved runtime/fallback screenshot artifacts.
+
+2. Prepare a compact review packet under an ignored diagnostics directory containing:
+   - Approved original golden.
+   - Representative runtime-selected actual screenshot.
+   - Side-by-side visual comparison.
+   - Difference visualization.
+   - Enlarged image-region comparison, if helpful.
+   - Dimensions, bounds, hashes and comparison metrics.
+
+3. Confirm that the runtime screenshots used for review come from independent, verified scenario-selected launches and are identical to the EXEC-023 evidence. Do not present an unverified image as a candidate baseline.
+
+4. Inspect whether the runtime rendering introduces visible clipping, distorted artwork, missing content, incorrect image alignment or another unacceptable product behavior beyond the measured geometry difference.
+
+5. Distinguish verified observations from subjective visual-acceptance recommendations. Do not assume that three identical screenshots automatically justify baseline approval.
+
+6. Explain the baseline-management consequences of:
+   A. Retaining legacy environment selection for the expanded suite.
+   B. Standardizing on runtime selection with an explicitly reviewed replacement or separately identified reference.
+
+   Cover maintainability, CI orchestration, scenario expansion, historical golden traceability and rollback.
+
+7. Recommend one option with risks and evidence. Do not make the final baseline-approval decision on behalf of the human reviewer.
+
+Constraints:
+- Read-only application and test source.
+- Do not modify, overwrite or regenerate approved goldens.
+- Do not change fixture data, launch behavior, rendering or comparator thresholds.
+- Do not create additional visual scenarios.
+- Do not commit or push.
+- Preserve private records and existing working-tree changes.
+
+Required output:
+A. Visual review packet paths.
+B. Verified geometry and pixel differences.
+C. Assessment of visible rendering differences.
+D. Option A versus B implications.
+E. Recommendation and explicit human approval required.
+F. Golden integrity and final Git status.
+
+Stop after preparing the evidence. Await human review before any baseline migration or breaking_news implementation.

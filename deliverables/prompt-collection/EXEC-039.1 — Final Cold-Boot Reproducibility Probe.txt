@@ -1,0 +1,105 @@
+EXEC-039 — Final Cold-Boot Reproducibility Probe
+
+Project: D:\Projects\visual_regression_qa_strategy
+Expected HEAD: dfe9b16eb4a803f0bc994d962d13c8f5ccdc36f9
+
+OBJECTIVE
+
+Test the unresolved hypothesis that the intermittent fixture-image
+rendering differences correlate with emulator startup/warm-up state.
+
+This is a read-only investigation. Do not implement fixes.
+
+1. PREFLIGHT
+
+- Read the latest handoff and EXEC-039 evidence.
+- Verify HEAD, branch and Git status.
+- Confirm no existing test runner is active.
+- Preserve all unrelated untracked app entries.
+- Keep app, fixtures, goldens, emulator profile and thresholds unchanged.
+
+2. CONTROLLED EXPERIMENT
+
+Perform one genuine emulator cold boot, not a Quick Boot snapshot
+restore. Record how this was achieved.
+
+Wait for Android boot completion and app/test prerequisites, but do
+not introduce an arbitrary extended warm-up period.
+
+Run dark_article and long_headline:
+
+A. As soon as the emulator is ready.
+B. Approximately 5–10 minutes after boot.
+C. Approximately 20 minutes after boot.
+
+Record actual timestamps relative to emulator startup.
+
+Repeat individual scenarios when practical, but keep the experiment
+time-boxed to approximately 30–45 minutes.
+
+Run only one test process against the emulator at a time.
+
+3. EVIDENCE
+
+For every capture, preserve separately:
+- Actual screenshot
+- Diff image
+- Comparison JSON
+- Capture metadata
+- Relevant hierarchy and Appium logs
+- Screenshot and golden hashes
+- Result, duration and time since boot
+
+Use unique evidence paths under debug-logs/exec039/cold-boot/.
+
+Check whether rendering differences:
+- Reappear after cold boot.
+- Persist across subsequent runs.
+- Disappear as the emulator remains running.
+- Affect only image pixels or also element geometry.
+
+If a mismatch occurs, preserve evidence immediately.
+Do not rerun it away.
+
+Also record transport failures separately from visual mismatches.
+
+4. ANALYSIS
+
+Compare cold-boot results against the existing EXEC-038 failure
+and the warm-emulator EXEC-039 captures.
+
+Classify the boot-state hypothesis as:
+- Supported by reproduction
+- Contradicted by observed evidence
+- Still unresolved
+
+Do not claim causation from timing correlation alone.
+
+5. RESTRICTIONS
+
+Do not:
+- Modify application or test code.
+- Regenerate goldens.
+- Change thresholds or tolerances.
+- Introduce sleeps, retries or waiting logic.
+- Modify Allure.
+- Add dependencies.
+- Implement CI.
+- Stage, commit, tag or push.
+
+6. REPORT
+
+Return:
+- Cold-boot method and environment.
+- Exact commands and timestamps.
+- Results for each capture.
+- Screenshot/diff findings.
+- Comparison against the previous failure.
+- Whether the hypothesis gained or lost support.
+- Impact on CI-gate readiness.
+- Minimal recommended next action.
+- Final Git status.
+
+Update the ignored private handoff and prompt log.
+
+Stop after reporting. Do not start EXEC-040.

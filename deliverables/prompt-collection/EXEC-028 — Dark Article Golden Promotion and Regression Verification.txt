@@ -1,0 +1,178 @@
+EXEC-028 — Dark Article Golden Promotion and Regression Verification
+
+Objective:
+Promote the explicitly human-approved dark_article candidate to the official Android baseline, verify repeatability through independent native Appium executions, and ensure both previously approved visual scenarios remain passing.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Human approval:
+On November 7, 2026, the human decision-maker reviewed the dark_article candidate and full-screen context and explicitly approved baseline promotion.
+
+The reviewing assistant independently inspected the uploaded PNG, context, metrics and review notes, confirmed the candidate SHA-256 and dimensions, and found no unacceptable visual regression.
+
+This approval applies ONLY to the exact candidate identified below.
+
+Approved candidate:
+debug-logs/exec027/review/dark_article.candidate.png
+
+Approved candidate SHA-256:
+6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+Target baseline:
+qa_visual/baselines/android/pixel10-api37/dark_article.png
+
+Existing approved baselines:
+
+long_headline.png
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+breaking_news.png
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+Sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+- EXEC-027 review packet
+- Current app/, qa_visual/ and relevant README files
+
+Tasks:
+
+1. Record initial Git branch, HEAD, tracked modifications and untracked files. Preserve all existing work and private records.
+
+2. Verify the approved candidate:
+   - SHA-256 matches the exact approved value.
+   - Valid 1028 × 1237 RGBA PNG.
+   - Source is the genuine EXEC-027 Appium element capture.
+   - Repeatability evidence identifies two independent native sessions.
+   - Both existing approved goldens match their expected hashes.
+
+   Stop if any integrity check fails.
+
+3. Promote the approved candidate by copying it byte for byte to:
+
+   qa_visual/baselines/android/pixel10-api37/dark_article.png
+
+   Do not regenerate or alter the PNG pixels.
+
+4. Verify the promoted golden's SHA-256 equals:
+
+   6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+5. Execute dark_article using the existing explicit runtime-selection mechanism:
+
+   qa_scenario=dark_article
+
+   Use the documented VVP_QA_LAUNCH_URL configuration and existing pytest command.
+
+   Preserve the current Metro process/environment. Do not change Metro's fixture variable between scenarios.
+
+6. Run the dark_article visual regression twice through independent cold launches.
+
+   For each run verify:
+   - Exact qa-scenario:dark_article identity.
+   - Effective qa-theme:dark marker.
+   - Expected QA-FIXTUR article title.
+   - Bundled-image readiness and settled card layout.
+   - Complete outer-card bounds.
+   - Screenshot dimensions.
+   - Golden comparison PASS/FAIL.
+   - Changed pixels and changed ratio.
+   - Pytest exit code and artifact locations.
+
+   Both runs must PASS against the newly approved golden.
+
+7. Compare the two resulting actual screenshots for repeatability.
+
+   Report byte identity, raw pixel differences and comparator-tolerated differences separately.
+
+8. Verify theme isolation using the existing approved light scenarios:
+
+   - Run long_headline with explicit runtime selection.
+   - Verify effective light appearance.
+   - Compare against the unchanged approved long_headline golden.
+   - Run breaking_news with explicit runtime selection.
+   - Verify effective light appearance.
+   - Compare against the unchanged approved breaking_news golden.
+
+   Both must PASS.
+
+   Where feasible, execute another dark_article launch after the light scenarios to check for theme-state leakage. Record the result without silently expanding test scope.
+
+9. Run relevant automated checks:
+   - TypeScript validation.
+   - Focused Jest tests.
+   - Python unit tests.
+   - Pytest collection.
+   - Existing three Android visual scenarios.
+
+   Run the broad Jest suite if practical.
+
+   Report the known FIXTUR spelling-related combined-check failure separately if still present. Do not change fixture text or an approved golden to silence it.
+
+10. Update documentation:
+   - qa_visual/README.md.
+   - Baseline inventory README.
+   - Root README where relevant.
+   - AI prompt disclosure where material.
+
+   Document:
+   - Three approved Android scenarios.
+   - Explicit launch instructions.
+   - Dark mode uses the real app theme.
+   - QA theme selection is nonpersistent.
+   - Separate light/dark golden references.
+   - Baseline changes require human review.
+   - CI and native iOS execution remain unverified.
+
+11. Update the private decisions, handoff and material AI prompt records.
+
+   Record:
+   - Human approval date.
+   - Exact approved PNG hash.
+   - Promotion operation.
+   - Native test commands/results.
+   - Theme-isolation evidence.
+   - Remaining limitations.
+
+Constraints:
+- Do not change either existing approved golden.
+- Do not modify comparator thresholds.
+- Do not change fixture content, image assets or rendering.
+- Do not change runtime-selection architecture.
+- Do not introduce persistent theme writes.
+- Do not implement no_image or empty_feed.
+- Do not introduce CI workflows or native iOS implementation.
+- Do not modify unrelated Firebase/notification behavior.
+- Do not automatically regenerate goldens.
+- Do not commit or push.
+- Do not use blanket Git reset/clean operations.
+- Preserve all unrelated changes and private project documentation.
+
+Required report:
+
+A. Promoted dark_article.png path and verified SHA-256.
+B. Two independent dark_article visual results.
+C. Repeatability metrics and artifact paths.
+D. long_headline and breaking_news regression results.
+E. Theme-isolation evidence.
+F. TypeScript/Jest/Python validation.
+G. Documentation and recordkeeping updates.
+H. Final Git status and outstanding limitations.
+I. Recommendation for the next bounded scenario implementation.
+
+Acceptance:
+EXEC-028 passes only when:
+- The dark golden matches the exact human-approved SHA-256.
+- Two independent dark_article visual regressions PASS.
+- Both existing light-scenario regressions PASS.
+- Theme isolation is demonstrated.
+- All three approved golden hashes remain correct.
+- Comparison thresholds remain unchanged.
+
+If any visual regression fails, stop and preserve diagnostics. Do not modify goldens or thresholds to force a PASS.
+
+Stop after EXEC-028.
+Await human review before implementing another scenario.

@@ -1,0 +1,109 @@
+# EXEC-015 — Read-Only Git and Submission Safety Audit
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-014 — PASS
+
+## Objective
+
+Inspect the repository's Git status, file layout, privacy risks and submission readiness.
+
+Produce a concrete, safe Git packaging recommendation.
+
+**This is an audit only. Do not initialize Git, stage files, commit, publish or modify the repository.**
+
+## Step 1 — Inspect repository state
+
+Read `AGENTS.md`, if present, and `docs/AGENT_TASK_HISTORY.md`.
+
+Determine:
+
+- Whether the project root is already a Git repository.
+- Whether `app/` has its own `.git` directory or gitfile.
+- Whether `qa_visual/` is independently tracked.
+- Existing remotes and branches, if any.
+- Existing `.gitignore` files and their effective coverage.
+- Whether symlinks, submodules or nested repositories could complicate packaging.
+
+Do not delete or alter nested Git metadata.
+
+## Step 2 — Inventory submission files
+
+Confirm existence and location of:
+
+- Root `README.md`.
+- `qa_visual/README.md`.
+- Actual fixture-enabled application source.
+- Python/pytest runner and pinned requirements.
+- Unit and Android visual tests.
+- Approved golden at `qa_visual/baselines/android/pixel10-api37/long_headline.png`.
+- `deliverables/strategy.md`.
+- `deliverables/strategy.pdf`.
+- `docs/ai_prompts_used.md`.
+- Required licensing and attribution files.
+
+Verify the golden SHA-256:
+
+`E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629`
+
+Report any missing or mismatched files.
+
+## Step 3 — Privacy and size audit
+
+Identify files or directories that must be excluded from a public submission, including:
+
+- `.project-private/` and the original employer challenge PDF.
+- Credentials, API keys, secrets, local `.env` files and machine-specific configurations.
+- Python `.venv`, caches and local environments.
+- `node_modules`, Metro caches and generated native build outputs.
+- Android SDK/build outputs and Gradle caches.
+- Temporary screenshots and generated comparison artifacts, unless deliberately curated.
+- Internal-only notes, logs or temporary files not intended for submission.
+- Large unrelated files or binaries.
+
+Inspect filenames and relevant configuration safely. Do not print secret values or private PDF contents.
+
+Distinguish tracked source assets needed for the app from generated artifacts that can be rebuilt.
+
+Check the existing app license and any obvious asset-redistribution concerns. Report uncertainty rather than claiming full license clearance.
+
+## Step 4 — Determine safe packaging approach
+
+Recommend whether to:
+
+1. Initialize a new root Git repository containing the adapted application and QA framework.
+2. Preserve an existing nested app repository and use another documented structure.
+
+Identify the lowest-risk approach, considering the employer needs a runnable, reviewable submission.
+
+Provide a proposed inclusion/exclusion inventory and an appropriate `.gitignore` plan.
+
+The approved golden must be included in the final commit. The private employer PDF must not be included.
+
+Do not implement the recommendation yet.
+
+## Step 5 — Read-only verification
+
+Use read-only commands only.
+
+Where available, inspect Git state, file sizes, dependency directories and candidate ignore rules.
+
+Do not execute destructive Git commands, `git add`, `git init`, `git commit`, `git push`, or modify Git configuration.
+
+## Completion report
+
+Return:
+
+1. EXEC-015 status: PASS / FAIL / BLOCKED.
+2. Root and nested Git status.
+3. Confirmed submission files.
+4. Golden checksum verification.
+5. Privacy risks and required exclusions.
+6. Large-file/build-output concerns.
+7. Licensing observations.
+8. Recommended Git packaging approach.
+9. Exact bounded next task for initializing and committing safely.
+
+**Do not modify any files during this audit, including task history. Return a completion report for human authorization.**
+
+**Stop after EXEC-015.**

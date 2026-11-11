@@ -1,0 +1,167 @@
+# EXEC-013 — Finalize Strategy and Produce Reviewed PDF
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-012 — PASS
+
+## Objective
+
+Apply the human-reviewed, narrowly scoped improvements to the existing strategy and produce a professional PDF for submission.
+
+Keep `deliverables/strategy.md` as the editable source.
+
+Produce:
+
+`deliverables/strategy.pdf`
+
+**The final PDF must contain 1–3 pages.**
+
+## Step 1 — Review existing strategy
+
+Read:
+
+- `deliverables/strategy.md`
+- `docs/AGENT_TASK_HISTORY.md`
+- Existing agent/project instructions
+- Relevant README files for evidence consistency
+
+Preserve the existing seven-section strategy, technical decisions and verified results.
+
+Do not rewrite the strategy from scratch.
+
+## Step 2 — Apply approved corrections
+
+### Required: Golden approval and CI policy
+
+Replace the unconditional statement that CI should fail whenever reference images change.
+
+Clarify that:
+
+- CI never automatically regenerates or accepts goldens.
+- Unexpected differences fail.
+- Baseline updates are proposed as explicit PR changes.
+- Approved baseline changes require reviewer signoff and comparison evidence.
+- Verification runs again against the proposed reviewed baseline.
+- Reference directories should have suitable review protection.
+
+### Minor improvement: Demo limitations
+
+Preserve the explicit statement that the demonstrated implementation covers one Android article-card scenario.
+
+Explain that it proves the fixture-to-render-to-screenshot-to-comparison workflow, not broad component or device coverage.
+
+Do not claim additional tests.
+
+### Minor improvement: Fixture ownership
+
+Clarify that versioned fixture contracts should be jointly maintained by development and QA, with platform-specific adapters.
+
+Do not significantly increase document length.
+
+## Step 3 — Produce PDF
+
+Render the revised Markdown into:
+
+`deliverables/strategy.pdf`
+
+Use a clean, professional technical-document layout:
+
+- A4 page size.
+- Readable body text.
+- Clear seven-section hierarchy.
+- Consistent margins and spacing.
+- Readable compact table.
+- Page numbers.
+- Subtle professional styling.
+- Clickable links where supported.
+
+Avoid unnecessary decoration, oversized headers and excessive whitespace.
+
+Prefer **two pages** if comfortably readable, but use three rather than sacrificing clarity.
+
+Use existing tooling where available. Avoid installing a large new toolchain solely for conversion.
+
+Do not invent a successful conversion if required tooling is unavailable.
+
+## Step 4 — Verify the PDF
+
+This is mandatory.
+
+1. Confirm the PDF exists and is readable.
+2. Inspect PDF metadata/page count.
+3. Verify the page count is between 1 and 3.
+4. Render every PDF page to an image.
+5. Visually inspect all rendered pages for:
+   - Truncated text.
+   - Overflow.
+   - Broken tables.
+   - Missing symbols.
+   - Unreadably small text.
+   - Broken headings.
+   - Excessive whitespace.
+   - Awkward section/page breaks.
+6. Verify that no strategy content was lost during conversion.
+7. Confirm the original Markdown remains the editable source.
+8. Confirm the PDF contains no private employer brief or internal-only project material.
+
+If the initial PDF is not suitable, make bounded layout corrections and re-render.
+
+Do not remove important technical content merely to fit the page limit.
+
+## Step 5 — Record completion
+
+Append EXEC-013 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Record:
+
+- Strategy edits.
+- PDF conversion method.
+- Actual PDF page count.
+- Verification commands and results.
+- Rendered-page inspection findings.
+- Files created or changed.
+- Any unresolved concerns.
+
+Update the local handoff if this is part of the existing project workflow.
+
+## Restrictions
+
+- Do not modify the application.
+- Do not change automated tests or comparison thresholds.
+- Do not modify golden images.
+- Do not run Android/iOS automation.
+- Do not initialize or publish Git.
+- Do not implement CI.
+- Do not add new scenarios.
+- Do not alter the root README yet.
+- Do not automatically proceed to the next task.
+
+## Acceptance criteria
+
+EXEC-013 is PASS only when:
+
+- `deliverables/strategy.md` contains the approved corrections.
+- `deliverables/strategy.pdf` exists.
+- The PDF contains 1–3 pages.
+- All rendered pages have been inspected.
+- The PDF is complete, legible and professionally formatted.
+- All verified evidence remains accurate.
+- No implementation changes were made.
+
+## Completion report
+
+Return:
+
+1. EXEC-013 status.
+2. Markdown revisions made.
+3. PDF path.
+4. PDF page count.
+5. PDF conversion tool.
+6. Rendered-page verification results.
+7. Files changed.
+8. Remaining submission gaps.
+9. Recommended next bounded task.
+
+**Stop after EXEC-013. Await human review and authorization.**

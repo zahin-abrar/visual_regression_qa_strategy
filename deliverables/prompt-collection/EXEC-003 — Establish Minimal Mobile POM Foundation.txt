@@ -1,0 +1,140 @@
+# EXEC-003 — Establish Minimal Mobile POM Foundation
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-002 — PASS
+
+## Objective
+
+Introduce a minimal, modular Page Object Model (POM) structure into the existing Python/pytest/Appium visual-testing runner.
+
+Use mobile Screen Objects and Component Objects so that UI interactions, selectors, screenshots, and visual comparison have clear responsibilities.
+
+**Preserve existing working code. Do not overengineer or implement future iOS support.**
+
+## Step 1 — Inspect existing runner
+
+Read:
+
+- `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- `qa_visual/README.md`, if present
+- Existing Python runner, driver configuration, tests and image comparator
+
+Identify which existing functionality can be reused.
+
+Do not rewrite working code merely to match a proposed folder structure.
+
+## Step 2 — Implement minimal POM
+
+Establish only the abstractions needed for our approved scenario.
+
+### Screen Object: `HomeScreen`
+
+Responsibilities:
+
+- Access the article-card component.
+- Encapsulate screen-level locators or navigation only when necessary.
+
+### Component Object: `ArticleCard`
+
+Responsibilities:
+
+- Locate the article card using existing React Native accessibility identifiers.
+- Wait for an explicit UI-ready condition.
+- Access the article title.
+- Capture the actual article-card element screenshot.
+
+The current app is expected to expose `qa-article-card-ready` and `qa-article-title`. Inspect the existing code before selecting locators.
+
+Do not assume the ready element contains the full visual bounds of the card. If element boundaries cannot be established without a live session, defer that verification to the native-capture task.
+
+### Driver configuration
+
+Keep existing Android UiAutomator2 session configuration in its current module or a small dedicated driver module.
+
+Do not introduce generic abstractions unnecessarily.
+
+### Visual comparison
+
+Preserve the existing image comparison implementation and baseline paths. Keep visual assertions separate from Screen and Component Objects.
+
+## Architectural rules
+
+1. Tests define scenarios and assertions.
+2. Screen Objects encapsulate screen behavior.
+3. Component Objects encapsulate reusable UI elements.
+4. Drivers isolate platform-specific session configuration.
+5. Visual utilities own image comparison and diff generation.
+6. App fixtures remain independent of Appium.
+
+Avoid:
+
+- Complex inheritance hierarchies.
+- Unused base classes.
+- Speculative iOS implementations.
+- New dependencies without demonstrated necessity.
+- Arbitrary sleeps.
+- Hard-coded golden regeneration inside tests.
+
+## Verification
+
+Run available unit tests and Python import/collection checks appropriate to the existing runner.
+
+For example, if supported by the current configuration:
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy\qa_visual
+
+python -m pytest -m unit -q
+python -m pytest --collect-only -q
+```
+
+If dependencies are unavailable or an existing test requires a live Appium session during collection, record the limitation rather than performing an unauthorized installation or session launch.
+
+Distinguish successful test collection from successful test execution.
+
+## Restrictions
+
+- Do not modify `app/` or the QA fixture.
+- Do not restart or modify the emulator.
+- Do not close or relaunch the running application.
+- Do not restart or replace the Appium server.
+- Do not create an Appium session.
+- Do not capture screenshots.
+- Do not create or modify golden PNGs.
+- Do not introduce iOS driver implementations.
+- Do not initialize Git.
+- Do not begin EXEC-004 automatically.
+
+## Acceptance criteria
+
+EXEC-003 is PASS when:
+
+- The runner has a minimal, understandable Screen/Component Object separation.
+- Existing driver configuration and visual comparison logic are preserved.
+- Tests use or can directly use the new objects without duplicating selectors.
+- Available unit tests and collection checks pass, or any limitations are explicitly documented.
+- No application, emulator, baseline or Git changes occur.
+
+## Task history
+
+Append the EXEC-003 record to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Include actual commands/results, files changed, design decisions, verification evidence, and remaining uncertainties.
+
+## Completion report
+
+Return:
+
+1. EXEC-003 status: PASS / FAIL / BLOCKED
+2. Existing runner structure discovered
+3. Files added or modified
+4. Screen Object and Component Object responsibilities
+5. Commands executed and actual results
+6. Any regressions or unresolved concerns
+7. Recommended next smallest task
+
+**Stop after EXEC-003. Await review and authorization.**

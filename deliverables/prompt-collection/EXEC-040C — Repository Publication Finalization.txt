@@ -1,0 +1,166 @@
+EXEC-040C — Repository Publication Finalization
+
+Project: D:\Projects\visual_regression_qa_strategy
+Expected HEAD: dfe9b16
+Branch: main
+
+OBJECTIVE
+
+Finalize repository housekeeping and publication readiness without
+changing the working screenshot-testing implementation.
+
+Preserve all uncommitted work from EXEC-040 and EXEC-040B.
+
+APPROVED DECISIONS
+
+1. First GitHub remote will be PRIVATE.
+2. Preserve the existing nine-commit Git history for now.
+3. Do not rewrite author or committer metadata.
+4. Exclude all ten unrelated untracked upstream app/ entries.
+5. Keep AGENTS.md and CLAUDE.md gitignored and private.
+6. Keep .project-private/ ignored.
+7. Do not create sanitized public agent instructions.
+8. Leave generic "challenge" wording unchanged.
+9. Do not perform another rendering-instability investigation.
+10. Do not change goldens, fixtures, thresholds or retry behavior.
+11. The human will compile the final AI prompt disclosure separately.
+
+A. PREFLIGHT
+
+- Read current local agent instructions and private handoff.
+- Verify branch, HEAD, tracked changes, untracked files and ignore rules.
+- Preserve all existing EXEC-040/040B work.
+- Preserve the ten untracked app/ entries without modifying them.
+- Verify the discontinued prompt/history files are not required
+  by active instructions.
+
+B. FRESH-CLONE DOCUMENTATION
+
+Audit root README.md and qa_visual/README.md.
+
+Ensure a developer can understand the actual setup process
+without AGENTS.md, CLAUDE.md or .project-private/.
+
+Cover:
+- Prerequisites and supported local environment
+- App dependency installation
+- Android development build
+- Emulator setup
+- Metro startup
+- Appium startup
+- Python virtual environment and dependencies
+- Five normal visual tests
+- Six-test intentional-failure demonstration
+- Default complete test suite
+- Allure reporting and failure artifacts
+
+Use existing scripts and verified project configuration.
+
+Do not invent commands or claim that a fresh-clone build
+was verified unless it was actually executed.
+
+Clearly distinguish verified commands from setup instructions
+that have not yet been tested from a clean checkout.
+
+Do not implement automatic infrastructure startup.
+
+C. LICENSE AND ASSET DOCUMENTATION
+
+Verify the upstream MIT license and attribution are retained.
+
+Review which Volksverpetzer/Mimikama brand assets are actually
+used by the application and demo.
+
+Add a concise provenance/attribution notice if appropriate.
+
+The notice must NOT imply that MIT grants rights to logos,
+trademarks, mascot artwork or animations.
+
+Do not delete or replace application assets in this task.
+
+Document unresolved asset permissions as a limitation for
+public distribution.
+
+D. SECRET-SCAN FINDING
+
+Review the previously reported Algolia client searchKey finding.
+
+Determine, using available configuration and upstream evidence,
+whether it is intended as a public client-side search key.
+
+Do not expose secret values in the report.
+
+Do not assume its permissions are restricted without evidence.
+
+Record any remaining uncertainty.
+
+Repeat the relevant gitleaks scan if publication-related tracked
+files have changed in ways that warrant verification.
+
+E. REPOSITORY CONTENT
+
+Confirm:
+- All ten unrelated untracked app/ entries remain excluded.
+- No upstream deployment workflows are accidentally introduced.
+- No private agent instructions or handoff files are tracked.
+- No employer challenge PDF is tracked.
+- Generated artifacts remain ignored.
+- Required app source, fixtures, baselines, tests and license files
+  are tracked and available for a fresh checkout.
+- Documentation links resolve.
+- The discontinued docs/ files are not recreated.
+
+Review the cumulative tracked diff from EXEC-040 and EXEC-040B.
+
+F. VERIFICATION
+
+Run:
+- Relevant unit tests
+- Default pytest suite when the environment is available
+- git diff --check
+- Git status and tracked-file inventory checks
+
+Retain genuine visual failures and their evidence packages.
+
+If the known fixture-image mismatch or Appium transport failure
+recurs, document it accurately, preserve diagnostics and continue
+only where safe.
+
+Do not regenerate goldens, change thresholds or retry until green.
+
+Report exact commands, exit codes and test results.
+
+G. COMMIT PREPARATION
+
+Propose clean commit boundaries:
+
+1. Failure-evidence retention, unit tests and related documentation.
+2. Documentation cleanup and repository housekeeping.
+3. Any additional publication-readiness documentation.
+
+Show which files belong in each proposed commit.
+
+Do not stage or commit yet.
+
+Do not rewrite history, tag, configure a remote or push.
+
+H. FINAL REPORT
+
+Provide:
+
+1. Starting and final Git status.
+2. Files changed during EXEC-040C.
+3. Cumulative changes awaiting commit.
+4. Fresh-clone readiness assessment.
+5. Confirmed and unresolved license/brand issues.
+6. Algolia finding assessment.
+7. Untracked and ignored-file verification.
+8. Test results with exact commands and exit codes.
+9. Proposed commit boundaries and messages.
+10. Remaining blockers to private remote publication.
+
+Update the private handoff, decisions and prompt log.
+
+STOP for human review.
+
+Do not begin EXEC-041 or CI/CD implementation.

@@ -1,0 +1,81 @@
+# EXEC-001 — Runner Inventory and Prerequisite Inspection
+
+Project: `D:\Projects\visual_regression_qa_strategy`
+
+Phase: Approved EXECUTION
+
+## Objective
+
+Verify whether the `qa_visual/` directory exists and inspect the currently installed Python, Appium and UiAutomator2 prerequisites.
+
+Do not implement, install, repair or modify the application.
+
+## Instructions
+
+1. Read the existing root `AGENTS.md` and relevant repository instructions.
+2. Verify whether `qa_visual/` exists.
+3. If present, inspect its file structure and identify the existing runner, dependencies and README. Do not modify anything.
+4. Check the availability and versions of:
+   - Python 3 / Python launcher
+   - Appium server
+   - Appium UiAutomator2 driver
+5. If tools are missing, report them. Do not install anything.
+6. Inspect the existing `docs/AGENT_TASK_HISTORY.md` if present. Otherwise, create it. Append the EXEC-001 outcome using the record format below.
+
+## Suggested PowerShell commands
+
+```powershell
+$root = 'D:\Projects\visual_regression_qa_strategy'
+Set-Location $root
+
+Test-Path .\qa_visual
+
+if (Test-Path .\qa_visual) {
+    Get-ChildItem .\qa_visual -Recurse -File |
+        Select-Object -ExpandProperty FullName
+}
+
+Get-Command py,python,appium -ErrorAction SilentlyContinue |
+    Select-Object Name,Source
+
+py -3 --version
+appium --version
+appium driver list --installed
+```
+
+Capture command errors and exit codes. Do not infer tool readiness from file existence alone.
+
+## Task history format
+
+Record:
+
+- Task ID: EXEC-001
+- Title: Runner Inventory and Prerequisite Inspection
+- Status: PASS / FAIL / BLOCKED
+- Date/time
+- Objective and scope
+- Files inspected
+- Commands executed and actual results
+- Verified findings
+- Unverified items or blockers
+- Files changed (task history only)
+- Recommended next task
+
+Preserve all previous history entries if the file already exists.
+
+## Strict boundaries
+
+- Do not initialize Git.
+- Do not modify `app/` or its fixture.
+- Do not restart Metro or the emulator.
+- Do not install Python, Appium or drivers.
+- Do not copy or extract the previous starter ZIP.
+- Do not begin screenshot implementation.
+- Do not disclose local secrets or `.env` contents.
+- Do not automatically proceed to EXEC-002.
+
+## Completion
+
+Return a concise execution report with actual evidence, prerequisite status, and the updated task-history path.
+
+Stop after EXEC-001. Wait for the next instruction.

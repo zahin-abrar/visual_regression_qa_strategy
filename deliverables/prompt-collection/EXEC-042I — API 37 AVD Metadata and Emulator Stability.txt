@@ -1,0 +1,423 @@
+
+EXEC-042I — API 37 AVD Metadata and Emulator Stability
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+PHASE: EXECUTION
+BRANCH: main
+LAST REPORTED COMMIT: a229f7e
+
+OBJECTIVE
+
+Investigate and correct the Android API 37 emulator
+graphics/system instability preventing the GitHub
+visual workflow from installing its APK.
+
+Focus on AVD target metadata, Android SDK Command-line
+Tools selection and post-boot system health.
+
+This is a bounded infrastructure change, not an
+application or screenshot-testing change.
+
+EVIDENCE FROM REAL GITHUB EXECUTION
+
+2026-11-08, all times UTC:
+
+19:38:29
+- Authorized ADB reached state "device".
+- sys.boot_completed=1.
+- APK installation started.
+
+19:38:34.218
+- surfaceflinger reported:
+  Assertion failed:
+  !rcEnc->featureInfo()->hasReadColorBufferDma
+
+19:38:34.245
+- Fatal signal 6 (SIGABRT).
+- Process: surfaceflinger
+- Thread: RegionSampling
+- Backtrace implicated mapper.ranchu.so.
+
+19:38:36
+- Android clients reported surfaceflinger died.
+
+19:38:37
+- Android reported system_server dead.
+- APK installation failed:
+  Failure calling service package: Broken pipe (32)
+
+The crash preceded and overlapped the installation
+failure. Causality is strongly suspected but not
+conclusively established.
+
+Additional observations:
+- Repeated Android low-memory kills.
+- Severe Android CPU contention and SystemUI ANR.
+- Emulator observed 2 CPU cores.
+- Host filesystem: 6.4 GB free, 92% used.
+- Android guest storage was not independently measured.
+
+EXTERNAL TECHNICAL LEAD
+
+https://github.com/actions/runner-images/issues/14484
+
+This issue describes older Command-line Tools silently
+creating Android API 37.0 AVDs with:
+
+target=android-0
+
+instead of:
+
+target=android-37.0
+
+An A/B reproduction found the same surfaceflinger
+assertion and reported that Command-line Tools 22.0
+corrected the AVD metadata and eliminated the crash.
+
+Treat this as a strong hypothesis.
+Our runner's actual CLI version and AVD target metadata
+are still unknown.
+
+TASK A — REPOSITORY PREFLIGHT
+
+1. Read:
+   - .project-private/03_HANDOFF.md
+   - .project-private/02_DECISIONS.md
+   - .github/workflows/android-visual-tests.yml
+   - .github/scripts/start-emulator.sh
+   - .github/scripts/init-adb-auth.sh
+   - .github/scripts/collect-final-logs.sh
+
+2. Inspect git status, branch and HEAD.
+
+3. Identify the current locations and invocation order
+   of sdkmanager, avdmanager and emulator.
+
+4. Identify any existing SDK installation or version
+   checks that should be reused.
+
+5. Preserve unrelated untracked app/ entries.
+
+TASK B — VERIFY COMMAND-LINE TOOLS
+
+Add concise version/path diagnostics before AVD creation.
+
+Record:
+- ANDROID_HOME
+- JAVA_HOME and Java version
+- Resolved sdkmanager executable
+- Resolved avdmanager executable
+- sdkmanager --version
+- Relevant installed Command-line Tools packages
+- Selected system-image package
+
+Check the actual binaries invoked, not only the
+version of a different binary in PATH.
+
+Ensure the diagnostic commands are bounded.
+
+TASK C — ENSURE CORRECT API 37 TOOLCHAIN
+
+The selected system image is:
+
+system-images;android-37.0;google_apis_playstore_ps16k;x86_64
+
+Use a Command-line Tools revision known to understand
+the dotted android-37.0 target.
+
+Preferred revision: 22.0.
+
+If existing tools are verified compatible AND create
+correct metadata, avoid unnecessary reinstalls.
+
+If tools are outdated or generate incorrect metadata:
+
+1. Install/pin Command-line Tools 22.0 using a supported
+   Android SDK package or official distribution.
+
+2. Prefer a versioned installation location and explicit
+   binary paths.
+
+3. Ensure the new avdmanager is actually invoked.
+
+4. Account for Android SDK installations where an
+   attempted latest update creates latest-2 instead
+   of replacing latest.
+
+5. Do not delete or move preinstalled SDK directories
+   unnecessarily.
+
+6. Confirm compatibility with Java 17.
+
+7. Keep installation bounded and detect failure clearly.
+
+8. Do not depend on a floating future "latest" revision
+   when a specific version is intended.
+
+TASK D — VERIFY AVD TARGET METADATA
+
+After creating Pixel_10, inspect:
+
+$ANDROID_AVD_HOME/Pixel_10.ini
+
+Require exactly:
+
+target=android-37.0
+
+Also inspect:
+
+$ANDROID_AVD_HOME/Pixel_10.avd/config.ini
+
+Verify that image.sysdir.1 matches the selected
+Android 37.0 Google Play Store 16 KB x86_64 image.
+
+Fail early if:
+- Target metadata is absent.
+- Target metadata is android-0.
+- Target metadata is for another API.
+- The image path does not match the intended image.
+- The selected AVD is not registered/discoverable.
+
+Report the observed value and likely CLI mismatch.
+
+Do not silently rewrite the target value by hand as a
+substitute for correcting AVD generation.
+
+Preserve existing ANDROID_AVD_HOME registration checks.
+
+TASK E — POST-BOOT EMULATOR STABILITY GATE
+
+Current boot verification requires:
+- adb state=device
+- sys.boot_completed=1
+
+Keep those requirements unchanged.
+
+Add a separate bounded post-boot stabilization check
+before APK installation.
+
+Recommended observation period: approximately 45-60
+seconds, with a small fixed polling interval.
+
+Check:
+
+1. Emulator process remains alive.
+
+2. ADB remains authorized and responsive.
+
+3. surfaceflinger is running.
+
+4. system_server is running.
+
+5. Both processes retain stable identities throughout
+   the health observation window.
+
+6. Android package manager answers a bounded, read-only
+   query such as:
+   adb shell cmd package list packages
+
+7. No new matching fatal graphics crash is observed
+   within the relevant observation window.
+
+8. The known assertion and fatal-signal signatures are
+   reported clearly if present.
+
+Use process identities, timestamps and relevant logcat
+evidence rather than an unconditional sleep.
+
+Avoid clearing logcat or destroying useful evidence.
+
+Handle:
+- Temporary command failure
+- Process disappearance
+- Process restart
+- ADB becoming offline/unauthorized
+- Package manager timeout
+- Emulator exiting
+- Healthy device
+
+A process that disappears or changes PID should not
+be classified as stable merely because it reappears.
+
+Bound every potentially hanging shell/ADB operation.
+Do not allow the health gate to wait indefinitely.
+
+Record concise diagnostics and a distinct failure
+reason. Keep the gate reasonably fast for CI use.
+
+Do not accept sys.boot_completed=1 alone as proof
+that Android is healthy enough for screenshot testing.
+
+TASK F — INSTALLATION FAILURE DIAGNOSTICS
+
+Preserve the existing APK install command initially:
+
+adb install -r -g "$APK_PATH"
+
+Before installation, record:
+- Emulator ADB state
+- Package-manager responsiveness
+- APK file size and SHA-256
+- Host free disk space
+- Android guest /data free storage, if accessible
+- Relevant available-memory observation, if feasible
+
+On install failure:
+- Preserve the original exit status.
+- Capture concise package-manager/system crash evidence.
+- Report whether ADB remains authorized.
+- Report whether surfaceflinger and system_server
+  survived the installation attempt.
+- Preserve final artifact collection.
+
+Do not replace the existing streamed installation
+with --no-streaming during this work package.
+
+Do not add retry loops that hide service crashes.
+
+TASK G — PRESERVATION CONSTRAINTS
+
+Do not change:
+- Source APK build workflow
+- APK artifact reuse and compatibility verification
+- Android API 37.0 system image
+- Google Play Store / 16 KB image variant
+- Pixel_10 AVD name
+- 1080x2424 resolution
+- 420 dpi
+- 4096 MB configured AVD RAM
+- KVM acceleration
+- Headless cold boot
+- Existing graphics flags
+- Existing ADB authentication implementation
+- Metro or Appium versions
+- React Native application source
+- Fixture definitions
+- Visual test cases
+- Golden PNGs
+- Comparison thresholds
+- Allure/JUnit reporting
+- Advisory pytest semantics
+
+Do not rebuild the APK.
+
+Do not change runner type or introduce a device cloud.
+
+Do not introduce unrelated disk cleanup or graphics
+optimizations in this task.
+
+TASK H — LOCAL VALIDATION
+
+Validate all changed scripts and workflow YAML.
+
+Run:
+- bash syntax checks
+- Workflow YAML validation
+- git diff --check
+
+Use mocked tools to test:
+
+1. Correct target=android-37.0 accepted.
+2. Incorrect target=android-0 rejected.
+3. Missing target rejected.
+4. Mismatched image path rejected.
+5. Outdated CLI selection handled.
+6. Updated CLI selected when installed.
+7. Key initialization and ADB startup order preserved.
+8. Stable services pass the health gate.
+9. surfaceflinger PID restart fails.
+10. system_server PID restart fails.
+11. Missing service fails.
+12. Unauthorized/offline ADB fails.
+13. Package-manager timeout fails.
+14. Matching fatal graphics crash fails.
+15. Healthy boot proceeds to APK installation.
+16. All waits and diagnostics are bounded.
+17. No screenshot or application artifacts change.
+
+Use a short, test-only health-gate duration for mocks.
+Production must use the real bounded observation period.
+
+Do not claim live emulator verification from mocks.
+
+TASK I — CONDITIONAL STOP
+
+If inspection shows that the selected Command-line
+Tools are already compatible AND generated AVD metadata
+is already correct, do not blindly install 22.0 or
+change graphics flags.
+
+Implement useful non-invasive diagnostics and the
+post-boot health gate, record the negative finding,
+and clearly identify the next investigation hypothesis.
+
+Do not make multiple speculative environment changes
+within this work package.
+
+TASK J — DOCUMENTATION
+
+Update the canonical local project records:
+
+- .project-private/03_HANDOFF.md
+- .project-private/02_DECISIONS.md if a decision changes
+- The existing private AI prompt log
+
+Record:
+- Verified GitHub failure timeline
+- External hypothesis and source link
+- Toolchain configuration before and after
+- AVD metadata verification
+- Health-gate behavior
+- Local validation commands/results
+- Remaining live GitHub uncertainties
+- Next steps and artifact/run references
+
+Do not claim GitHub CI is green.
+
+TASK K — ONE LOCAL COMMIT
+
+Create one bounded commit:
+
+ci(visual): validate API 37 AVD and emulator stability
+
+Stage only relevant files.
+
+Do not use git add -A.
+Do not amend.
+Do not push.
+Do not tag.
+Do not rebuild the APK.
+Do not regenerate goldens.
+Preserve the ten unrelated untracked app/ entries.
+
+TASK L — FINAL AGENT REPORT
+
+Return:
+
+1. Files changed.
+2. Actual available CLI version and tool resolution
+   evidence (repository/local vs live runner).
+3. Exact selected Command-line Tools version.
+4. How the intended avdmanager is selected.
+5. How target=android-37.0 is verified.
+6. Whether android-0 was actually observed or is
+   still a hypothesis.
+7. How service PID stability is checked.
+8. Package-manager readiness check.
+9. How fatal graphics crashes are detected.
+10. APK installation diagnostics.
+11. Mock/test validation evidence.
+12. Confirmation unchanged APK, fixtures and goldens.
+13. Commit hash.
+14. Remaining GitHub-only uncertainties.
+15. Instructions for the next visual-only workflow run.
+
+Use existing successful APK source run:
+
+42494990156
+
+only if its artifact is still available.
+
+STOP AFTER LOCAL COMMIT.

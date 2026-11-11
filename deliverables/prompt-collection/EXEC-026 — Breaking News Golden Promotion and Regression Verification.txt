@@ -1,0 +1,112 @@
+EXEC-026 — Breaking News Golden Promotion and Regression Verification
+
+Objective:
+Promote the explicitly human-approved breaking_news candidate to the official Android golden, then verify both existing visual scenarios against their approved baselines.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Human approval:
+The human decision-maker reviewed the breaking-news candidate and full-screen context on November 7, 2026 and explicitly APPROVED promotion.
+
+The reviewing assistant inspected the uploaded images and metrics and found no unacceptable clipping, distortion, overlap or missing content.
+
+This approval applies ONLY to the exact candidate and hash below.
+
+Approved candidate:
+debug-logs/exec025/review/breaking_news.candidate.png
+
+Approved SHA-256:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+Target golden:
+qa_visual/baselines/android/pixel10-api37/breaking_news.png
+
+Existing long_headline golden SHA-256:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+Sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- Relevant app/, qa_visual/ and README files
+- EXEC-025 review packet and test evidence
+
+Tasks:
+
+1. Record initial Git status, branch and HEAD. Preserve unrelated modifications and untracked files.
+
+2. Verify the approved candidate:
+   - SHA-256 matches exactly.
+   - Valid 1028 × 493 RGBA PNG.
+   - Source is the genuine EXEC-025 Appium banner capture.
+   - Independent captures have matching identity, bounds and repeatability evidence.
+
+   Stop if any verification fails.
+
+3. Copy the exact candidate into the target baselines directory as breaking_news.png. Do not regenerate or alter pixels.
+
+4. Verify the newly installed golden's SHA-256.
+
+5. Run breaking_news through the explicit runtime-selection launch mechanism:
+
+   qa_scenario=breaking_news
+
+   Use the existing scenario-launch helper and documented PowerShell environment variable. Do not switch Metro's fixture environment between tests.
+
+6. Execute the breaking-news Appium visual regression from two independent cold launches.
+
+   Record each run's:
+   - Exact command and exit code
+   - Scenario identity and readiness
+   - Headline assertion
+   - Screenshot bounds and dimensions
+   - Changed pixels and ratio
+   - PASS/FAIL
+   - Actual, diff and JSON artifact paths
+
+   Both must PASS against the new approved golden.
+
+7. Verify screenshot repeatability between the two launches. Report raw pixel differences separately from comparator-tolerated differences.
+
+8. Run the existing long_headline visual regression using explicit runtime selection.
+
+   It must PASS against its unchanged approved golden.
+
+9. Run applicable TypeScript, Jest and Python checks. Report the known FIXTUR spelling-related combined-check failure separately; do not change fixtures merely to silence it.
+
+10. Update baseline inventory, runner README and relevant submission documentation:
+    - Two approved Android visual scenarios.
+    - Exact fixture-launch commands.
+    - Golden review and regeneration policy.
+    - Breaking-news banner is a challenge-specific sample-app extension, not an existing upstream feature.
+    - Native iOS and CI execution remain unverified.
+
+11. Update private decisions, handoff and AI prompt records with approval, hashes, commands and verified results.
+
+Constraints:
+- Do not modify long_headline.png.
+- Do not change screenshot comparator thresholds.
+- Do not change fixture data, application layout or runner architecture.
+- Do not implement dark_article, no_image or empty_feed.
+- Do not regenerate or auto-approve other goldens.
+- Do not modify unrelated Firebase or notification behavior.
+- Do not introduce CI workflows.
+- Do not commit or push.
+- Preserve all existing work and private documentation.
+
+Required report:
+A. Promoted file path and verified SHA-256.
+B. Two independent breaking_news visual results.
+C. long_headline regression result.
+D. Repeatability metrics and artifact locations.
+E. TypeScript/Jest/Python validation.
+F. Documentation changes.
+G. Git status, remaining risks and next-step recommendation.
+
+Acceptance:
+EXEC-026 passes only if both independent breaking_news comparisons PASS against the approved candidate, the existing long_headline regression remains PASS and both golden hashes remain correct.
+
+If a visual comparison fails, stop and preserve diagnostics. Never silently replace a golden or loosen comparison thresholds.
+
+Stop after EXEC-026. Await human review before beginning another scenario.

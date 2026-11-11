@@ -1,0 +1,137 @@
+EXEC-025 — Breaking News Visual Scenario Implementation
+
+Objective:
+Implement the approved breaking_news Android visual regression scenario using the existing runtime-selection foundation, real React Native application UI, deterministic synthetic data and Appium/Python screenshot framework.
+
+This increment ends with a human-reviewable candidate golden. Do not approve or promote the new golden automatically.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Private sources:
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+
+Existing verified baseline:
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+
+Approved SHA-256:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+Current architecture:
+- Expo/React Native VVP application.
+- Development-only runtime QA scenario selection.
+- Explicit cold-launch URL with qa_scenario.
+- Appium UiAutomator2, Python/pytest and Pillow comparison.
+- Existing long_headline visual test passed twice in EXEC-024.
+- The new runtime-selected golden is human-approved.
+- Existing comparison tolerance: RGB channel delta >12 and maximum changed-pixel ratio 0.002.
+
+Tasks:
+
+1. Inspect current Git status and relevant source files. Preserve the approved golden, existing changes, private records and unrelated files.
+
+2. Inspect the actual feed/header rendering path and existing AnnouncementCard implementation. Do not assume AnnouncementCard is an authentic breaking-news banner.
+
+3. Implement a minimal development-only breaking-news banner using real React Native components within the adapted VVP feed.
+
+   Design:
+   - Prominent fixed "EILMELDUNG" label.
+   - Synthetic German breaking-news headline with meaningful wrapping.
+   - Clear visual distinction from ordinary article cards.
+   - Stable spacing, borders and typography using existing design primitives where practical.
+   - Nonanimated and nondismissible for this QA scenario.
+   - No live timestamps, network images, impressions or analytics.
+
+   Keep the banner in feed context, with a deterministic article beneath it where useful.
+
+   Explicitly identify this as a sample-app extension for the challenge, not a verified upstream VVP production feature.
+
+4. Extend the typed scenario registry and fixture contract so breaking_news becomes supported.
+
+   Use qa_scenario=breaking_news through the existing runtime-selection mechanism.
+
+   Provide deterministic content, ordering and state isolation.
+
+   Preserve long_headline behavior and keep all QA-specific behavior unavailable in normal production execution.
+
+5. Add stable accessibility/test identifiers:
+   - qa-scenario:breaking_news for active scenario identity.
+   - qa-breaking-banner-ready for rendering readiness.
+   - qa-breaking-banner-title for headline verification.
+
+   Adapt names only if justified by existing conventions.
+
+   Readiness must establish actual banner layout rather than merely fixture selection.
+
+6. Extend the existing Appium POM and pytest suite with one focused breaking_news visual test.
+
+   Verify:
+   - Exact scenario identity.
+   - Banner readiness.
+   - Expected synthetic headline.
+   - No clipping, unexpected overlap or premature screenshot.
+   - Complete banner capture boundary.
+
+   Capture the actual rendered banner element. Save a full-screen context screenshot for diagnostics, but do not create an additional full-screen golden without justification.
+
+7. Perform two independent native cold launches using the same Metro environment.
+
+   Capture the breaking-news banner in each run.
+
+   Compare the two actual captures for:
+   - Dimensions
+   - Raw pixel differences
+   - Existing tolerance-based differences
+   - Layout and visual consistency
+
+   Preserve actual screenshots, comparison diagnostics and logs.
+
+8. Prepare one candidate golden for human review in an ignored review directory.
+
+   Include:
+   - Candidate PNG and SHA-256.
+   - Full-screen context screenshot.
+   - Two-run repeatability results.
+   - Screenshot bounds and dimensions.
+   - Brief assessment of headline wrapping and visual quality.
+
+   Do not copy the candidate into the approved baselines directory.
+
+9. Run the existing long_headline Appium visual regression against its approved golden after implementing the new scenario.
+
+   It must remain PASS.
+
+10. Run relevant TypeScript/Jest and Python checks. Record actual exit codes and distinguish existing unrelated failures from new defects.
+
+11. Update relevant documentation and private handoff/prompt records with implemented behavior, verification evidence, the challenge-specific banner extension and current approval status.
+
+Constraints:
+- Do not change the long_headline golden.
+- Do not modify comparator thresholds.
+- Do not change the runtime-selector architecture.
+- Do not implement dark_article, no_image or empty_feed.
+- Do not introduce a new mocking or automation framework.
+- Do not create CI workflows or native iOS tests.
+- Do not expose the QA banner in normal production behavior.
+- Do not automatically approve or regenerate goldens.
+- Do not commit or push.
+- Preserve unrelated tracked/untracked files.
+
+Required report:
+A. Implementation files and changes.
+B. Fixture and runtime-selection behavior.
+C. Breaking-news banner implementation and production-safety boundary.
+D. Appium readiness and screenshot capture evidence.
+E. Two independent capture results and repeatability metrics.
+F. Candidate PNG path, hash and review materials.
+G. Existing long_headline regression result.
+H. Unit/type validation results.
+I. Git status and remaining limitations.
+J. Explicit request for human approval of the new candidate golden.
+
+Stop after preparing the breaking_news candidate and verification report.
+
+Await human review before promoting the candidate to an official golden or implementing another scenario.

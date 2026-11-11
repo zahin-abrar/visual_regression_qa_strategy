@@ -1,0 +1,308 @@
+# EXEC-036 — Golden Regeneration Verification and Configuration Audit
+
+**Phase:** EXECUTION  
+**Project root:** `D:\Projects\visual_regression_qa_strategy`  
+**Starting checkpoint:** `2bc313e63d9026cdd8cb448136c7746758fbce94`  
+**Checkpoint tag:** `visual-qa-baseline-exec035`
+
+## Objective
+
+Verify and, where necessary, minimally improve two aspects of the existing Android visual-regression framework:
+
+1. **Golden-image regeneration:** Prove that a developer can generate fresh candidate reference images from the real application UI, review them, and follow a safe, documented baseline-promotion procedure.
+2. **Environment configuration:** Determine whether the current environment-variable approach is sufficient for local execution and eventual CI/CD, and whether an `.env.example` or other small configuration improvement is justified.
+
+The employer explicitly requires a README explaining how to run the demo and regenerate golden images in a few clear commands.
+
+The employer does **not** mandate automatic golden updates, `.env` files, or an additional configuration library.
+
+Keep the existing working design unless investigation demonstrates a concrete problem.
+
+## Established baseline
+
+The following is user-reported and previously verified:
+
+- Five Android visual scenarios pass with zero changed pixels.
+- Forty-one Python unit tests pass.
+- Default pytest execution: 46 passed, one intentional-failure test deselected.
+- The intentional visual-failure test produces a genuine comparison failure and diff.
+- Each normal visual test automatically selects its own scenario.
+- Normal tests run directly from PyCharm without `VVP_QA_LAUNCH_URL`.
+- Five approved golden PNGs and the deliberately incorrect demonstration reference are committed.
+- The checkpoint is committed and tagged on local `main`.
+- No Git remote exists.
+- Ten unrelated upstream scaffolding entries remain untracked under `app/`.
+
+Preserve these properties.
+
+## Phase A — Read-only preflight and investigation
+
+1. Read repository agent instructions, the employer requirements, the latest local decisions, handoff and relevant execution documentation.
+
+2. Verify current Git branch, HEAD, tag and working-tree status. Do not assume the uploaded ChatGPT Project documents are newer than the local repository's latest handoff.
+
+3. Inspect:
+   - Root `README.md`.
+   - `qa_visual/README.md`.
+   - `qa_visual/pytest.ini`.
+   - `qa_visual/conftest.py`.
+   - All five normal visual tests.
+   - Existing screenshot comparison and Android launcher implementations.
+   - Golden-image documentation and baseline directories.
+   - Existing unit tests relevant to screenshots, comparison and launch configuration.
+   - App configuration, `.env` samples and relevant ignore rules.
+
+4. Trace how the current framework:
+   - Captures actual native PNGs.
+   - Selects the device profile.
+   - Locates approved golden images.
+   - Computes comparison metrics and diffs.
+   - Handles a missing golden.
+   - Handles a mismatching golden.
+   - Writes screenshot and diagnostic artifacts.
+
+5. Identify the exact existing README regeneration instructions and determine whether they are complete, executable and consistent across the five scenarios.
+
+Do not modify code during this investigation.
+
+## Phase B — Verify candidate golden regeneration
+
+Use the existing Pixel 10/API 37 Android environment if available.
+
+**Do not regenerate or overwrite any committed golden PNG.**
+
+### B1. Preserve the baseline
+
+Before testing:
+
+- Record SHA-256 hashes of all five approved golden PNGs.
+- Record the hash of the deliberately incorrect demonstration reference.
+- Verify the current baseline filenames and profile.
+- Confirm the comparator thresholds.
+
+### B2. Produce a fresh candidate
+
+Choose one representative scenario, preferably `breaking_news`, and verify the complete candidate-capture process.
+
+Using the current documented command or a minimally corrected equivalent:
+
+1. Launch the intended deterministic scenario.
+2. Confirm its scenario identity and readiness.
+3. Capture the actual native element screenshot.
+4. Verify the candidate file exists and is a valid PNG.
+5. Verify its dimensions.
+6. Confirm the full-screen context capture is available.
+7. Compare the candidate against the currently approved golden.
+8. Inspect the generated comparison JSON and diff.
+
+Record the actual command, output paths, exit code and metrics.
+
+The candidate must come from the rendered Android application, not an existing golden copied into an artifact directory.
+
+### B3. Exercise the approval procedure safely
+
+Verify the documented baseline-promotion commands using a **temporary, untracked destination**, not the approved baseline directory.
+
+Demonstrate that the procedure:
+
+- Preserves a backup when replacing an existing reference.
+- Copies the exact reviewed candidate bytes.
+- Confirms source and destination SHA-256 hashes match.
+- Handles an absent destination safely.
+- Prevents accidental overwrite without explicit authorization.
+- Provides a straightforward post-promotion verification step.
+
+Avoid renaming, deleting, temporarily replacing or otherwise modifying tracked golden files merely to simulate regeneration.
+
+Clearly distinguish between:
+
+- Capturing a candidate.
+- Human approval.
+- Promoting an approved image.
+- Re-running comparison afterward.
+
+A passing comparison with an existing golden does not, by itself, constitute human approval of a new baseline.
+
+### B4. Coverage across scenarios
+
+Confirm that the documented procedure works with the naming and directory conventions for all five scenarios:
+
+- `long_headline`
+- `breaking_news`
+- `dark_article`
+- `no_image`
+- `empty_feed`
+
+If the environment is healthy and execution remains straightforward, capture fresh candidates for all five and verify comparison results.
+
+At minimum, execute one complete native candidate-capture path and verify the remaining scenarios through code inspection and relevant tests.
+
+Report exactly what was executed versus inspected.
+
+Do not create new approved goldens.
+
+## Phase C — Environment configuration audit
+
+Investigate current configuration across both `qa_visual/` and `app/`.
+
+Include the known settings where applicable:
+
+- `VVP_METRO_HOST`
+- `VVP_METRO_PORT`
+- `VVP_GOLDEN_PROFILE`
+- `VVP_QA_LAUNCH_URL`
+- Appium server configuration
+- Android device/package configuration
+- Screenshot comparison thresholds
+- Any Expo-specific environment variables
+- Existing `.env.sample` or `.env.example` files
+
+Discover actual variable names and defaults from source; do not invent configuration contracts.
+
+### Questions to answer
+
+1. Which variables are required, optional or obsolete?
+2. Which values are safely hardcoded defaults?
+3. Which settings belong to the Python runner, and which belong to the Expo application or Metro?
+4. Which settings are read at process startup, application build time or runtime?
+5. Are any variables secrets?
+6. Is configuration precedence predictable?
+7. Are conflicting or invalid values rejected clearly?
+8. Can local PyCharm execution work without creating an `.env` file?
+9. Can a future CI pipeline supply the configuration using job environment variables?
+10. Is the current Git ignore policy sufficient to prevent local secrets and machine-specific configuration from being committed?
+
+### Configuration recommendation
+
+Prefer the simplest correct solution.
+
+If existing environment variables and defaults are sufficient, do not introduce an `.env` dependency.
+
+Consider adding an `.env.example` only if it materially improves documentation. If introduced:
+
+- Use placeholder or safe example values only.
+- Never include real credentials or machine-specific secrets.
+- Explain whether the file is merely documentation or actually loaded.
+- Preserve Git ignore protection for real `.env` files.
+- Do not make an optional `.env` file mandatory.
+
+Do not install `python-dotenv` or another package unless a verified requirement justifies it.
+
+For future CI/CD, document how configuration would be supplied by the pipeline and distinguish non-sensitive variables from secrets.
+
+Do not create a CI workflow as part of EXEC-036.
+
+## Phase D — Minimal remediation
+
+After completing the investigation, implement only corrections necessary to make the regeneration procedure reproducible and the configuration instructions accurate.
+
+Permitted examples:
+
+- Correct inaccurate README commands.
+- Add a short, explicit golden candidate/review/promotion procedure.
+- Add a small validation helper if manual commands are genuinely error-prone and a helper substantially improves safety.
+- Add an example configuration file if justified.
+- Clarify defaults and configuration precedence.
+- Add focused unit coverage for any newly introduced validation logic.
+
+Prefer documenting and verifying existing working functionality over building a new subsystem.
+
+If a script is added, it must never silently approve or overwrite a golden. Any promotion operation requires explicit human authorization and safe overwrite behavior.
+
+If investigation reveals a larger architectural problem, report it for review rather than beginning a broad refactor.
+
+## Phase E — Regression and safety verification
+
+After any changes:
+
+1. Run the 41 existing Python unit tests, plus any new focused tests.
+2. Run the normal five-scenario visual suite if the Android environment is available.
+3. Confirm that default pytest discovery continues excluding the intentional-failure demonstration.
+4. Confirm that direct PyCharm execution remains supported.
+5. Verify that golden regeneration commands use the correct profile and scenario.
+6. Recheck all six protected reference hashes.
+7. Verify no approved golden or app fixture was modified.
+8. Verify comparator thresholds remain unchanged.
+9. Run `git diff --check`.
+10. Inspect final Git status, including unrelated untracked scaffolding.
+
+Do not start the emulator, Metro or Appium automatically as a new framework feature. Use the existing manually managed services.
+
+If the environment is unavailable, report that limitation explicitly. Perform read-only and unit-level verification where possible; do not claim native regeneration was verified.
+
+## Phase F — Documentation and handoff
+
+Update `qa_visual/README.md` and the root README only as needed.
+
+The instructions should clearly explain:
+
+- Required local prerequisites.
+- How to run an individual normal visual test.
+- How to capture a fresh candidate.
+- Where to find actual, context, diff and comparison JSON files.
+- How to review a candidate.
+- How to preserve and replace an approved baseline after human authorization.
+- How to verify the replacement.
+- How to avoid accidental baseline changes.
+- What environment variables are supported and which are optional.
+- How CI would pass configuration without committing secrets.
+
+Keep the golden regeneration steps concise enough for another developer to follow.
+
+Inspect the strategy document for any statements made inaccurate by these changes. Update it only if necessary. If the strategy PDF must change, regenerate it from the Markdown source and verify it remains within the employer's 1–3-page limit and renders correctly.
+
+Update the public AI prompt disclosure and latest private decisions/handoff/prompt log with material work and verification results.
+
+Do not copy the private employer PDF into public deliverables.
+
+## Explicit exclusions
+
+Do not perform any of the following:
+
+- Reorganize unit and visual test directories (reserved for EXEC-037).
+- Introduce Ruff or broad formatting changes (EXEC-037).
+- Refactor duplicated test code (EXEC-037).
+- Add Allure reporting (EXEC-038).
+- Implement automatic emulator, Metro or Appium startup.
+- Implement iOS tests.
+- Build a CI pipeline.
+- Regenerate approved golden references.
+- Modify intentional-failure reference images.
+- Change screenshot comparison thresholds.
+- Fix unrelated app source issues.
+- Stage, commit, tag or push.
+
+Preserve the ten unrelated untracked scaffolding entries.
+
+## Acceptance criteria
+
+EXEC-036 is complete when:
+
+1. The current golden-regeneration mechanism has been traced and documented.
+2. At least one fresh native candidate screenshot has been captured and validated through actual execution, or this verification is explicitly reported as blocked.
+3. A safe, non-destructive rehearsal of golden promotion has been completed using temporary files.
+4. The documented procedure is applicable to all five approved scenarios.
+5. The README provides accurate commands for regeneration and human review.
+6. Environment-variable behavior, defaults and CI compatibility have been audited.
+7. Any decision concerning `.env` or `.env.example` is justified and documented.
+8. No approved reference image has changed.
+9. Existing tests and intentional-failure behavior remain intact.
+10. Results, limitations and Git changes are reported for human review.
+
+Do not mark full acceptance as PASS if native regeneration verification was blocked.
+
+## Required final report
+
+**A.** Findings from the existing golden-regeneration implementation.  
+**B.** Exact regeneration commands tested and results.  
+**C.** Candidate image filenames, dimensions and hashes.  
+**D.** Temporary promotion rehearsal and safety verification.  
+**E.** Configuration inventory, defaults, overrides and potential risks.  
+**F.** `.env` decision and rationale.  
+**G.** Files changed, if any, and why.  
+**H.** Unit and native visual test results, including exit codes.  
+**I.** Before/after reference SHA-256 verification.  
+**J.** Documentation changes and remaining limitations.  
+**K.** Final Git status.
+
+**Stop after EXEC-036. Do not commit. Return the findings for human review before proceeding to EXEC-037.**

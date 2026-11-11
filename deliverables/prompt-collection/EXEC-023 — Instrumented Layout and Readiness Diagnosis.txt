@@ -1,0 +1,150 @@
+EXEC-023 — Instrumented Layout and Readiness Diagnosis
+
+Objective:
+Determine why the runtime-selected long_headline launch produces a one-pixel image-geometry difference while the legacy environment-fallback launch reproduces the approved golden exactly. Establish a repeatable, evidence-based correction if possible.
+
+This is a bounded diagnostic and remediation task. Do not implement new visual scenarios.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Private sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+
+Read the current app/, qa_visual/ source and EXEC-021/022 artifacts. Treat prior reports as evidence, not proof of the cause.
+
+Known evidence:
+
+- Runtime-selected launch: 1028 × 1237, 11,640 changed pixels, FAIL.
+- Legacy fallback: 1028 × 1237, zero changed pixels, byte-identical golden, PASS.
+- Image view measured at 1028 × 526 in the failing runtime.
+- Golden image footprint inferred to be 527 pixels high.
+- Difference rectangle: [0,29]–[1028,527).
+- The image is rendered through expo-image with contentFit="cover" and height derived from feed width × 0.5125.
+- Both launch paths use the same Metro process/environment and the same bundled image bytes.
+- Previous route/wrapper modifications did not produce a repeatable fix and were reverted.
+- Image onLoad is currently used for readiness, but settled layout has not been established.
+- Existing golden remains reproducible. Do not replace it.
+
+Expected golden SHA-256:
+E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629
+
+Tasks:
+
+1. Record the initial Git state and verify the approved golden hash. Preserve all existing modifications, ignored artifacts and private records.
+
+2. Inspect the current runtime-selection and legacy launch paths. Identify the exact differences in initial URL, Expo Router state, initial navigation, mounting order, rendering lifecycle and Appium readiness timing.
+
+3. Implement minimal development-only, read-only layout telemetry.
+
+   Capture relevant measurements from:
+   - React Native window dimensions and PixelRatio.
+   - Safe-area/header/feed containers where relevant.
+   - Feed item and UiCard outer layout.
+   - ArticlePost and image container onLayout.
+   - Image source resolution and image loading events.
+   - Current route and scenario selection.
+   - Readiness marker activation.
+   - Screenshot capture timing and element bounds.
+
+   Record both logical layout units and physical pixels where possible.
+
+   Include event order or timestamps sufficient to correlate initialization, image loading, layout changes, readiness and capture.
+
+   Prefer structured console/native diagnostic logs. Do not add visible UI elements or alter the card's layout merely for instrumentation.
+
+4. Repeat the legacy-fallback and runtime-selected launches with the same Metro process, emulator configuration and fixture data.
+
+   Alternate launch modes to reduce misleading results from execution order.
+
+   Obtain at least two independent captures per launch mode, with a further run if results disagree.
+
+   Record:
+   - Exact launch mode and scenario identity.
+   - Relevant layout measurements.
+   - Image load and layout event ordering.
+   - Screenshot bounds and dimensions.
+   - Golden comparison result.
+   - Whether geometry changed after readiness.
+   - Whether repeated captures are identical.
+
+5. Compare the measured layout lifecycle between passing and failing runs.
+
+   Specifically investigate:
+   - Fractional layout-unit to physical-pixel rounding.
+   - Feed/card/image width and height calculation.
+   - Startup route and navigation effects.
+   - Safe-area and container measurement differences.
+   - Whether image onLoad precedes final onLayout.
+   - Whether Appium captures before geometry stabilizes.
+   - Whether the rendered image uses different scaling/cropping despite identical source bytes.
+
+   Do not assert that fractional rounding is the root cause without correlating measurements.
+
+6. Evaluate a readiness improvement only if telemetry shows that capture can occur before layout settles.
+
+   Prefer an observable, layout-driven readiness condition over arbitrary sleep durations.
+
+   A ready marker must represent the correct active scenario and verified stable capture geometry.
+
+   Do not hard-code the approved screenshot's dimensions as general production layout behavior.
+
+7. If evidence establishes a narrow root cause, implement the smallest safe correction and rerun the affected app and Python tests.
+
+   Do not use route redirects, artificial pixel offsets or fixed delays as speculative fixes.
+
+   If the appropriate correction is in development-only scenario initialization or readiness, keep it isolated from normal production rendering.
+
+   Any proposed general-purpose layout change requires explicit review before implementation.
+
+8. Verify the correction through repeated independent cold launches, including runtime selection and legacy fallback.
+
+   Acceptance requires:
+   - Correct scenario identity.
+   - Stable measured card/image geometry.
+   - Existing readiness and title checks.
+   - At least two independent runtime-selected visual PASS results against the unchanged golden.
+   - Legacy fallback still PASS.
+   - No comparator threshold or baseline modifications.
+
+9. If no repeatable correction can be established after the bounded experiments, stop the investigation. Report the measurements and remaining uncertainty.
+
+   Recommend whether to retain the legacy fallback as the supported demonstration path while treating runtime selection as experimental.
+
+   Do not spend additional iterations changing image styling or navigation without new evidence.
+
+10. Check whether the Firebase warning has any demonstrated relationship to mounting or layout timing. Otherwise keep it outside this investigation.
+
+Constraints:
+- No new visual scenarios.
+- No new or regenerated goldens.
+- No comparator threshold adjustments.
+- No image-region exclusions.
+- No speculative fixture asset or production UI changes.
+- No emulator wipe, reinstall or native rebuild without justification and approval.
+- No unrelated application refactoring.
+- No CI workflow work.
+- Do not commit or push.
+- Preserve unrelated tracked and untracked changes.
+
+Verification and reporting:
+
+A. Initial Git and environment state.
+B. Instrumentation changes and exact telemetry fields.
+C. Side-by-side measurements for passing fallback and failing runtime launches.
+D. Event sequence: selection → mount → image load/layout → readiness → capture.
+E. Supported root cause or remaining hypotheses.
+F. Any minimal correction and before/after evidence.
+G. Repeated visual results, dimensions, changed pixels, ratios and artifact paths.
+H. TypeScript/Jest/Python regression results as applicable.
+I. Golden hash and final Git status.
+J. Recommendation for closing the blocker or reverting to the proven demonstration launch.
+
+Remove or disable temporary instrumentation after diagnosis unless a small diagnostic mechanism has clear ongoing value. Preserve diagnostic evidence. Verify the final code state after removing temporary probes.
+
+Update the private handoff and material AI prompt log with actual findings, commands, failures and decisions.
+
+Stop after EXEC-023. Do not begin breaking_news or any other scenario without human review.

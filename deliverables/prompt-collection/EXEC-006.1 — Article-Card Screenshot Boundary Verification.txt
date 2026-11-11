@@ -1,0 +1,50 @@
+# EXEC-006 — Article-Card Screenshot Boundary Verification
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-005 — Native capture PASS
+
+## Objective
+
+Investigate whether the current Appium element screenshot covers the complete visible article-card container, including its bottom padding and rounded corners.
+
+Human review of the EXEC-005 images found that the element screenshot appears to end above the card's visible bottom boundary.
+
+This is an investigation task, not a framework modification task.
+
+## Instructions
+
+1. Read `AGENTS.md`, if present, and `docs/AGENT_TASK_HISTORY.md`.
+2. Inspect the existing `ArticleCard` component object and its screenshot target.
+3. Inspect the application source that defines the article card's visual container and accessibility identifiers.
+4. Compare the screenshot element's intended bounds against the visual card container.
+5. If source inspection is inconclusive, use one read-only Appium inspection session to retrieve relevant UI element rectangles or hierarchy information.
+6. Determine whether the current screenshot omits part of the visible card.
+7. Identify the smallest viable selector or component-object correction, if necessary.
+8. Append the findings to `docs/AGENT_TASK_HISTORY.md`.
+
+## Important constraints
+
+- Do not modify application or framework code.
+- Do not create another visual-test capture.
+- Do not replace existing screenshots.
+- Do not create or approve a golden PNG.
+- Do not change comparator tolerances.
+- Do not rebuild or restart the emulator.
+- Do not initialize Git.
+- Do not automatically implement the proposed correction.
+
+A temporary Appium inspection session is permitted if necessary, but preserve the existing environment and report any application lifecycle effects.
+
+## Acceptance criteria
+
+The task is complete when the agent can provide:
+
+1. Current screenshot target and locator.
+2. Actual visual container responsible for the card background and rounded corners.
+3. Whether the screenshot bounds omit any visible card area.
+4. Relevant source or UI hierarchy evidence.
+5. Minimal recommended correction, or a supported explanation of why the existing bounds are correct.
+6. Files changed (task history only).
+
+**Stop after EXEC-006. Await review before making changes.**

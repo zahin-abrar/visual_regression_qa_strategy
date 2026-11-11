@@ -1,0 +1,679 @@
+# EXEC-042J — Scenario Activation Diagnostics and Native Crash Triage
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Expected starting commit:** `f901085`  
+**Branch:** `main`  
+**Execution mode:** Bounded implementation, local verification and one local commit. No push or tag.
+
+## Objective
+
+Diagnose and, where directly supported by evidence, correct the GitHub-hosted Android visual test failures observed after EXEC-042I.
+
+All five visual tests failed before screenshot comparison because the expected `qa-scenario:<id>` accessibility identity never appeared.
+
+A separate React Native native crash (`SIGSEGV`) occurred during the `no_image` scenario.
+
+The immediate goal is to make **one scenario observable and diagnosable end to end**, while preserving the existing screenshot-testing architecture, synthetic fixtures and reviewed golden baselines.
+
+Do not redesign the suite or change infrastructure speculatively.
+
+---
+
+## A. Mandatory evidence review
+
+The user has placed the original GitHub Actions evidence in:
+
+```text
+.local-evidence/
+└── exec-042j/
+    ├── EXEC-042I_GitHub_Visual_Failure_Analysis.md
+    ├── visual-allure-report.zip
+    ├── visual-allure-results.zip
+    └── visual-infra-logs_3.zip
+```
+
+These files are **temporary local investigation inputs**.
+
+Before modifying code:
+
+1. Verify the directory and files exist.
+2. Read the analysis Markdown.
+3. Inspect all three ZIP archives.
+4. Extract the required files into temporary local working locations, if needed.
+5. Correlate pytest exceptions, Allure result metadata, Appium logs, Metro logs, Android logcat and any available screenshots.
+6. Treat original logs and test results as authoritative evidence; treat the analysis document as a secondary interpretation.
+7. Record any discrepancies between the analysis and original evidence.
+8. Do not assume an attachment or screenshot exists without checking the archive contents.
+
+### Evidence protection
+
+The entire `.local-evidence/` directory must remain local.
+
+**Never:**
+
+- Stage or commit these files.
+- Force-add ignored files.
+- Push or publish these files.
+- Move them into tracked documentation.
+- Modify or delete the original archives.
+- Copy full logs into the project handoff or prompt log.
+- Include sensitive log content in a commit.
+
+The agent may create temporary extracted copies for investigation, but must keep those copies ignored or outside the repository.
+
+Leave the original evidence directory intact for human cleanup.
+
+### Root `.gitignore` change — explicitly authorized
+
+The user has already edited the root `.gitignore` to exclude `.local-evidence`.
+
+**The modified root `.gitignore` must be included in the EXEC-042J commit.**
+
+Inspect the current modification and verify that the ignore rule correctly excludes the entire directory, preferably:
+
+```gitignore
+/.local-evidence/
+```
+
+Preserve unrelated existing ignore rules.
+
+Validate using:
+
+```powershell
+git check-ignore -v .local-evidence/exec-042j/visual-allure-results.zip
+git status --short --untracked-files=all
+```
+
+Ensure the evidence files are ignored and absent from staged changes.
+
+Do not assume the local `.git/info/exclude` needs modification; the root `.gitignore` is now the intended tracked mechanism.
+
+---
+
+## B. Known GitHub failure evidence
+
+The latest GitHub-hosted visual workflow progressed past infrastructure setup and into real Appium test execution.
+
+Observed results:
+
+- 5 visual tests failed.
+- 82 other pytest items were deselected.
+- Total pytest duration: 271.63 seconds.
+- Allure classified all five as broken.
+- All failures occurred before golden-image comparison.
+- The existing Allure report lacked scenario screenshots and visual diff attachments.
+
+Example:
+
+```text
+selenium.common.exceptions.TimeoutException:
+Exact active scenario identity
+qa-scenario:breaking_news was not exposed
+```
+
+The other failing scenarios were:
+
+- `dark_article`
+- `empty_feed`
+- `long_headline`
+- `no_image`
+
+### Infrastructure verified during the run
+
+- Android API 37 emulator booted.
+- EXEC-042I post-boot health gate passed.
+- APK installation succeeded.
+- Metro served an Android JavaScript bundle.
+- Appium and UiAutomator2 created sessions.
+- Android accepted the scenario deep-link commands.
+- Pytest reached the scenario-initialization checks.
+
+A successful deep-link command does **not** prove the app received, parsed or activated the intended QA scenario.
+
+### Observed deep-link structure
+
+```text
+exp+vvpapp://expo-development-client/
+?url=http%3A%2F%2F127.0.0.1%3A8081
+&qa_scenario=breaking_news
+```
+
+Investigate whether this URL structure actually delivers `qa_scenario` to the application's fixture-selection code.
+
+Do not assume Expo forwards arbitrary outer query parameters into the app's JavaScript initial URL.
+
+---
+
+## C. Repository preflight
+
+Before implementation:
+
+1. Confirm branch, current HEAD and `git status`.
+2. Read the latest:
+   - `.project-private/03_HANDOFF.md`
+   - `.project-private/02_DECISIONS.md`
+   - Existing private AI prompt log
+3. Inspect relevant test and application source files.
+4. Inspect the current GitHub visual workflow.
+5. Inspect existing artifact-upload and diagnostic mechanisms.
+6. Review the previous successful local Android test path and how it selects scenarios.
+7. Verify the root `.gitignore` change is present.
+
+Identify the actual source locations rather than assuming file names.
+
+Potential entry points include:
+
+- `visualqa/android.py`
+- `visualqa/scenario_launch.py`
+- Android session fixtures
+- `qa_visual/` tests
+- React Native Linking/deep-link handlers
+- QA scenario parsing
+- Fixture selection
+- React Native `testID`/accessibility identifiers
+
+Preserve unrelated untracked `app/` entries. Do not stage them automatically.
+
+---
+
+## D. Failure-time diagnostic capture
+
+The previous failures occurred inside `android_session()` before the context manager yielded the driver.
+
+Therefore, collecting screenshots only inside individual test bodies is insufficient.
+
+Implement best-effort diagnostic capture at the session initialization and scenario activation boundary.
+
+When identity activation fails, preserve:
+
+1. Current emulator screenshot.
+2. Appium page source or Android UI hierarchy.
+3. Expected scenario identifier.
+4. Actual observed scenario identifiers, if any.
+5. Sanitized deep-link information.
+6. Current foreground package and activity.
+7. Application process state and PID.
+8. Relevant logcat from scenario launch.
+9. Original exception and traceback.
+10. Any diagnostic collection errors.
+
+Use the repository's established artifact directories where practical.
+
+A suitable structure is:
+
+```text
+qa_visual/artifacts/diagnostics/
+└── breaking_news/
+    ├── failure-screen.png
+    ├── hierarchy.xml
+    ├── launch-context.txt
+    ├── app-state.txt
+    ├── logcat.txt
+    └── diagnostic-errors.txt
+```
+
+Adapt to existing project conventions rather than introducing unnecessary parallel artifact systems.
+
+### Reliability requirements
+
+- Diagnostic collection must be bounded.
+- Screenshot collection must not hang the test indefinitely.
+- If the Appium screenshot fails, attempt a bounded ADB screencap fallback.
+- If Appium page source fails, record the failure and use an Android hierarchy fallback if feasible.
+- Logcat collection must be bounded in time and output size.
+- Preserve the original exception as the primary failure.
+- Never replace the original error with a secondary attachment or diagnostic error.
+- Do not print secrets or unrestricted environment variables.
+
+---
+
+## E. Allure integration
+
+Attach failure evidence to the **correct scenario's Allure result**, including when session initialization raises before the test body begins.
+
+Expected evidence:
+
+- Screenshot (`image/png`)
+- UI hierarchy (`application/xml` or text)
+- Launch context
+- Android process/activity state
+- Relevant logcat
+- Original exception
+
+Verify that:
+
+1. Raw `allure-results` JSON references the attachments.
+2. The referenced attachment files exist.
+3. The generated Allure HTML report can display them.
+4. Diagnostic artifacts are included in the GitHub Actions upload scope.
+5. Failed setup does not silently discard evidence.
+
+Avoid generating files that are never attached or uploaded.
+
+---
+
+## F. Classify scenario activation failures
+
+Improve the failure diagnosis so evidence can distinguish:
+
+| State | Meaning |
+|---|---|
+| App process absent | App failed to launch or crashed |
+| Expo development-client screen visible | App has not reached intended application UI |
+| Unexpected route/screen | Navigation or deep-link problem |
+| Correct fixture UI, marker absent | Accessibility/testID exposure problem |
+| Wrong `qa-scenario` marker | Scenario selection or state mismatch |
+| Correct marker present | Scenario activation verified |
+| UI hierarchy unavailable | Appium or instrumentation problem |
+
+Keep the existing strict scenario identity assertion.
+
+Do not replace it with a generic process-running check, a blind delay, or an unrelated element selector.
+
+If classification cannot be determined, report it as unknown with the available evidence.
+
+---
+
+## G. Trace the entire scenario-selection path
+
+Investigate:
+
+```text
+Appium mobile: deepLink
+    ↓
+Android intent
+    ↓
+Expo development client
+    ↓
+JavaScript Linking / initial URL
+    ↓
+QA scenario parsing
+    ↓
+Synthetic fixture selection
+    ↓
+Real application UI rendering
+    ↓
+React Native accessibility identity
+    ↓
+Appium scenario verification
+```
+
+Determine:
+
+1. How the successful local demo selects scenarios.
+2. Whether the GitHub-hosted workflow uses the same path.
+3. Whether the Expo development-client wrapper preserves `qa_scenario`.
+4. Whether URL parsing expects a different parameter location.
+5. Whether the initial URL is consumed before the QA handler registers.
+6. Whether scenario state is overwritten during initialization.
+7. Whether fixture selection succeeds but rendering does not.
+8. Whether a rendered `testID` is accessible through UiAutomator2.
+9. Whether `CI=true` changes behavior.
+10. Whether the existing APK and Metro-served JavaScript use compatible contracts.
+
+Add bounded QA-only logging where useful.
+
+Log only relevant information such as:
+
+- Sanitized received URL
+- Requested scenario
+- Parsed scenario
+- Fixture selected
+- Invalid scenario rejection
+- Scenario-ready state
+
+Do not log real user data or credentials.
+
+---
+
+## H. Bounded correction
+
+If evidence identifies a concrete, non-native defect:
+
+- Implement the smallest justified fix.
+- Preserve existing scenario identifiers.
+- Preserve the deterministic synthetic fixtures.
+- Preserve actual application UI rendering.
+- Preserve the strict identity check.
+- Preserve normal non-QA behavior.
+- Add a focused automated regression test.
+
+Do not replace the application's real UI with a screenshot-only replica.
+
+Do not increase the timeout merely to hide a broken scenario contract.
+
+If investigation indicates that a correction requires native changes, such as:
+
+- Android intent-filter changes
+- Expo scheme changes
+- Native dependency upgrades
+- A new APK build
+- React Native architecture changes
+
+then document the exact evidence and implications.
+
+**Do not perform a speculative native rebuild or dependency upgrade.**
+
+Report whether the existing APK is still reusable.
+
+---
+
+## I. Independent native crash triage
+
+The original evidence includes a native crash during `no_image`:
+
+```text
+Process: de.volksverpetzer.app
+Thread: mqt_v_js
+Signal: SIGSEGV
+Cause: trying to execute non-executable memory
+
+Relevant stack:
+facebook::react::MountingCoordinator::pullTransaction
+facebook::react::FabricUIManagerBinding::schedulerDidFinishTransaction
+```
+
+Investigate separately from the missing-marker failures.
+
+Record:
+
+- Exact crash timestamp.
+- Android build fingerprint.
+- Emulator page size.
+- React Native version.
+- Relevant React Native navigation/rendering dependencies.
+- Application process death and restart evidence.
+- Whether similar crashes appeared in earlier scenarios.
+- Whether the crash followed deep-link processing or rendering.
+- Whether repeated Appium sessions or relaunches correlate with the crash.
+- Whether local reproduction is possible.
+
+Distinguish:
+
+**Confirmed:** The native process crashed.
+
+**Not yet confirmed:** The crash caused all five scenario activation failures.
+
+Do not speculatively:
+
+- Disable Fabric.
+- Upgrade React Native.
+- Upgrade native navigation dependencies.
+- Change Android API levels.
+- Change the 16 KB system image.
+- Change graphics flags.
+- Attribute the crash solely to memory pressure.
+
+If its root cause remains unknown, document the crash as an unresolved separate finding.
+
+---
+
+## J. Single-scenario GitHub workflow
+
+Add a bounded way to execute only `breaking_news` in GitHub Actions.
+
+Preferred approach: optional `workflow_dispatch` input.
+
+Example:
+
+```yaml
+visual_scope:
+  description: "Visual test selection"
+  required: true
+  type: choice
+  options:
+    - all
+    - breaking_news
+  default: all
+```
+
+Adapt this to the actual workflow structure.
+
+Requirements:
+
+- Default remains all five visual scenarios.
+- `breaking_news` selects exactly one intended test.
+- Keep the existing `source_run_id` input.
+- Validate selection through an explicit allowlist.
+- Do not interpolate arbitrary strings into shell commands.
+- Preserve APK reuse and source-run verification.
+- Preserve advisory pytest behavior.
+- Preserve Allure and JUnit reporting.
+- Preserve diagnostic artifact uploads.
+- No automatic retries.
+- No permanent removal of the other four scenarios.
+
+---
+
+## K. Verification
+
+Run relevant validation covering:
+
+### Scenario diagnostics
+
+1. Timeout before context manager yield.
+2. Failure screenshot creation.
+3. Screenshot attached to Allure.
+4. UI hierarchy captured and attached.
+5. Appium screenshot failure with ADB fallback.
+6. Diagnostic command timeout.
+7. Missing application process.
+8. Unexpected screen.
+9. Wrong scenario identifier.
+10. Correct scenario identifier.
+11. Logcat failure without masking the original error.
+12. Native crash distinguished from marker timeout.
+
+### Scenario selection
+
+13. Full five-scenario selection remains available.
+14. `breaking_news` mode chooses one exact test.
+15. Unknown workflow selection rejected.
+16. Existing `source_run_id` validation preserved.
+
+### Artifact integrity
+
+17. Allure JSON attachment references are valid.
+18. Generated report includes the attachments.
+19. CI artifact upload includes diagnostics.
+20. Golden PNGs are unchanged.
+21. Comparison thresholds are unchanged.
+22. No accidental fixture updates.
+
+### Repository and script checks
+
+23. Relevant Python tests.
+24. Relevant TypeScript checks, where applicable.
+25. Shell syntax checks.
+26. Workflow YAML validation.
+27. `git diff --check`.
+28. Git ignore verification for `.local-evidence/`.
+29. Staged-file inspection before committing.
+
+Use mocks/fakes where no real emulator is available.
+
+If the existing local Android environment is available, run one real `breaking_news` test and record the result.
+
+Clearly distinguish real emulator verification from mocked validation.
+
+Do not claim GitHub Actions passed based on local mocks.
+
+---
+
+## L. Preservation requirements
+
+Do not change:
+
+- Reviewed golden PNGs.
+- Screenshot comparison thresholds.
+- Existing five scenario definitions.
+- Fixture content without direct evidence of a defect.
+- Android API 37.0 image.
+- Google Play Store / 16 KB emulator variant.
+- `Pixel_10` AVD.
+- 1080×2424 resolution.
+- 420 dpi.
+- Emulator RAM.
+- Emulator graphics flags.
+- APK source-run contract.
+- ADB authentication.
+- EXEC-042I post-boot health checks.
+- Appium or UiAutomator2 versions.
+- Build workflow.
+- iOS strategy.
+- Intentional regression demonstration.
+
+Do not regenerate golden screenshots.
+
+Do not include the employer challenge PDF in Git.
+
+Do not add the `.local-evidence/` files to Git.
+
+---
+
+## M. Documentation
+
+Update:
+
+- `.project-private/03_HANDOFF.md`
+- `.project-private/02_DECISIONS.md` only if a decision changes
+- Existing private AI prompt log
+
+Document:
+
+1. GitHub failure evidence reviewed.
+2. Which original ZIP files were inspected.
+3. Confirmed versus suspected causes.
+4. Deep-link and fixture-selection findings.
+5. Native crash investigation.
+6. Implementation changes.
+7. Tests executed and actual outcomes.
+8. Whether verification used mocks or a real emulator.
+9. Allure attachment verification.
+10. Whether the existing APK can be reused.
+11. Next GitHub Actions instructions.
+12. Outstanding uncertainties.
+
+Keep the documents concise and current.
+
+Do not copy large raw logs or archive contents into tracked Markdown files.
+
+---
+
+## N. Git commit
+
+Create **one bounded local commit**.
+
+Suggested message:
+
+```text
+test(visual): diagnose scenario activation failures
+```
+
+### Mandatory staged changes
+
+Include:
+
+- Root `.gitignore` (user-authorized modification).
+- Relevant diagnostic implementation.
+- Relevant tests.
+- Necessary workflow selection change.
+- Private handoff and prompt-log updates.
+- Decision document only if changed.
+
+### Explicitly excluded
+
+Never stage:
+
+- `.local-evidence/`
+- ZIP archives from GitHub Actions.
+- Extracted forensic logs.
+- Temporary screenshots.
+- Unrelated untracked `app/` entries.
+- Unrelated working-tree modifications.
+
+Use explicit file paths when staging.
+
+Do not use `git add -A`.
+
+Before commit, inspect:
+
+```powershell
+git diff --cached --stat
+git diff --cached --name-only
+git diff --cached --check
+```
+
+Verify `.gitignore` is included and `.local-evidence/` is absent.
+
+Do not amend, push or tag.
+
+Leave all evidence files intact.
+
+---
+
+## O. Final agent report
+
+Report:
+
+1. Starting and final commit SHA.
+2. Files changed.
+3. Confirmation `.gitignore` was committed.
+4. Confirmation `.local-evidence/` remained excluded.
+5. Original ZIP evidence inspected.
+6. Confirmed immediate failure mechanism.
+7. Deep-link parameter handling findings.
+8. Exact fixture-selection code location.
+9. Whether the scenario identity exists in the UI.
+10. Failure screenshot and hierarchy behavior.
+11. Allure attachment verification.
+12. Native crash investigation findings.
+13. Confirmed versus unresolved root causes.
+14. Commands and tests executed with results.
+15. Real emulator versus mocked verification.
+16. Existing APK compatibility.
+17. GitHub-only uncertainties.
+18. Exact next GitHub execution instructions.
+
+**STOP AFTER THE LOCAL COMMIT.**
+
+Do not push, tag, rebuild the APK or delete the evidence directory.
+
+---
+
+## P. Next GitHub experiment
+
+After human review and authorization:
+
+1. Push the reviewed commit.
+2. Run **Android visual tests (advisory)**.
+3. Set `visual_scope` to `breaking_news`.
+4. Reuse `source_run_id=42494990156` only if its APK artifact remains available and no native APK changes are required.
+5. Inspect the corresponding Allure and infrastructure artifacts.
+
+Do not execute all five scenarios during the first diagnostic rerun.
+
+### Success criteria
+
+**Minimum acceptable result**
+
+- Failed scenario initialization creates an actual screenshot or records why capture failed.
+- UI hierarchy and application state are preserved where available.
+- Allure references the available diagnostic attachments correctly.
+- The scenario-activation failure is narrowed by direct evidence.
+- The `breaking_news`-only workflow selection works.
+- Golden files remain unchanged.
+
+**Ideal result**
+
+- `breaking_news` selects the correct synthetic fixture.
+- Exact accessibility identity verification passes.
+- A fresh screenshot is captured from real application UI.
+- The committed golden image is loaded.
+- Visual comparison executes.
+- The actual comparison result and artifacts are reported.
+
+A working diagnostic mechanism is not equivalent to a passing visual test.
+
+Do not claim success beyond what has been verified.

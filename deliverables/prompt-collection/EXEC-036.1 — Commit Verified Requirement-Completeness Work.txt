@@ -1,0 +1,84 @@
+# EXEC-036 — Commit Verified Requirement-Completeness Work
+
+Project root: `D:\Projects\visual_regression_qa_strategy`
+
+Objective: Commit the completed and reviewed EXEC-036 documentation changes as a separate checkpoint on the local `main` branch.
+
+## Preconditions
+
+1. Read the latest local handoff and repository instructions.
+2. Confirm the current branch is `main`.
+3. Confirm HEAD is `2bc313e63d9026cdd8cb448136c7746758fbce94`.
+4. Inspect the full Git status and working diff.
+5. Verify the only intended tracked changes are:
+   - `README.md`
+   - `qa_visual/README.md`
+   - `docs/ai_prompts_used.md`
+
+The ten unrelated untracked scaffolding entries under `app/` must remain untouched.
+
+## Verification
+
+1. Review the three documentation diffs for correctness, accidental deletions, secrets, private material and unexpected changes.
+2. Confirm golden PNGs, demonstration reference images, application source, test implementation and comparison thresholds have no changes.
+3. Confirm the strategy Markdown and PDF remain unchanged.
+4. Run `git diff --check`.
+5. Use the previously recorded EXEC-036 test evidence (46 passing tests, five zero-pixel visual comparisons, successful temporary promotion rehearsal). There is no need to repeat the entire emulator suite for a documentation-only commit unless a relevant change is discovered.
+
+If unexpected modifications or missing documentation are found, stop and report before committing.
+
+## Stage and commit
+
+Stage only these three paths:
+
+```powershell
+git add -- README.md qa_visual/README.md docs/ai_prompts_used.md
+```
+
+Verify:
+
+```powershell
+git diff --cached --name-status
+git diff --cached --check
+git diff --cached
+```
+
+If the staged changes match the approved scope, commit:
+
+```powershell
+git commit -m "docs(visual-qa): verify golden regeneration and configuration"
+```
+
+Do not add a `Co-Authored-By` trailer.
+
+Do not amend the previous commit.
+
+Do not stage unrelated files.
+
+Do not push.
+
+Do not create or move tags. The existing `visual-qa-baseline-exec035` tag must continue pointing to `2bc313e`.
+
+## Post-commit
+
+Verify:
+
+```powershell
+git log -2 --oneline --decorate
+git show --stat --oneline HEAD
+git status --short
+git rev-parse HEAD
+```
+
+Confirm:
+- The new commit contains exactly the intended three files.
+- No tracked changes remain.
+- All ten unrelated untracked entries are preserved.
+- No private files, screenshots, temporary artifacts or secrets were committed.
+- The prior checkpoint tag remains unchanged.
+
+Update the ignored private handoff and prompt log with the new SHA and verification results.
+
+Return a concise report containing the commit SHA, exact files committed, final Git status and any outstanding concerns.
+
+**Stop after committing EXEC-036. Do not begin EXEC-037.**

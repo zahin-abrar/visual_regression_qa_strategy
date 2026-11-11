@@ -1,0 +1,96 @@
+# EXEC-016B — Submission Metadata and Documentation Cleanup
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous tasks:** EXEC-016 PASS, EXEC-016A PASS  
+**Expected HEAD:** `cb334e91a9225334f9e53db71ed414007c8df78f`
+
+## Objective
+
+Resolve the specific packaging and documentation inconsistencies identified in EXEC-016A.
+
+Create one small local follow-up commit. Do not change the verified application or automation behavior.
+
+## 1. Review current state
+
+Read the EXEC-016A audit findings and inspect:
+
+- Root `README.md`
+- `qa_visual/README.md`
+- `app/README.md`
+- `app/package.json`
+- Root and nested `.gitignore` files
+- Existing untracked formatting/lint configuration files
+
+Confirm HEAD and branch before changing anything.
+
+## 2. Include maintainability configuration
+
+Review and stage these six existing files:
+
+- `app/.editorconfig`
+- `app/.prettierignore`
+- `app/eslint.config.mjs`
+- `app/cspell.config.json`
+- `app/prettier.config.mts`
+- `qa_visual/.gitignore`
+
+Do not change their behavior or reformat application code.
+
+If any file contains sensitive, machine-specific or unexpected content, stop and report before staging it.
+
+## 3. Correct documentation
+
+Make only the following corrections:
+
+- Update root `README.md` to state that the approved Android golden is committed.
+- Update `qa_visual/README.md` to state that golden tracking has been verified.
+- Correct `app/README.md` to reference the actual committed `.env.sample` template instead of `.env.example`, provided that file exists.
+
+Preserve the existing setup commands, verified test results and limitations.
+
+Do not add claims of working CI or native iOS execution.
+
+## 4. Protect local agent settings
+
+Add narrowly scoped ignore rules for local agent configuration and instruction files where appropriate, especially `app/.claude/settings.json`.
+
+Do not delete any local files.
+
+Do not modify unrelated upstream tooling or move nested `.github` workflows into the root.
+
+## 5. Verify and commit
+
+Before committing:
+
+1. Inspect the exact staged file list and diff.
+2. Verify no private files, credentials or generated artifacts are staged.
+3. Verify README links and referenced filenames.
+4. Confirm the approved golden remains unchanged.
+5. Confirm no application logic, tests or comparator files changed.
+6. Confirm no Git hooks are unexpectedly activated by this operation.
+
+If checks pass, create one local commit:
+
+`docs: reconcile submission metadata and README references`
+
+Verify the new commit ID and tracked working-tree status.
+
+Do not amend the initial commit, add a remote or push.
+
+## 6. Reporting
+
+Update the local, uncommitted task history and handoff.
+
+Return:
+
+- PASS / FAIL / BLOCKED
+- New commit hash
+- Exact files changed
+- README inconsistencies corrected
+- Files newly tracked
+- Exclusion/privacy verification
+- Git status
+- Any remaining submission blockers
+
+**Stop after EXEC-016B. Do not start EXEC-018 or CI implementation.**

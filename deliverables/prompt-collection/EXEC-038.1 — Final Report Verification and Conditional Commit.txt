@@ -1,0 +1,40 @@
+EXEC-038 — Final Report Verification and Conditional Commit
+
+The implementation and functional results are accepted.
+
+Before committing:
+
+1. Open the generated Allure HTML report in a browser.
+2. Open at least one normal visual test.
+3. Verify the golden, actual and diff PNG attachments render
+   correctly and can be inspected individually.
+4. Verify comparison JSON and test parameters are readable.
+5. Open the intentional-failure report.
+6. Verify the incorrect reference, actual and diff images render,
+   and that the test is visibly reported as failed.
+7. Record the verification results in the private handoff.
+
+Do not regenerate artifacts or modify tests unless inspection
+reveals a genuine issue.
+
+Document the two intermittent 1px image-shift mismatches as an
+unresolved stability observation, with links to existing logs.
+Do not claim emulator degradation as the confirmed cause.
+
+If all checks pass:
+
+8. Review git status and the complete diff.
+9. Stage only approved EXEC-038 implementation and documentation.
+10. Verify git diff --cached --check and staged file inventory.
+11. Commit with:
+
+    feat(visual-qa): add Allure visual regression reporting
+
+12. Do not add a Co-Authored-By trailer.
+13. Do not amend, tag or push.
+14. Report commit SHA, committed files and final Git status.
+
+Preserve all unrelated untracked app scaffolding.
+Do not start EXEC-039.
+
+If any report inspection fails, do not commit. Report the failure.

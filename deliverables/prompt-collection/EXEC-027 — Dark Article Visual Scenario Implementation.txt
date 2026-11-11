@@ -1,0 +1,168 @@
+EXEC-027 — Dark Article Visual Scenario Implementation
+
+Objective:
+Implement and verify the approved dark_article Android visual scenario using the existing runtime-selector architecture, genuine VVP dark-theme rendering, deterministic synthetic article data and Appium/Python screenshot comparison.
+
+Stop after producing a human-reviewable candidate golden. Do not promote it automatically.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Private sources:
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/04_AI_PROMPT_LOG.md (if present)
+
+Existing approved baselines:
+
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+SHA-256:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+qa_visual/baselines/android/pixel10-api37/breaking_news.png
+SHA-256:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+Tasks:
+
+1. Inspect the current repository and record initial Git status, branch, HEAD and relevant changes.
+
+Verify BOTH approved golden files exist at their expected baseline paths and match their specified hashes.
+
+The user observed an older file timestamp on long_headline.png. Do not infer missing or outdated content from timestamps. Verify its hash. Do not move or replace either golden if hashes match.
+
+Stop and report if either approved golden is missing or has an unexpected hash.
+
+2. Inspect current theme architecture:
+   - useAppColorScheme()
+   - SettingsProvider and persisted appearance preferences
+   - Existing Colors and theme-aware components
+   - ArticlePost, GenericPost, UiCard and image rendering
+   - Runtime scenario registry and QaLaunchGate
+
+Determine how to force genuine dark rendering deterministically before the article is mounted.
+
+3. Implement the smallest development-only, nonpersistent theme override for dark_article.
+
+Requirements:
+- dark_article explicitly selects dark appearance.
+- long_headline and breaking_news retain their existing approved light appearance.
+- Theme selection must not depend on previous emulator or app preferences.
+- Do not write to persistent user settings.
+- Do not modify normal production appearance behavior.
+- Do not simulate dark mode by editing screenshot pixels, applying a dark overlay or duplicating the article component.
+
+4. Activate dark_article in the existing typed scenario registry.
+
+Reuse the existing long_headline synthetic article data, headline, metadata and bundled image.
+
+The intended variable under test is the effective theme, not article content.
+
+Preserve the existing runtime launch architecture:
+
+qa_scenario=dark_article
+
+5. Add stable identification and readiness verification.
+
+Appium must confirm:
+- qa-scenario:dark_article
+- The expected QA-FIXTUR article title
+- The actual effective dark appearance
+- Loaded bundled image and completed article layout
+- Complete outer-card capture bounds
+
+Use a development-only effective-theme marker or equivalent reliable observation.
+
+Do not treat scenario identity alone as proof that dark mode rendered.
+
+6. Extend the existing ArticleCard POM and pytest framework with a focused dark_article visual test.
+
+Reuse the established screenshot capture and comparison utilities.
+
+The test must capture the real rendered outer article card, including image, headline, metadata, summary, padding and rounded corners.
+
+Save a separate full-screen context screenshot for diagnostics.
+
+Do not create or modify an approved golden during implementation.
+
+7. Verify theme isolation using cold launches with Metro's scenario environment unchanged.
+
+Demonstrate:
+- dark_article renders dark.
+- long_headline renders light afterward.
+- dark_article renders dark again.
+
+Check that persisted preferences do not override the requested QA theme and that no unexpected theme state leaks between scenarios.
+
+8. Perform two independent dark_article native captures.
+
+Record:
+- Scenario identity and effective theme
+- Exact headline assertion
+- Screenshot dimensions and bounds
+- Candidate PNG hashes
+- Raw pixel differences
+- Existing comparator-tolerated differences
+- Any evidence of animation, asynchronous styling or layout instability
+
+The two captures should be stable within the existing comparison policy.
+
+9. Prepare the human-review packet in an ignored diagnostic directory.
+
+Include:
+- Candidate dark_article PNG
+- Full-screen context screenshot
+- Repeatability comparison/diff
+- Candidate SHA-256
+- Captured element bounds and dimensions
+- Evidence that actual dark-theme colors were used
+- Brief visual assessment of text contrast, image, borders, metadata, padding and readability
+
+Do not place dark_article.png in the approved baselines directory.
+
+A missing-golden pytest failure is expected at this stage if capture and readiness succeed. Distinguish this from an application or test failure.
+
+10. Run regression checks:
+- Existing long_headline Appium visual test: must PASS.
+- Existing breaking_news Appium visual test: must PASS.
+- Relevant TypeScript validation.
+- Applicable Jest tests.
+- Python unit tests and collection.
+
+Verify both existing golden hashes remain unchanged.
+
+Report the previously known FIXTUR spelling failure separately if the combined application check still encounters it.
+
+11. Update relevant README documentation and private decisions, handoff and AI prompt records.
+
+Record the implementation, actual execution evidence, remaining risks and candidate-review status.
+
+Constraints:
+- Preserve both approved goldens.
+- Do not change comparison thresholds.
+- Do not replace the runtime-selector architecture.
+- Do not introduce persistent theme-setting changes.
+- Do not duplicate the production article UI.
+- Do not implement no_image or empty_feed.
+- Do not add CI workflows or native iOS execution.
+- Do not modify unrelated Firebase/notification behavior.
+- Do not approve the new golden automatically.
+- Do not commit, push, reset or clean unrelated work.
+
+If the real theme architecture cannot support a deterministic development-only override without broad refactoring, stop with findings and a minimal alternative proposal rather than implementing a fragile workaround.
+
+Required report:
+
+A. Initial Git status and existing golden verification.
+B. Actual theme architecture and implemented override.
+C. Runtime scenario activation and production-safety boundary.
+D. Dark-theme identity, readiness and layout evidence.
+E. Two independent native captures and repeatability results.
+F. Candidate PNG path, dimensions, hash and review materials.
+G. Existing two-scenario regression results.
+H. TypeScript/Jest/Python verification.
+I. Final Git status and unresolved risks.
+J. Explicit request for human approval of the dark_article candidate golden.
+
+Stop after EXEC-027 candidate preparation. Do not promote the new golden or begin another scenario without human review.

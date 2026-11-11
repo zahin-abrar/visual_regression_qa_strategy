@@ -1,0 +1,243 @@
+EXEC-035 — Self-Contained Pytest Scenario Launching for PyCharm
+
+Objective:
+Make the existing Android visual tests directly executable through PyCharm's normal pytest Run action, without manually configuring a scenario-specific VVP_QA_LAUNCH_URL environment variable.
+
+Investigate the existing architecture first. Implement the smallest safe change that achieves this goal.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Expected committed HEAD:
+bcc56b24dbe67472e178ce27fbab54a442bce482
+
+IMPORTANT WORKING-TREE CONTEXT:
+EXEC-033 and EXEC-034 changes are intentionally uncommitted.
+
+These include:
+- Marker-controlled intentional-failure demonstration.
+- Separate intentionally incorrect reference PNG.
+- Updated pytest configuration.
+- Updated two-page strategy Markdown and PDF.
+- README and AI disclosure updates.
+
+Preserve every existing change. Do not reset, overwrite, stage or commit them.
+
+HUMAN DECISION:
+Normal visual pytest tests should be independently runnable from PyCharm, like ordinary Selenium/pytest tests.
+
+The test itself should identify the intended QA scenario.
+
+External launch configuration should not be necessary for normal local execution.
+
+Keep the intentional-failure demonstration separate from normal test execution, using its existing intentional_failure marker.
+
+PHASE A — INVESTIGATE
+
+1. Read applicable repository agent instructions and private decisions/handoff.
+
+2. Record current Git status and verify that EXEC-033/034 changes are present.
+
+3. Inspect:
+- qa_visual/conftest.py, if present.
+- qa_visual/pytest.ini.
+- qa_visual/visualqa/scenario_launch.py.
+- qa_visual/visualqa/android.py.
+- All five normal visual test files.
+- qa_visual/tests/test_intentional_visual_failure.py.
+- Existing Python unit tests for scenario launching.
+- Current README setup and run commands.
+
+4. Trace the actual execution lifecycle:
+
+pytest collection
+→ fixture setup
+→ Appium driver/session
+→ scenario selection
+→ development-client launch
+→ readiness
+→ screenshot comparison.
+
+Determine why VVP_QA_LAUNCH_URL must currently be set externally and where it can be eliminated safely.
+
+Do not assume that a launch call in the test body is sufficient; scenario selection must happen before the application mounts the feed.
+
+PHASE B — IMPLEMENT THE MINIMUM CHANGE
+
+Preferred design, if compatible with the current architecture:
+
+- Each visual test explicitly declares its scenario.
+- A shared pytest fixture or existing launcher reads that declaration.
+- The launcher constructs the correct development-client URL.
+- The application is cold-launched with that scenario.
+- The test proceeds only after the existing identity/readiness assertions.
+
+A registered pytest marker such as:
+
+@pytest.mark.qa_scenario("breaking_news")
+
+is acceptable, but inspect the current design before choosing the implementation.
+
+Avoid filename-based magic or duplicated launch URLs across test files.
+
+Ensure the five normal scenarios map correctly:
+- long_headline
+- breaking_news
+- dark_article
+- no_image
+- empty_feed
+
+The intentional-failure test must request breaking_news through the same mechanism.
+
+It must retain @pytest.mark.intentional_failure and must NOT acquire the normal visual marker.
+
+Register any new pytest marker in pytest.ini.
+
+Keep the existing scenario-launch implementation and development-only fixture gate.
+
+Allow external host/port overrides where genuinely useful for CI or different environments, but do not require callers to supply a complete scenario-specific launch URL.
+
+If the existing VVP_QA_LAUNCH_URL override is retained for compatibility, validate it against the declared scenario and fail clearly on conflicts. A stale environment variable must not silently select the wrong fixture.
+
+If the investigation reveals that this requires a broad fixture redesign, stop and report the findings rather than starting a large refactor.
+
+PHASE C — VERIFY NORMAL EXECUTION
+
+Run tests with VVP_QA_LAUNCH_URL explicitly unset in the test process.
+
+Use the existing Pixel 10/API 37 emulator, Metro and Appium services.
+
+First verify single-file execution:
+
+python -m pytest tests/test_breaking_news.py -v -s
+
+Expected:
+- Correct breaking_news scenario selected automatically.
+- Correct readiness.
+- Native screenshot captured.
+- Approved golden comparison PASS.
+- Exit 0.
+
+Then verify the other four tests individually, without setting a launch URL.
+
+All five must select their own scenario correctly.
+
+Next verify the ordinary visual suite:
+
+python -m pytest tests/ -m visual -v
+
+All five visual tests must PASS, with separate cold launches and no state leakage.
+
+Finally verify the normal default pytest selection, if supported by the current environment:
+
+python -m pytest tests/ -v
+
+Expected:
+- Normal visual and unit tests execute.
+- Intentional-failure demo is deselected.
+- No externally supplied per-scenario URL required.
+
+Do not claim this passes unless actually executed.
+
+PHASE D — VERIFY INTENTIONAL FAILURE
+
+Preserve the approved EXEC-033 demonstration semantics.
+
+Run:
+
+python -m pytest tests/test_intentional_visual_failure.py -m intentional_failure -v -s
+
+Without externally specifying VVP_QA_LAUNCH_URL.
+
+Expected:
+- breaking_news is selected automatically.
+- Native screenshot is captured.
+- Comparison against the deliberately incorrect reference FAILS.
+- Genuine comparison/diff/JSON artifacts are generated.
+- Pytest exits 1 for the visual assertion.
+
+Do not convert the intentional failure into xfail, skip or an inverted passing assertion.
+
+Verify normal test discovery still excludes the intentional-failure test.
+
+PHASE E — REGRESSION AND SAFETY CHECKS
+
+1. Verify all five approved golden hashes remain unchanged.
+
+2. Verify the deliberately incorrect demonstration reference remains unchanged unless an explicit technical reason requires replacing it; any replacement needs human review.
+
+3. Run relevant Python unit tests and collection checks.
+
+4. Verify comparator thresholds are unchanged.
+
+5. Verify no application source, fixture data or native UI has changed.
+
+6. Run git diff --check.
+
+7. Record exact commands, exit codes and comparison metrics.
+
+PHASE F — DOCUMENTATION
+
+Update qa_visual/README.md and the root README only where required to explain:
+
+- Running normal visual tests directly from PyCharm.
+- Running the normal five-scenario suite without per-scenario launch URLs.
+- Running the intentional-failure test through its marker.
+- External prerequisites that remain: emulator, Metro, Appium and adb reverse.
+- Optional configuration overrides and their behavior.
+- The actual verification results.
+
+Review deliverables/strategy.md for outdated statements about manual per-scenario URLs.
+
+If implementation makes those statements incorrect, make minimal factual changes and regenerate deliverables/strategy.pdf from the updated source, preserving its 1–3-page format. Verify the PDF opens and its pages render correctly.
+
+Do not change the strategic architecture or expand the document.
+
+Preserve EXEC-033/034 documentation changes.
+
+Update docs/ai_prompts_used.md and ignored private decision/handoff/prompt logs.
+
+CONSTRAINTS
+
+- No new application scenarios.
+- No app styling changes.
+- No golden regeneration.
+- No image-comparison threshold changes.
+- No unrelated FIXTUR spelling correction.
+- No CI workflow or iOS implementation.
+- No broad framework redesign.
+- No new dependencies unless absolutely necessary and justified.
+- No staging, committing or pushing.
+- Preserve upstream scaffolding and all earlier uncommitted work.
+
+ACCEPTANCE
+
+EXEC-035 passes only if:
+
+1. A normal visual test runs correctly without VVP_QA_LAUNCH_URL.
+2. Each of the five tests automatically selects its intended scenario.
+3. All five pass against their approved references.
+4. The ordinary pytest suite excludes the intentional-failure demo.
+5. Explicit intentional_failure selection still produces the expected comparator FAIL.
+6. All five golden hashes remain unchanged.
+7. The actual Android fixture and cold-launch isolation remain intact.
+8. Run instructions accurately reflect the improved workflow.
+
+REQUIRED REPORT
+
+A. Root cause of the previous manual launch-URL requirement.
+B. Minimal implementation approach chosen and rationale.
+C. Exact files modified.
+D. Individual PyCharm-equivalent pytest execution results.
+E. Full five-scenario suite results.
+F. Intentional-failure results.
+G. Unit/collection verification.
+H. Documentation updates.
+I. Final Git status.
+J. Remaining prerequisites and limitations.
+
+Stop after EXEC-035.
+
+Do not stage or commit.
+
+Return results for human review before any further changes.

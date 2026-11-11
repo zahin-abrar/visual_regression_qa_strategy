@@ -1,0 +1,179 @@
+EXEC-042A — GitHub Actions Android Build CI
+
+Project:
+D:\Projects\visual_regression_qa_strategy
+
+Expected branch: main
+Expected HEAD: 8ed5ac2
+
+Remote:
+https://github.com/zahin-abrar/visual_regression_qa_strategy.git
+
+Repository visibility: PRIVATE
+
+OBJECTIVE
+
+Create a minimal GitHub Actions workflow that builds
+the Android debug APK from committed repository files
+and uploads the APK as a workflow artifact.
+
+This is the first stage of CI implementation.
+
+Do not implement emulator/Appium execution yet.
+
+CONTEXT
+
+A tracked-only checkout was successfully built without
+any of the ten excluded upstream entries:
+
+- pnpm install --frozen-lockfile
+- pnpm check:ts
+- pnpm exec expo config --type public
+- expo prebuild --platform android --no-install
+- gradlew.bat assembleDebug
+  -PreactNativeArchitectures=x86_64
+
+The resulting Android APK was built successfully.
+
+This was verified on Windows using warm caches.
+
+Linux/GitHub Actions execution has NOT been verified.
+
+DECISIONS
+
+1. Use GitHub Actions.
+2. Use a GitHub-hosted Ubuntu runner.
+3. Use local Expo prebuild + Gradle assembly.
+4. Do not use EAS Build or Expo cloud credentials.
+5. No Android emulator in this stage.
+6. No Appium tests in this stage.
+7. No unit-test demonstration or unit-test job.
+8. Do not regenerate golden references.
+9. Do not include the intentional visual-failure test.
+10. Do not introduce a mandatory PR visual gate.
+
+TASK A — PREFLIGHT
+
+- Read the latest private handoff and decisions.
+- Verify branch, HEAD, remote and working-tree status.
+- Inspect package.json, pnpm lockfile, Expo config,
+  Android SDK requirements and build scripts.
+- Confirm the currently required Node, pnpm and Java
+  versions rather than guessing.
+- Identify the actual expected debug APK output path.
+- Preserve all ten excluded untracked app/ entries.
+- Confirm no existing root GitHub Actions workflow
+  conflicts with the proposed workflow.
+
+TASK B — WORKFLOW
+
+Create a root-level workflow:
+
+.github/workflows/android-build.yml
+
+Initially trigger it only through workflow_dispatch.
+
+Use:
+- A supported Ubuntu runner version.
+- Checkout.
+- The required Java environment.
+- The required Node/pnpm environment.
+- Android SDK setup as necessary.
+- pnpm install --frozen-lockfile.
+- Expo prebuild for Android.
+- Gradle assembleDebug for x86_64.
+- Upload the resulting APK as an artifact.
+
+Use maintained, documented GitHub Actions versions.
+Avoid unpinned floating application/tool versions where
+practical.
+
+Keep workflow permissions minimal:
+contents: read
+
+Set a reasonable job timeout.
+
+Do not require:
+- EXPO_TOKEN
+- EAS credentials
+- Google Play credentials
+- Upstream release secrets
+- Private local .env files
+
+Do not move app/.github/ into the repository root.
+
+TASK C — DIAGNOSTICS
+
+Make failures understandable.
+
+- Show relevant tool versions.
+- Distinguish dependency installation, Expo prebuild,
+  Gradle compilation and artifact upload failures.
+- Avoid printing credentials or environment secrets.
+- Do not upload the entire build directory.
+- Upload only the intended APK and narrowly scoped
+  diagnostics if useful.
+- Fail the workflow if the APK is missing.
+
+TASK D — DOCUMENTATION
+
+Add a short GitHub Actions section to the appropriate
+README explaining:
+
+- How to trigger the Android build manually.
+- Where to find the APK artifact.
+- What the workflow verifies.
+- What it does NOT verify.
+
+Explicitly state that this stage does not execute
+Appium visual tests or validate golden references.
+
+Avoid duplicating the existing local setup documentation.
+
+TASK E — LOCAL VERIFICATION
+
+Perform available checks:
+
+- Validate YAML/workflow structure.
+- Confirm the declared commands and working directories.
+- Check referenced paths and existing package scripts.
+- Check that excluded files are not required.
+- Run git diff --check.
+- Confirm golden PNG hashes are unchanged.
+
+Do not claim GitHub Actions passed based on YAML
+validation or the earlier Windows build.
+
+TASK F — COMMIT
+
+If local checks pass, create one local commit:
+
+ci(android): add GitHub Actions debug APK build
+
+Stage only the new workflow and its relevant documentation.
+
+Inspect the staged diff before committing.
+
+Do not use git add -A.
+
+Do not push, tag or rewrite history.
+
+TASK G — REPORT
+
+Provide:
+
+1. Files changed.
+2. Workflow triggers and execution steps.
+3. Node, Java, pnpm and Android SDK versions chosen.
+4. Artifact name and expected APK path.
+5. Local verification commands and results.
+6. Commit hash.
+7. Remaining uncertainty for GitHub-hosted execution.
+8. Exact instructions for the human to push and
+   manually trigger the workflow.
+
+Update the private handoff and AI prompt log.
+
+STOP.
+
+Do not implement EXEC-042B yet.

@@ -1,0 +1,155 @@
+EXEC-037 — Bounded Remediation: Preserve Primary Exceptions
+
+Project: D:\Projects\visual_regression_qa_strategy
+Branch: main
+Expected HEAD: 09fc21a9bede9cfa1df76d58d17e0802b7466c67
+
+CONTEXT
+
+EXEC-037 refactoring is complete and functional verification passed,
+but a read-only audit found that secondary Appium diagnostics or cleanup
+exceptions can mask the original test failure.
+
+The defect existed before EXEC-037 and was preserved by the refactor.
+
+This is a narrow correction within EXEC-037, not a new execution task.
+
+OBJECTIVE
+
+Ensure that android_session() and make_driver() preserve the original
+failure while attempting cleanup and reporting secondary failures.
+
+A. PREFLIGHT
+
+1. Read repository instructions and latest private handoff.
+2. Verify HEAD, branch and Git status.
+3. Preserve all existing unstaged EXEC-037 changes.
+4. Preserve the ten unrelated untracked app entries.
+5. Inspect android_session(), make_driver(), save_diagnostics()
+   and relevant unit tests before modifying anything.
+
+B. REQUIRED BEHAVIOR
+
+For android_session():
+
+1. If the test body fails:
+   - Preserve the original exception object and traceback.
+   - Attempt diagnostic collection.
+   - Attempt app termination.
+   - Attempt driver.quit().
+   - Do not replace the original exception with secondary failures.
+   - Make secondary failures visible using exception notes or an
+     equally simple mechanism.
+
+2. If the test body succeeds:
+   - Attempt app termination and driver.quit().
+   - Report cleanup failures rather than silently suppressing them.
+   - If multiple cleanup operations fail, retain information about
+     every failure.
+
+3. Ensure driver.quit() is attempted even when termination fails.
+
+4. Do not silently suppress errors that could cause false test passes.
+
+5. Preserve current screenshot, comparison and artifact behavior.
+
+For make_driver():
+
+1. Inspect error handling after Appium session creation.
+2. If app launch or scenario initialization fails:
+   - Preserve the original launch exception and traceback.
+   - Attempt termination and driver.quit() when a driver exists.
+   - Report secondary cleanup failures without replacing the
+     original launch failure.
+3. Preserve behavior when WebDriver creation itself fails before
+   a usable driver exists.
+
+Use Python's existing exception facilities where practical.
+Avoid additional dependencies or elaborate exception frameworks.
+
+C. UNIT TESTS
+
+Update the existing lifecycle tests to reflect the correct contract.
+
+Cover these scenarios:
+
+A. Body fails; diagnostics succeed.
+B. Body fails; diagnostics fail.
+C. Body fails; termination fails.
+D. Body fails; quit fails.
+E. Body succeeds; termination fails.
+F. Body succeeds; quit fails.
+G. Driver creation or launch fails.
+
+Also test:
+- Simultaneous termination and quit failures.
+- Diagnostic filesystem failure.
+- Exception object identity and traceback preservation.
+- Visibility of secondary failures.
+- Cleanup invocation count/order.
+
+Correct the old diagnostics test that explicitly expected masking.
+
+Use mocks. Unit tests must not require Android services.
+
+Avoid asserting only that some exception occurred; verify that the
+correct primary exception propagates.
+
+D. VERIFICATION
+
+First run the focused lifecycle unit tests.
+
+Then run:
+- All unit tests.
+- Default pytest discovery.
+- All five normal Appium visual tests.
+- The intentionally failing visual test.
+
+Expected:
+- Normal visual tests pass with zero changed pixels.
+- Intentional-failure test still fails at the real comparator assertion.
+- Original exceptions remain primary under simulated secondary failures.
+- Cleanup failures after successful execution remain visible.
+
+Record commands, exit codes and results.
+
+Verify:
+- Five approved golden hashes unchanged.
+- Intentional mismatch reference unchanged.
+- No application or fixture changes.
+- No screenshot thresholds changed.
+- No unintentional changes to artifact paths or output.
+- git diff --check passes.
+
+E. DOCUMENTATION
+
+Update relevant coding conventions or documentation only if the new
+exception-handling contract needs explanation.
+
+Update public AI disclosure and private handoff/prompt records.
+
+F. EXCLUSIONS
+
+Do not:
+- Continue unrelated refactoring.
+- Eliminate remaining PyCharm duplicate-code warnings.
+- Add Ruff or Allure.
+- Implement environment auto-startup.
+- Modify application code, fixtures or golden PNGs.
+- Change visual comparison policy.
+- Start EXEC-038.
+- Stage, commit, tag or push.
+
+G. REQUIRED REPORT
+
+1. Root cause and exact implementation changes.
+2. Exception behavior before and after remediation.
+3. Unit-test coverage and exact results.
+4. Appium visual-test results.
+5. Intentional-failure result.
+6. Golden-hash verification.
+7. Any remaining exception-handling limitations.
+8. Final Git status.
+9. Whether EXEC-037 is now safe to commit.
+
+Stop after this bounded remediation and return for human review.

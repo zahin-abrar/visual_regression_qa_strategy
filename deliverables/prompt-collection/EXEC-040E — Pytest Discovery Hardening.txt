@@ -1,0 +1,77 @@
+EXEC-040E — Pytest Discovery Hardening
+
+Project: D:\Projects\visual_regression_qa_strategy
+Expected HEAD: 0e7b206
+Branch: main
+
+OBJECTIVE
+
+Fix pytest's default test discovery so generated artifacts
+cannot interfere with visual or unit test execution.
+
+BACKGROUND
+
+The command:
+python -m pytest -m visual -v
+
+encountered eight PermissionError collection failures under
+qa_visual/artifacts/.
+
+However:
+python -m pytest tests -m visual -v
+
+successfully executed all five visual tests in 96.09 seconds.
+
+A separate warning indicates that pytest cannot write to
+the repository-root .pytest_cache directory.
+
+TASK
+
+1. Inspect the existing pytest.ini configuration.
+2. Preserve current markers, options and test behavior.
+3. Configure default discovery to include only:
+   - qa_visual/tests
+   - qa_visual/unit_tests
+4. Exclude generated artifact directories from recursive discovery.
+5. Determine whether the cache warning is caused by local
+   filesystem permissions or project configuration.
+6. Do not delete, modify or change permissions on historical
+   artifacts or evidence packages.
+7. Do not introduce broad filesystem cleanup.
+
+VERIFICATION
+
+From qa_visual/, run:
+- python -m pytest --collect-only -m visual -q
+- python -m pytest -m unit -q
+- python -m pytest -m visual -v
+
+Check that:
+- Collection does not enter artifacts/.
+- Five normal visual scenarios are selected.
+- All unit tests still pass.
+- Any visual failure is reported accurately.
+- Any remaining cache warning is documented separately.
+- git diff --check passes.
+
+Do not change app code, golden PNGs, thresholds, fixtures,
+retry behavior or comparison logic.
+
+COMMIT
+
+After reviewing the small configuration diff, create one
+local commit:
+
+fix(pytest): restrict test discovery to test directories
+
+Stage only explicitly approved configuration/documentation
+files. Do not use git add -A.
+
+Do not configure a remote, tag or push.
+
+Preserve all ten unrelated untracked app/ entries.
+
+Update the private handoff and prompt log.
+
+Report the exact command results, commit hash and final status.
+Stop.

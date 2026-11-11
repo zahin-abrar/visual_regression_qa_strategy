@@ -1,0 +1,91 @@
+EXEC-040D — Housekeeping Commit Finalization
+
+Project: D:\Projects\visual_regression_qa_strategy
+Expected HEAD: dfe9b16
+Branch: main
+
+OBJECTIVE
+
+Review and commit the approved EXEC-040, EXEC-040B and
+EXEC-040C changes.
+
+APPROVED SCOPE
+
+Create two local commits:
+
+1. feat(visual-qa): retain failed comparison evidence
+
+Include only:
+- qa_visual/visualqa/failure_evidence.py
+- qa_visual/visualqa/visual_check.py
+- qa_visual/unit_tests/test_failure_evidence_unit.py
+- qa_visual/README.md
+
+2. docs: consolidate setup, attribution and housekeeping
+
+Include only:
+- .gitignore
+- README.md
+- NOTICE.md
+- deletion of docs/ai_prompts_used.md
+
+PREFLIGHT
+
+- Read the latest private handoff and decisions.
+- Verify branch, HEAD and current Git status.
+- Review the complete diff before staging.
+- Confirm no unexpected changes or sensitive information.
+- Verify the six reference image hashes remain unchanged.
+
+STAGING AND COMMITS
+
+- Stage files by explicit path only.
+- NEVER use git add -A or git add .
+- Inspect git diff --cached --name-status and
+  git diff --cached --check before each commit.
+- Stop if the staged files differ from the approved scope.
+- Create the two local commits in the order specified.
+- Do not amend or rewrite earlier history.
+
+VERIFICATION
+
+- Run the focused unit suite.
+- Report exact command, count and exit code.
+- Do not modify tests, thresholds, fixtures or goldens.
+- Do not rerun the visual suite merely to obtain a green result.
+- Preserve the known failed-suite results as evidence.
+- Verify both commits and final Git status.
+
+KNOWN RISKS TO CARRY FORWARD
+
+- Four episodes of recurring visual instability.
+- First-full-suite-after-Appium-start timing correlation,
+  not confirmed causation.
+- no_image also showed a 1-pixel geometry variation.
+- Transport failures remain a separate infrastructure risk.
+- Visual CI results must initially be advisory.
+- Brand-asset permissions remain unresolved for public release.
+- Final human-reviewed AI prompt disclosure is outstanding.
+
+PROTECTION
+
+- Preserve all ten unrelated untracked app/ entries.
+- Keep AGENTS.md, CLAUDE.md and .project-private/ ignored.
+- Do not recreate discontinued documentation.
+- Do not configure a remote.
+- Do not push or tag.
+- Do not begin CI/CD implementation.
+
+FINAL REPORT
+
+Provide:
+- Both commit hashes and messages.
+- Files included in each commit.
+- Unit-test verification results.
+- Final Git status.
+- Confirmation all ten untracked app/ entries remain intact.
+- Any blockers to the first private push.
+
+Update the private handoff and prompt log.
+
+Stop after the two commits.

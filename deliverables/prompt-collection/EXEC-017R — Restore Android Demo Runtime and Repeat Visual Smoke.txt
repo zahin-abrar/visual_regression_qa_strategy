@@ -1,0 +1,109 @@
+# EXEC-017R — Restore Android Demo Runtime and Repeat Visual Smoke
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Previous task:** EXEC-017 — BLOCKED (runtime unavailable)  
+**Expected Git HEAD:** `cb334e91a9225334f9e53db71ed414007c8df78f`
+
+## Objective
+
+Restore the previously verified local Android demo environment and execute exactly one visual smoke test against the committed golden.
+
+This task concerns local runtime readiness only.
+
+## 1. Review documented startup procedure
+
+Read `qa_visual/README.md` and the latest local handoff.
+
+Identify the already established commands and environment requirements for:
+
+- Android AVD `Pixel_10`
+- Fixture-enabled application `de.volksverpetzer.app`
+- Metro running with `EXPO_PUBLIC_QA_SCENARIO=long_headline`
+- Appium at `127.0.0.1:4723`
+
+Use documented commands and existing installations.
+
+## 2. Restore local services
+
+Check for existing processes before starting new ones.
+
+Start the existing emulator normally if it is stopped. Confirm:
+
+- ADB recognizes the device
+- Android finishes booting
+- The expected app is installed
+
+Start Metro with the approved fixture scenario, using the project's existing package manager and documented command.
+
+Start Appium with the installed UiAutomator2 driver.
+
+Confirm that Metro and Appium are reachable.
+
+Do not launch duplicate servers or assume that a listening port proves the correct fixture is active.
+
+## 3. Scope and recovery limits
+
+Permitted:
+
+- Starting the existing emulator
+- Starting the existing Metro and Appium services
+- Launching the installed development app
+- Checking logs and endpoints
+- Repeating the previously verified visual test
+
+Not permitted:
+
+- Deleting or recreating the AVD
+- Resetting emulator user data
+- Rebuilding or regenerating native Android project files
+- Running `expo prebuild --clean`
+- Installing or upgrading dependencies
+- Modifying app, runner, fixture or golden files
+- Changing Git history
+- Adding a new CI workflow
+
+If the installed app is missing, the fixture cannot be activated, or startup requires invasive repair, stop and report the exact blocker.
+
+## 4. Execute one visual test
+
+From `qa_visual/`, using the existing Python virtual environment, execute the documented `long_headline` visual test.
+
+Record:
+
+- Exact command and exit code
+- PASS/FAIL
+- Captured PNG dimensions
+- Changed-pixel count and percentage
+- Golden comparison decision
+- Diagnostic artifact paths
+- Relevant environment details
+
+Do not regenerate or approve a new golden.
+
+## 5. Final checks
+
+Verify that:
+
+- Golden SHA-256 remains `E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629`
+- Git HEAD remains unchanged
+- No tracked source files were modified
+- No remote was configured and nothing was pushed
+
+Keep the runtime available for the upcoming PyCharm walkthrough if it is healthy. Do not shut down working services unnecessarily.
+
+## 6. Reporting
+
+Record EXEC-017R in the local, uncommitted task history and handoff.
+
+Return:
+
+1. PASS / FAIL / BLOCKED.
+2. Emulator, Metro and Appium readiness.
+3. Fixture activation evidence.
+4. Visual-test command, result and exit code.
+5. Screenshot dimensions and comparison metrics.
+6. Golden checksum.
+7. Git status.
+8. Any remaining demo risks.
+
+**Stop after this task. Do not start PyCharm configuration or additional development yet.**

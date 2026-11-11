@@ -1,0 +1,39 @@
+EXEC-038 — Final Commit Hygiene Correction
+
+Human decision: Authorized to amend the existing EXEC-038 commit
+for this specific whitespace correction only.
+
+1. Verify HEAD is:
+   7d8c7f1709c6ffac85f5911c6de429f0bd8d8992
+
+2. Confirm the commit has not been pushed or tagged.
+
+3. Remove only the trailing blank line at EOF from:
+   qa_visual/visualqa/allure_report.py
+
+4. Review the diff and verify that no functional code changes exist.
+
+5. Stage only that file.
+
+6. Run git diff --cached --check.
+   If it fails, STOP. Do not amend.
+
+7. If the check passes, run:
+   git commit --amend --no-edit
+
+8. Verify:
+   - New commit SHA.
+   - Original parent remains 5a0f2f0.
+   - Commit message remains unchanged.
+   - No Co-Authored-By trailer.
+   - git show --format= --check HEAD passes.
+   - Tracked working tree is clean.
+   - All ten unrelated untracked app entries remain untouched.
+
+9. Update the ignored private handoff with the replacement SHA
+   and explain why the original commit was amended.
+
+Do not rerun Android tests for this whitespace-only change.
+Do not start EXEC-039, create tags or push.
+
+Report the final SHA and Git status.

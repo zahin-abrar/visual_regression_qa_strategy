@@ -1,0 +1,202 @@
+EXEC-034 — Final Strategy Documentation Reconciliation
+
+Objective:
+Update the existing Android/iOS screenshot-testing strategy Markdown and PDF to accurately reflect the completed five-scenario Android demonstration and the verified EXEC-033 intentional visual mismatch demonstration.
+
+This is the final authorized documentation task. After it, stop all agent-led implementation and await the human's personal project review.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Latest committed implementation:
+bcc56b24dbe67472e178ce27fbab54a442bce482
+
+EXEC-033 modifications remain uncommitted. Preserve them.
+
+Read:
+- Applicable AGENTS.md and CLAUDE.md
+- The authoritative employer challenge PDF from the private project sources
+- .project-private/docs/01_REQUIREMENTS.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- deliverables/strategy.md
+- deliverables/strategy.pdf
+- README.md
+- qa_visual/README.md
+- docs/ai_prompts_used.md
+- Current app/ and qa_visual/ implementation where needed
+- Verified EXEC-032 and EXEC-033 evidence
+
+Primary deliverables:
+deliverables/strategy.md
+deliverables/strategy.pdf
+
+Requirements:
+Preserve the employer's approximately 1–3-page strategy scope for both Android and iOS.
+
+Use the existing strategy structure and rationale where accurate. Update outdated statements rather than rewriting the document unnecessarily.
+
+TASKS
+
+1. Record initial Git state and inspect the current Markdown and PDF.
+
+Verify the actual implementation and evidence before changing claims.
+
+Identify outdated statements, missing coverage and broken document links.
+
+2. Update the strategy to describe the implemented Android architecture:
+
+- Adapted Volksverpetzer React Native/Expo application.
+- Development-only deterministic in-app fixtures.
+- Immutable runtime scenario selection before UI initialization.
+- Cold-launch isolation through the existing Expo development-client mechanism.
+- Appium 3 + UiAutomator2 + Python/pytest.
+- Page Object Model and scenario-specific readiness.
+- Real application element screenshots.
+- Pillow-based comparison and actual/diff/JSON reporting.
+- Human-approved device-specific golden references.
+
+Clearly state that Appium drives and captures the UI; it does not provide the mocked data itself.
+
+3. Accurately describe all five verified Android scenarios:
+
+- long_headline: long German headline wrapping and image-bearing teaser card.
+- breaking_news: deterministic breaking-news banner.
+- dark_article: actual dark theme through a nonpersistent QA override.
+- no_image: real ArticlePost with an intentionally absent image panel.
+- empty_feed: successful zero-item feed response and real empty-state message.
+
+Distinguish challenge-specific sample-app adaptations from proven upstream production behavior.
+
+Explain that empty_feed is not offline/error coverage.
+
+4. Update the verified local execution evidence.
+
+EXEC-032:
+- Five Android scenarios.
+- Six independent cold launches, including repeat empty_feed execution.
+- All six PASS.
+- Zero changed pixels against approved goldens.
+- Five reviewed PNG references committed by the bcc56b2 checkpoint.
+
+EXEC-033:
+- Normal breaking_news PASS, exit 0.
+- Intentional mismatch test FAIL, exit 1.
+- Comparator detected 468,349 / 506,804 changed pixels, approximately 92.41%.
+- Existing comparator threshold: RGB channel delta greater than 12; maximum changed-pixel ratio 0.002.
+- Actual/diff/JSON evidence generated.
+- Normal breaking_news PASS after the intentional failure.
+- Five normal visual scenarios remained PASS.
+
+IMPORTANT:
+The intentionally failing test compares a correct real-app screenshot against a deliberately incorrect, separately stored reference image.
+
+Describe this as an intentional visual mismatch/detection demonstration, NOT as a genuine regression introduced into application code.
+
+The demo is marked intentional_failure and excluded from default test selection. Explicit marker selection runs it and produces a real pytest assertion failure.
+
+Do not imply that ordinary pytest execution is green without the required per-scenario launch configuration. The five-scenario run uses documented scenario-specific cold launches.
+
+5. Preserve the cross-platform production strategy.
+
+Cover:
+- Shared scenario definitions, fixture contracts, high-level assertions, reporting and baseline-review policy.
+- Android-specific drivers, selectors, application test seams and goldens.
+- Proposed iOS simulator/XCUITest integration with separate native configuration and goldens.
+- Potential fast native component snapshots where compatible with the actual production technology stack.
+- Dependency injection or controlled mock-server alternatives in existing production applications.
+- PR quality gates, failure artifacts, deliberate baseline review and no automatic reference regeneration.
+- Risk-based nightly/release device matrix.
+- Flakiness management, CI cost, team rollout and mentoring.
+
+Present these as engineering recommendations and proposed integrations, not as components verified in this project.
+
+Do not assume Axel Springer's actual application architecture or access to its internal source code.
+
+6. State limitations accurately and concisely:
+
+- Only Android native execution verified.
+- No native iOS execution.
+- No verified CI pipeline.
+- No standalone release/QA-build runtime validation.
+- Current test harness uses a pinned local development environment.
+- Existing combined pnpm check fails on the known FIXTUR spelling issue.
+- The historic one-pixel native image-layout difference has an unresolved underlying cause; an explicitly reviewed runtime-specific golden was approved.
+- The empty-feed golden excludes the donation card.
+- The demo proves visual mismatch detection, not an application-code regression.
+
+Do not invent speed improvements, false-positive rates or production coverage statistics.
+
+7. Keep the final strategy concise.
+
+Target 2 pages if practical; maximum 3 pages.
+
+Prioritize:
+- Strategic rationale and trade-offs
+- Actual demonstration architecture and evidence
+- Android/iOS reuse boundaries
+- Determinism and baseline governance
+- CI/Scrum rollout and stability
+- Honest limitations
+
+Avoid turning the strategy into a detailed execution log. Link to existing portable README evidence where appropriate.
+
+8. Regenerate deliverables/strategy.pdf from the updated Markdown using the project's existing documented generation approach where available.
+
+Verify:
+- PDF opens and is valid.
+- 1–3 pages.
+- Headings and tables are readable.
+- No text clipping, overflow or broken formatting.
+- Markdown and PDF convey the same final strategy.
+- No confidential employer PDF content, personal local paths or private agent instructions appear.
+
+Render every PDF page and visually inspect the actual output.
+
+If generation is blocked, report it; do not claim the PDF was updated.
+
+9. Review the root README and qa_visual/README.md for contradictions with the corrected strategy.
+
+Apply only essential factual corrections. Do not rewrite working launch instructions or change application/test behavior.
+
+Check that references to locally ignored diagnostic artifacts are not presented as files automatically available in a fresh clone.
+
+10. Update docs/ai_prompts_used.md with the material EXEC-034 work and verification, preserving existing disclosure.
+
+Update the ignored private handoff and prompt records with actual results and remaining limitations.
+
+11. Report final Git status.
+
+Preserve EXEC-033's uncommitted files and all unrelated upstream scaffolding.
+
+CONSTRAINTS
+
+- Documentation changes only.
+- No app source changes.
+- No test source or pytest configuration changes.
+- No fixture data changes.
+- No comparator or threshold changes.
+- No golden modifications.
+- No new scenarios or CI implementation.
+- No unrelated FIXTUR correction.
+- No native iOS implementation.
+- No staging, committing or pushing.
+- No blanket Git reset, checkout or clean.
+- No new implementation tasks.
+
+REQUIRED REPORT
+
+A. Original strategy discrepancies.
+B. Exact documentation files changed.
+C. Updated strategy structure and major decisions.
+D. Final Markdown/PDF paths.
+E. PDF page count and page-by-page visual inspection result.
+F. Source-backed evidence claims and their limits.
+G. README and AI disclosure changes.
+H. Final Git status and remaining uncommitted files.
+I. Outstanding issues for the human's final review.
+
+STOP after documentation verification.
+
+Do not start further tasks, commit files or propose additional implementation automatically. The human will inspect the final project and decide the next steps.

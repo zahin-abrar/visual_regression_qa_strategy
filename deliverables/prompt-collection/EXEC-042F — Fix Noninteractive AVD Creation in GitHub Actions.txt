@@ -1,0 +1,109 @@
+
+EXEC-042F — Fix Noninteractive AVD Creation in GitHub Actions
+
+PROJECT
+D:\Projects\visual_regression_qa_strategy
+
+Last reported commit: 1491799
+
+OBSERVED RESULT
+
+Latest GitHub visual workflow passed KVM preflight and
+reached AVD creation.
+
+Confirmed log evidence:
+- Emulator version 37.2.13.0
+- API 37 system image downloaded
+- ldd diagnostic was informational
+- 66 available device definitions
+- avdmanager selected x86_64 ABI
+
+Failure:
+
+Do you wish to create a custom hardware profile? [no]
+
+AVD not created:
+~/.android/avd/Pixel_10.avd/config.ini does not exist
+
+The workflow failed before emulator boot.
+
+OBJECTIVE
+
+Make AVD creation reliably noninteractive while
+preserving the approved emulator configuration.
+
+TASKS
+
+1. Read the current private handoff and inspect
+   .github/scripts/start-emulator.sh.
+
+2. Identify the existing avdmanager create command and
+   how it receives standard input.
+
+3. Determine why the custom hardware prompt was not
+   answered successfully.
+
+4. Supply an explicit "no" response using a controlled
+   stdin mechanism, such as printf 'no\n'.
+
+5. Preserve proper pipeline exit-code handling, including
+   pipefail, and ensure timeout failures are detectable.
+
+6. Capture the complete avdmanager output and actual
+   command exit status.
+
+7. Verify the expected config.ini exists after creation.
+
+8. Verify avdmanager list avd recognizes the created AVD.
+
+9. Preserve the AVD name Pixel_10 without requiring an
+   installed --device pixel_10 hardware definition.
+
+10. Preserve API 37, x86_64, 1080x2424, 420 dpi,
+    4 GB RAM, cold boot, headless execution and KVM.
+
+11. If creation still fails, provide an actionable error
+    with relevant avdmanager output.
+
+12. Do not silently change API level, emulator image,
+    golden profile or device configuration.
+
+VALIDATION
+
+- Validate shell syntax.
+- Exercise the interactive prompt using mocked avdmanager.
+- Verify "no" is received.
+- Verify creation failures propagate nonzero exit codes.
+- Verify missing config.ini still fails.
+- Verify the successful mocked creation path.
+- Run git diff --check.
+- Confirm app/, qa_visual/ and goldens remain unchanged.
+
+PRESERVE
+
+- APK reuse and successful source run validation
+- Android build workflow
+- Existing KVM preflight
+- libpulse0 dependency setup
+- Bounded log collection
+- Appium and Metro
+- Five visual scenarios
+- Allure and evidence reporting
+- Advisory test policy
+
+DOCUMENTATION AND COMMIT
+
+Update private handoff and canonical AI prompt log.
+
+Create one bounded local commit.
+Do not amend, push, tag or rebuild the APK.
+Preserve the ten unrelated untracked app/ entries.
+
+REPORT
+
+Provide exact root cause, code changes, validation
+results, commit hash and remaining real-CI uncertainties.
+
+Rerun using source_run_id 42494990156 if available.
+
+STOP after this targeted remediation.

@@ -1,0 +1,201 @@
+EXEC-032 — Empty Feed Golden Promotion and Five-Scenario Verification
+
+Objective:
+Promote the explicitly human-approved empty_feed candidate to the official Android baseline, verify it through independent Appium executions, and confirm that all five visual scenarios pass against their approved golden references.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Current Git checkpoint:
+8c54f0f711f7b4a78a8a49d25bc1728cc919b002
+
+HUMAN APPROVAL:
+
+On November 7, 2026, the human decision-maker reviewed the empty_feed candidate and full-screen context and explicitly APPROVED promotion.
+
+The review also APPROVED the message-only capture boundary, excluding the donation card, payment controls, dynamic status bar and development warnings.
+
+This approval applies ONLY to the exact candidate and SHA-256 below.
+
+Approved candidate:
+debug-logs/exec031/review/empty_feed.candidate.png
+
+Approved SHA-256:
+903B971081AC2EA2FEB2A37D1B73473602E176A8E9FFE046074E7D3BDE5FA795
+
+Target golden:
+qa_visual/baselines/android/pixel10-api37/empty_feed.png
+
+Expected dimensions:
+1028 × 309, RGBA
+
+Existing approved golden hashes:
+
+long_headline:
+6A9E18DAF9769686A9ADF4A3D7C85E9A09ED429FA17EDFB4ABE5880682C878CC
+
+breaking_news:
+E552AD4D89CC3684062E803B49550DFCDB868AEA0575BF890DA85D958438BE7F
+
+dark_article:
+6FD667E87476F941F7CB7A8152F60FFB8C51A3FD4217A7E993300AB32EB62A96
+
+no_image:
+AC5BD84B93778F4773B3A38ABD391A89483295446A2E096DD59E21CA288B3012
+
+Sources:
+- Applicable AGENTS.md and CLAUDE.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- EXEC-031 review packet
+- Current app/, qa_visual/ and relevant READMEs
+
+Tasks:
+
+1. Record initial Git branch, HEAD and working-tree status.
+
+Verify all four existing approved golden hashes. Preserve existing modifications, unrelated untracked files and private records.
+
+2. Verify the approved candidate:
+   - SHA-256 matches exactly.
+   - Valid 1028 × 309 RGBA PNG.
+   - Originates from the genuine EXEC-031 Appium element capture.
+   - Two independent captures are documented as byte-identical.
+   - Capture bounds match [26,825][1054,1134].
+   - The candidate contains the actual empty-state message region without the donation card.
+
+Stop if any integrity check fails.
+
+3. Copy the approved candidate byte for byte to:
+
+qa_visual/baselines/android/pixel10-api37/empty_feed.png
+
+Do not regenerate, rescale, modify or recompress the image.
+
+4. Verify the promoted golden hashes to:
+
+903B971081AC2EA2FEB2A37D1B73473602E176A8E9FFE046074E7D3BDE5FA795
+
+5. Run empty_feed through the existing explicit runtime-selection mechanism:
+
+qa_scenario=empty_feed
+
+Keep the same Metro process and environment between executions.
+
+6. Execute TWO independent empty_feed visual regressions using separate cold launches.
+
+Verify in each:
+- Exact qa-scenario:empty_feed identity.
+- Effective light theme.
+- Successful zero-item fixture outcome.
+- Loading completed.
+- qa-empty-feed-ready.
+- Exact German empty-state message.
+- No stale article, breaking banner, progress bar or loading elements.
+- Complete message-region bounds.
+- Screenshot dimensions and comparison result.
+
+Record:
+- Exact test command and exit code.
+- Changed pixels and ratio.
+- Actual screenshot SHA-256.
+- Actual/context/diff/JSON artifact paths.
+
+Both tests must PASS against the newly approved golden.
+
+7. Compare the two actual captures for repeatability.
+
+Report byte identity, raw pixel differences, maximum channel delta and comparator-tolerated differences.
+
+8. Run all FOUR previously approved Android visual regressions:
+
+- long_headline
+- breaking_news
+- dark_article
+- no_image
+
+All must PASS against their unchanged approved goldens.
+
+Preserve cold-launch isolation and verify no theme, article or banner state leaks between scenarios.
+
+9. Where practical, run the full five-scenario sequence from the same Metro environment. Report each scenario's identity, comparison result and exit code.
+
+Do not claim CI execution based on local sequential tests.
+
+10. Run relevant validation:
+- TypeScript check.
+- Focused Jest tests.
+- Full Jest suite where practical.
+- Python unit tests.
+- Pytest collection.
+- git diff --check.
+
+Report the known FIXTUR spelling-related combined-check failure separately if it remains. Do not modify fixture text or approved screenshots to silence it.
+
+11. Update documentation:
+- README.md
+- qa_visual/README.md
+- qa_visual/baselines/README.md
+- qa_visual/baselines/android/pixel10-api37/README.md
+- docs/ai_prompts_used.md where relevant.
+
+Document:
+- Five approved Android visual scenarios.
+- Explicit runtime-selected cold launches.
+- Human-reviewed golden references.
+- Successful-empty semantics, not offline/error behavior.
+- Message-only capture boundary and excluded donation card.
+- Existing comparison thresholds unchanged.
+- No verified native iOS or CI execution.
+- Accurate Git tracking/commit status.
+
+Correct the stale root README wording that describes previously committed baselines as local and uncommitted. Do not claim the new empty_feed golden is committed until it actually is.
+
+12. Update ignored private documents:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/04_AI_PROMPT_LOG.md
+
+Record approval, promotion, exact hash, verification commands/results, limitations and next steps.
+
+CONSTRAINTS:
+
+- Do not modify the four existing approved goldens.
+- Do not change comparator thresholds.
+- Do not change application rendering, fixtures or scenario architecture.
+- Do not introduce additional visual scenarios.
+- Do not regenerate or auto-approve any other golden.
+- Do not change unrelated Firebase/notification behavior.
+- Do not implement CI workflows or native iOS tests.
+- Do not stage, commit or push.
+- Do not delete or modify unrelated upstream scaffolding.
+- Preserve Metro, Appium and emulator state wherever possible.
+
+REQUIRED REPORT:
+
+A. Promoted golden path and verified SHA-256.
+B. Two independent empty_feed native visual results.
+C. Repeatability metrics and artifacts.
+D. Existing four-scenario regression results.
+E. Full five-scenario suite verification summary.
+F. TypeScript/Jest/Python validation.
+G. Documentation changes.
+H. Final Git status.
+I. Remaining limitations and recommended final consolidation tasks.
+
+ACCEPTANCE:
+
+EXEC-032 passes only if:
+- The promoted golden matches the exact human-approved SHA-256.
+- Both independent empty_feed regressions PASS.
+- All four existing visual regressions PASS.
+- All five golden hashes remain correct.
+- Comparator thresholds remain unchanged.
+- No unauthorized changes occur.
+
+If any comparison fails, preserve diagnostics and stop. Never silently update a golden or loosen thresholds.
+
+STOP after EXEC-032.
+
+Do not begin further implementation or commit changes without human review.

@@ -1,0 +1,195 @@
+# EXEC-008 — Corrected Article-Card Repeatability Verification
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-007 — PASS
+
+## Objective
+
+Verify that two separate Appium executions produce stable screenshots of the **complete outer article-card container**.
+
+Use the corrected EXEC-007 screenshot as Capture A. Generate one new native screenshot as Capture B.
+
+Measure the differences using the existing visual comparison policy.
+
+**Do not create or approve a golden baseline.**
+
+## Step 1 — Review existing evidence
+
+Read:
+
+- Root `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- `qa_visual/README.md`
+- Existing image comparator and test configuration
+
+Locate:
+
+`qa_visual/artifacts/android/pixel10-api37/long_headline.actual.png`
+
+Confirm that this is the corrected EXEC-007 capture, not the original EXEC-005 screenshot.
+
+Expected dimensions from EXEC-007: **1028 × 1237**.
+
+Record its SHA-256 hash, dimensions, image mode and modification timestamp.
+
+Inspect the comparator's actual tolerance configuration without changing it.
+
+## Step 2 — Preserve Capture A
+
+Copy the corrected screenshot to:
+
+`qa_visual/artifacts/android/pixel10-api37/long_headline.capture_a.png`
+
+Also preserve the corresponding context image as:
+
+`long_headline.context_a.png`
+
+Verify the copies against the originals using SHA-256 hashes.
+
+Do not silently overwrite an existing Capture A. If the destination exists, inspect and report the conflict before proceeding.
+
+## Step 3 — Verify runtime readiness
+
+Check that:
+
+- `emulator-5554` is online and fully booted.
+- Appium `/status` reports ready.
+- Metro remains available.
+- The deterministic long-headline fixture is still configured.
+
+Preserve the existing emulator, application, and services.
+
+If prerequisites are unavailable, stop and report the blocker instead of attempting broad repairs.
+
+## Step 4 — Produce Capture B
+
+From:
+
+`D:\Projects\visual_regression_qa_strategy\qa_visual`
+
+Run the existing visual test exactly once:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+    .\tests\test_long_headline.py `
+    -m visual -v -s
+```
+
+The expected pytest outcome remains a missing-approved-golden failure after successful capture.
+
+If the test fails earlier, record the actual reason.
+
+Copy the new article-card screenshot to:
+
+`long_headline.capture_b.png`
+
+Preserve the new full-screen context as:
+
+`long_headline.context_b.png`
+
+Do not overwrite Capture A or the previous diagnostic evidence.
+
+## Step 5 — Compare Capture A and Capture B
+
+Use the existing Pillow dependency and visual comparator where applicable.
+
+Record:
+
+1. Dimensions and image modes of both captures.
+2. SHA-256 hashes.
+3. Whether they are byte-identical.
+4. Whether decoded pixel values are identical.
+5. Number and percentage of pixels with any difference.
+6. Number and percentage of pixels changed under the existing comparator tolerance.
+7. Maximum observed per-channel difference.
+8. Whether the existing comparison policy considers the two images equivalent.
+9. Whether the headline wrapping, image, metadata, padding and rounded corners remain unchanged.
+
+If the comparator does not expose all metrics, use a temporary diagnostic script that does not modify framework source or introduce dependencies.
+
+Do not adjust tolerance thresholds to force a passing result.
+
+A nonzero raw pixel difference is not automatically a failure if it is within the existing visual comparison policy and there are no substantive UI changes.
+
+If the image dimensions differ, report the mismatch explicitly rather than resizing either capture.
+
+## Step 6 — Visual inspection
+
+Inspect Capture A and Capture B.
+
+Confirm that both show:
+
+- The synthetic fixture image.
+- The complete four-line headline.
+- The fixed metadata.
+- The synthetic summary.
+- The outer card's bottom padding and rounded corners.
+- No unrelated surrounding application UI.
+
+Check whether any differences indicate layout movement, image loading problems, text changes or rendering instability.
+
+## Acceptance criteria
+
+EXEC-008 is PASS when:
+
+- The corrected EXEC-007 screenshot is safely preserved as Capture A.
+- Exactly one new Appium execution produces Capture B.
+- Both are valid native element screenshots of the complete card.
+- Their dimensions match.
+- Their visual differences are measured.
+- They satisfy the existing comparator policy.
+- No substantive changes in content or layout are observed.
+- No golden PNG is created or approved.
+
+If the comparison exceeds the existing threshold, report FAIL with measurements and evidence. Do not conceal or automatically normalize the difference.
+
+## Restrictions
+
+- Do not modify `app/` or the fixture.
+- Do not modify POM, driver or comparator source.
+- Do not change dependency versions.
+- Do not restart or reconfigure the emulator.
+- Do not rebuild or reinstall the app.
+- Do not change visual thresholds.
+- Do not create, regenerate or approve a golden.
+- Do not introduce a deliberate UI regression.
+- Do not initialize Git.
+- Do not automatically proceed to EXEC-009.
+
+## Task history
+
+Append EXEC-008 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Include:
+
+- Status: PASS / FAIL / BLOCKED
+- Exact commands and exit codes
+- Capture A and B paths
+- Capture hashes, dimensions and modes
+- Pixel-comparison metrics
+- Existing tolerance policy and comparison result
+- Visual inspection findings
+- Unexpected issues or remaining uncertainties
+- Files created or modified
+- Recommended next smallest task
+
+Preserve previous history entries.
+
+## Completion report
+
+Return:
+
+1. EXEC-008 status
+2. Capture A and B paths
+3. Pytest result and reason
+4. Screenshot dimensions and hashes
+5. Raw and tolerance-adjusted pixel-difference metrics
+6. Stability assessment, including card boundaries
+7. Remaining uncertainties
+8. Files created or changed
+9. Recommended next task
+
+**Stop after EXEC-008. Await human review and authorization.**

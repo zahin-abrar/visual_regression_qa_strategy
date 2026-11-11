@@ -1,0 +1,67 @@
+EXEC-019 — Deterministic Mocking Feasibility Inspection
+
+Objective:
+Inspect the current repository and propose a deterministic mocking architecture for expanding the existing Android visual regression suite from one scenario to five. This is read-only investigation. Do not modify files or implement anything.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Approved scenarios:
+Existing: long_headline (must remain working)
+New: breaking_news, dark_article, no_image, empty_feed
+
+Sources:
+Read the following from the actual repository:
+
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- Relevant README files
+- AGENTS.md/CLAUDE.md if present
+- Current app/ and qa_visual/ source
+- reference/patches/ (previous fixture patch, for historical reference only)
+
+All relative paths are under the project root specified above. The .project-private directory contains private project documentation and must remain excluded from Git.
+
+Treat older reports and patches as historical evidence. Verify the actual current implementation. Do not reapply the previous patch.
+
+Tasks:
+
+1. Inspect existing implementation.
+Identify exact files and explain how long_headline is selected, how the development-only fixture works, how data reaches the real React Native components, how Appium verifies readiness and captures screenshots, and how the comparator manages baselines and diffs. Record Git branch/status and the last verifiable regression results.
+
+2. Assess the four new scenarios.
+For each, identify reusable components, necessary UI/fixture changes, required mock data, asynchronous dependencies, readiness selectors, capture boundaries, state-reset requirements, and potential production behavior impacts. Do not assume an existing component supports a scenario without inspecting it.
+
+3. Compare scenario-selection mechanisms.
+A: Extend EXPO_PUBLIC_QA_SCENARIO with explicit app/bundle reload per scenario.
+B: Add a minimal development-only runtime selector.
+Evaluate complexity, isolation, reliability, CI suitability, and compatibility with long_headline. Recommend one approach and a fallback. Do not implement either.
+
+4. Propose fixture architecture.
+Specify a minimal typed scenario registry, reusable synthetic data, theme/media/empty-state handling, scenario identification, readiness conditions, and reset/relaunch lifecycle. Prefer the proven in-app fixture seam; do not introduce another mocking framework without demonstrated need.
+
+5. Identify risks.
+Check Expo environment handling, app/feed caching, persistent theme state, image-dependent readiness, successful-empty versus loading/error behavior, banner authenticity, external network effects, and baseline compatibility.
+
+6. Propose EXEC-020.
+Provide a bounded implementation plan focused only on establishing and verifying the approved mocking architecture, before implementing the four new visual tests. Identify anticipated files, verification commands, acceptance criteria, and rollback approach.
+
+Required output:
+A. Current implementation inventory with exact paths and evidence.
+B. Four-scenario feasibility matrix.
+C. Scenario-selection options, recommendation, and fallback.
+D. Proposed fixture contract and isolation lifecycle.
+E. EXEC-020 implementation proposal.
+F. Risks, unresolved decisions, and verification record.
+
+Distinguish OBSERVED, PROPOSED, and UNVERIFIED findings. Never claim tests, screenshots, CI, or iOS execution without evidence.
+
+Constraints:
+Preserve existing long_headline behavior, reviewed golden PNGs, fixture implementation, and normal production behavior.
+
+Do not change application code, tests, dependencies, configuration, documentation, or Git state. Do not commit.
+
+Do not copy private documents into tracked directories, generated reports, or commits.
+
+Stop after returning the inspection report. Await human review and approval before EXEC-020.

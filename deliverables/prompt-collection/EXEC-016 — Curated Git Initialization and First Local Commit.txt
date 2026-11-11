@@ -1,0 +1,223 @@
+# EXEC-016 — Curated Git Initialization and First Local Commit
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-015 — PASS
+
+## Objective
+
+Prepare a clean, reproducible local Git repository containing the approved Android screenshot-testing demo and submission documents.
+
+Create one local initial commit **only after** staged-file, secret and privacy checks pass.
+
+Do not configure a remote, push, publish or upload the repository.
+
+## 1. Review the audit
+
+Read:
+
+- Root `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- Existing app and QA `.gitignore` files
+- `README.md`
+- `qa_visual/README.md`
+- `qa_visual/baselines/README.md`
+- `docs/ai_prompts_used.md`
+- Relevant EXEC-015 findings
+
+Use the approved EXEC-015 recommendations.
+
+Do not modify application or test implementations.
+
+## 2. Add root ignore protection
+
+Create a root `.gitignore` covering at least:
+
+- `.project-private/`
+- `debug-logs/`
+- `.env` and `.env.*`, while permitting explicitly reviewed example files
+- `node_modules/`
+- `.venv/`, `venv/`, Python caches and pytest caches
+- `.expo/`
+- Local editor/OS temporary files
+- Generated test artifacts, logs and screenshots
+- Generated Android build outputs
+- Sensitive keystores and credential files
+
+Retain the existing `app/.gitignore` and `qa_visual/.gitignore`.
+
+Do not broadly ignore `qa_visual/baselines/` or approved golden PNGs.
+
+Verify the effective ignore rules rather than assuming they work.
+
+## 3. Reconcile the baseline README
+
+Update `qa_visual/baselines/README.md`.
+
+Remove the stale claim that no approved baseline exists.
+
+Document the approved Android reference:
+
+`android/pixel10-api37/long_headline.png`
+
+Include:
+
+- Human-approved baseline status
+- 1028 × 1237 PNG dimensions
+- SHA-256:
+  `E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629`
+- Requirement for explicit review before replacement
+- Link to `qa_visual/README.md` for regeneration instructions
+
+Do not alter the PNG.
+
+## 4. Initialize local Git
+
+Confirm again that the project root is not already a repository.
+
+If still uninitialized, create one root Git repository.
+
+Do not remove or modify any nested repository metadata if unexpected metadata is discovered; stop and report instead.
+
+Do not add a remote.
+
+Use a conventional `main` branch where supported.
+
+Do not alter global Git configuration.
+
+If Git author identity is missing, report the blocker rather than inventing an identity.
+
+## 5. Stage a curated submission
+
+Stage only reviewed, intended submission material:
+
+- Root README and `.gitignore`
+- Application source, necessary assets, manifest and lockfile
+- Existing app license and attribution
+- Python runner, tests, requirements and configuration
+- Runner README
+- Approved golden PNG and baseline README
+- Strategy Markdown and PDF
+- Sanitized AI prompt disclosure
+- Necessary non-sensitive architecture/supporting documents
+
+**Do not use `git add -A` or `git add .` at the repository root.**
+
+Use an explicit curated staging approach.
+
+The following must remain excluded:
+
+- `.project-private/`
+- Original employer challenge PDF
+- `app/.env`
+- `app/android/app/debug.keystore`
+- Generated `app/android/`
+- `app/node_modules/`
+- `qa_visual/.venv/`
+- `qa_visual/artifacts/`
+- `debug-logs/`
+- Local caches, build outputs, temporary files and credentials
+
+Treat historical internal notes, local handoff files and agent task history as non-public by default. Include only if explicitly necessary and reviewed for publication.
+
+If the fixture patch or any essential app asset is outside the expected source locations, inspect it and include it deliberately.
+
+## 6. Mandatory staged-content audit
+
+Before committing, verify:
+
+1. The staged file list is complete and intentional.
+2. No staged path contains `.project-private`, `node_modules`, `.venv`, `debug-logs`, generated Android build outputs, credentials or local artifacts.
+3. The original employer challenge PDF is not staged.
+4. No suspicious secret values, private tokens, credentials or connection strings are present in staged text.
+5. Any detected potential secrets are assessed without printing sensitive values into the report.
+6. Every staged binary is intentional and appropriate.
+7. The approved golden PNG is staged and its checksum matches.
+8. Both strategy files and both READMEs are staged.
+9. The sanitized AI prompt record is staged.
+10. License and attribution files are retained.
+
+Inspect the staged diff and file sizes.
+
+Do not trust ignore rules as a substitute for reviewing the staged contents.
+
+If suspicious or unexplained material is found, **stop before committing** and report the affected paths and risk without exposing secrets.
+
+Do not use `git add -f` to bypass exclusions.
+
+## 7. Create the first local commit
+
+Only if every mandatory audit passes:
+
+- Create one local initial commit with a descriptive message, such as:
+  `feat: add Android visual regression demo and cross-platform strategy`
+- Verify the resulting commit ID.
+- Verify the approved golden and required documents are tracked in the commit.
+- Verify the working-tree status.
+- Confirm that no remote was configured and nothing was pushed.
+
+If a mandatory check fails, leave the repository uncommitted and provide the findings.
+
+## 8. Record execution evidence
+
+Append EXEC-016 to `docs/AGENT_TASK_HISTORY.md` locally.
+
+Record:
+
+- Git initialization result
+- Files changed
+- Staging audit summary
+- Exclusions verified
+- Golden checksum
+- Commit hash, if created
+- Git status
+- Remaining blockers
+
+Do not amend the initial commit merely to include internal execution logs.
+
+Update the local handoff if appropriate, keeping internal records out of the public submission.
+
+## Restrictions
+
+- No application or test logic changes
+- No golden regeneration
+- No emulator/Appium execution
+- No dependency installation
+- No CI implementation
+- No remote creation
+- No push or publication
+- No force-add of ignored files
+- No cleanup/deletion of large existing local directories
+- No automatic continuation to the next task
+
+## Acceptance criteria
+
+EXEC-016 is PASS when:
+
+- The root Git repository exists.
+- Root ignore protection is effective.
+- The baseline README is accurate.
+- The staged-content security audit passes.
+- A local initial commit is created.
+- Approved golden, strategy PDF, READMEs, required source and AI disclosure are tracked.
+- No private or generated content is included.
+- No remote or publication action occurs.
+
+If a safety check fails, return BLOCKED rather than weakening the criteria.
+
+## Completion report
+
+Return:
+
+1. EXEC-016 status.
+2. Commit hash, if created.
+3. Number of files committed and approximate repository size.
+4. Required submission files verified as tracked.
+5. Golden SHA-256 verification.
+6. Sensitive/generated exclusion results.
+7. License or asset concerns.
+8. Git status and remote status.
+9. Files changed.
+10. Remaining blockers and recommended next task.
+
+**Stop after EXEC-016. Await human review and authorization.**

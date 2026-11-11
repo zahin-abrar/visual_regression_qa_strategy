@@ -1,0 +1,126 @@
+EXEC-022 — Fixture Image Visual Mismatch Investigation
+
+Objective:
+Identify and, if safely possible, resolve the deterministic image-region mismatch discovered in EXEC-021. Restore the existing long_headline visual regression against its unchanged approved golden before implementing additional scenarios.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Sources:
+- .project-private/docs/02_DECISIONS.md
+- .project-private/docs/03_HANDOFF.md
+- .project-private/docs/08_VISUAL_SUITE_EXPANSION_DECISION.md
+- Relevant app/, qa_visual/, README and agent instructions.
+
+Known evidence:
+
+EXEC-021 confirmed that development-only runtime scenario selection works on the Pixel_10 Android API 37 emulator.
+
+Appium verifies qa-scenario:long_headline before qa-article-card-ready.
+
+Two consecutive captures:
+- Dimensions: 1028 × 1237
+- Changed pixels against golden: 11,640
+- Changed ratio: 0.915356%
+- Allowed ratio: 0.2%
+- Both comparisons FAIL
+- Both actual PNGs are byte-identical
+- Differences are confined to the fixture-image region
+- Text, metadata, summary and lower padding are pixel-identical
+- Card bounds: [26,720][1054,1957]
+
+Existing approved golden:
+qa_visual/baselines/android/pixel10-api37/long_headline.png
+
+Expected SHA-256:
+E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629
+
+Preserved evidence:
+qa_visual/artifacts/android/pixel10-api37/exec021-run1/
+qa_visual/artifacts/android/pixel10-api37/exec021-run2/
+
+Environment:
+Metro and Appium were left running after EXEC-021. Preserve these services where possible. Metro uses IPv4 127.0.0.1:8081, with NODE_OPTIONS=--dns-result-order=ipv4first.
+
+Tasks:
+
+1. Record initial Git status and verify golden integrity. Preserve existing modifications, untracked files, private documents and EXEC-021 artifacts.
+
+2. Analyze the existing actual, golden and diff images directly before rerunning tests. Determine the exact mismatched rectangle(s), pixel-change distribution, whether differences represent image content, scaling, cropping, alignment, interpolation, color changes or an incomplete asset. Provide measurable evidence and, where useful, a focused annotated diagnostic image outside the baseline directory.
+
+3. Trace the fixture-image pipeline:
+   - Source fixture image file and hash.
+   - Fixture article and QA slug recognition.
+   - Metro/Expo asset resolution.
+   - React Native image component and image-source selection.
+   - Image dimensions, resize mode and layout.
+   - Image loading/readiness.
+   - Any caching or persistent asset state affecting rendering.
+
+   Verify actual code and asset behavior. Do not presume the fixture source changed merely because its rendered pixels differ.
+
+4. Compare the runtime-selector launch with the legacy environment-fallback launch under the same Metro process and emulator settings.
+
+   Runtime path:
+   qa_scenario=long_headline
+
+   Legacy fallback:
+   Launch without explicit qa_scenario while Metro retains EXPO_PUBLIC_QA_SCENARIO=long_headline.
+
+   Verify the actual selected scenario and image readiness in both paths. Capture comparable card PNGs and determine whether the image difference occurs in both.
+
+   Do not change Metro's scenario environment between these checks.
+
+5. Check for relevant rendering-environment changes, including installed application/native dependencies, emulator GPU or display configuration, image decoding behavior and asset caching. Distinguish verified differences from hypotheses. Do not reinstall, rebuild or wipe the emulator speculatively.
+
+6. Determine whether the mismatch is:
+   A. A regression introduced by the runtime-selection implementation.
+   B. An existing or changed fixture/asset-rendering issue independent of runtime selection.
+   C. A difference in the pinned execution/rendering environment.
+   D. Another demonstrated cause.
+
+   Do not assign a category without supporting evidence.
+
+7. If a narrow, verified defect can be corrected without changing the approved image content or normal production behavior, implement the smallest appropriate fix. Record before/after evidence and rerun affected automated checks.
+
+8. Run the long_headline visual regression twice after any correction, from independent application launches. Compare both against the unchanged golden and each other. Record exact changed-pixel counts, ratios, exit codes and artifact paths.
+
+9. If the current rendering is demonstrably correct but the existing golden reflects an obsolete or inconsistent rendering environment, do not replace it automatically. Explain the evidence, propose the exact baseline-review decision needed, and stop for human approval.
+
+10. Investigate the Firebase/push-token warning only enough to classify whether it affects initialization or the captured card. It is outside the compared region and should not trigger unrelated notification-system work.
+
+Verification:
+- Relevant TypeScript/Jest tests if application code changes.
+- Python unit tests if runner code changes.
+- Original long_headline Appium comparison.
+- Golden SHA-256 before and after.
+- No comparison-threshold changes.
+
+Constraints:
+- Do not regenerate, overwrite or approve the existing golden.
+- Do not mask or crop away the mismatched image.
+- Do not increase visual tolerance.
+- Do not modify synthetic article content simply to match the golden.
+- Do not implement breaking_news, dark_article, no_image or empty_feed.
+- Do not introduce CI workflows or unrelated refactoring.
+- Do not wipe emulator or persistent application storage without approval.
+- Do not commit or push.
+- Preserve the existing FIXTUR spelling issue unless a directly relevant correction is separately justified and approved.
+
+Required report:
+A. Exact image-difference analysis and supporting evidence.
+B. Fixture-image rendering pipeline inventory.
+C. Runtime-selector versus legacy-fallback comparison.
+D. Verified root cause or ranked unresolved hypotheses.
+E. Changes made, if any, with justification.
+F. Before/after visual regression results.
+G. Automated tests and environment checks.
+H. Golden integrity and final Git status.
+I. Recommendation: close the visual regression blocker, request baseline review, or continue targeted investigation.
+
+Update the private handoff and material AI prompt log with the findings, evidence and remaining decisions.
+
+Stop condition:
+If the cause cannot be established or fixing it would alter the approved golden, fixture content, production behavior or wider architecture, stop and report findings. Do not force the test to pass.
+
+Do not proceed to the four new scenarios without human review.

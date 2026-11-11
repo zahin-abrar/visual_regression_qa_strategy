@@ -1,0 +1,178 @@
+# EXEC-009 — Promote Reviewed Golden and Verify Visual Test
+
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Phase:** EXECUTION  
+**Previous task:** EXEC-008 — PASS
+
+## Objective
+
+Promote the reviewed, byte-identical Capture A into the Android golden baseline directory, then execute the existing Appium visual regression test once to verify a successful comparison.
+
+The candidate must explicitly authorize promotion of the exact reviewed capture by issuing this task. The coding agent must not independently choose or regenerate a different baseline.
+
+## Approved baseline
+
+Source:
+
+`qa_visual/artifacts/android/pixel10-api37/long_headline.capture_a.png`
+
+Expected SHA-256:
+
+`E8D573E650E291D8FFDFD69DB9DD764ABB40C08B6FDA0F273E74365B1F6BF629`
+
+Verified image properties:
+
+- Dimensions: 1028 × 1237
+- Format: PNG
+- Mode: RGBA
+- Complete outer article-card boundary
+- Visually reviewed and accepted for baseline promotion
+
+## Step 1 — Review existing state
+
+Read:
+
+- Root `AGENTS.md`, if present
+- `docs/AGENT_TASK_HISTORY.md`
+- `qa_visual/README.md`
+- Existing visual test and image comparator configuration
+
+Confirm the exact golden path expected by the test. The intended location is:
+
+`qa_visual/baselines/android/pixel10-api37/long_headline.png`
+
+Do not change the test's baseline path.
+
+## Step 2 — Verify the approved source
+
+Before copying, validate the local Capture A file:
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy\qa_visual
+
+$source = '.\artifacts\android\pixel10-api37\long_headline.capture_a.png'
+
+Get-FileHash $source -Algorithm SHA256
+```
+
+Compare the hash with the approved SHA-256 above.
+
+Also validate PNG dimensions and readability using the existing Pillow dependency.
+
+**If the hash or dimensions do not match, stop and report BLOCKED.**
+
+Do not substitute Capture B, the rolling `actual.png`, the chat-uploaded copy, or a newly generated screenshot.
+
+## Step 3 — Promote the baseline
+
+First confirm that the target baseline does not already exist.
+
+If it exists, inspect it and stop if its contents differ. Never overwrite it silently.
+
+If the target is absent and the approved source hash matches:
+
+1. Create only the required baseline directory.
+2. Copy Capture A to the expected golden path.
+3. Verify the copied baseline has the same SHA-256.
+4. Verify its dimensions and format.
+
+Do not modify or regenerate image pixels.
+
+Record the baseline's source, approval and SHA-256 in the task history.
+
+## Step 4 — Execute the visual comparison
+
+Verify that the existing emulator, Appium server and Metro runtime are available.
+
+From `qa_visual/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+    .\tests\test_long_headline.py `
+    -m visual -v -s
+```
+
+Run exactly one visual-test execution.
+
+Record:
+
+- Pytest exit code
+- Test result
+- Actual screenshot path
+- Golden path
+- Comparison metrics
+- Generated diff artifact, if any
+- Relevant failures or warnings
+
+The expected result is PASS, but do not claim success unless pytest actually passes.
+
+Do not modify comparison tolerances, tests, selectors or application code to force a passing result.
+
+## Step 5 — Verify baseline integrity
+
+After the test, verify that the golden baseline still has the approved SHA-256.
+
+The test must not regenerate or overwrite it.
+
+If the comparison fails, preserve the actual screenshot and diagnostic evidence, explain the mismatch, and stop. Do not automatically repair or approve a replacement golden.
+
+## Acceptance criteria
+
+EXEC-009 is PASS only when:
+
+1. The local source hash matches the approved capture.
+2. The golden baseline is copied without pixel modification.
+3. The golden hash matches the approved SHA-256.
+4. The visual Appium/pytest test exits 0 and passes.
+5. The baseline remains unchanged after testing.
+6. No application, emulator, driver, comparator or threshold modifications occur.
+
+## Restrictions
+
+- Do not regenerate the golden.
+- Do not modify application or framework source code.
+- Do not change comparator thresholds.
+- Do not install dependencies.
+- Do not rebuild or reinstall the app.
+- Do not restart or reconfigure the emulator.
+- Do not initiate a deliberate UI regression.
+- Do not initialize Git.
+- Do not claim the golden is committed to Git.
+- Do not automatically proceed to EXEC-010.
+
+## Task history
+
+Append EXEC-009 to:
+
+`docs/AGENT_TASK_HISTORY.md`
+
+Record:
+
+- Status: PASS / FAIL / BLOCKED
+- Source capture and approved SHA-256
+- Baseline destination and resulting SHA-256
+- Approval provenance
+- Actual commands and exit codes
+- Test result and comparison metrics
+- Golden integrity after testing
+- Files created or changed
+- Any remaining blockers
+- Recommended next smallest task
+
+Preserve all previous history entries.
+
+## Completion report
+
+Return:
+
+1. EXEC-009 status
+2. Golden baseline path
+3. Source and destination SHA-256 verification
+4. Pytest execution result and exit code
+5. Visual comparison metrics
+6. Baseline integrity result
+7. Files changed or created
+8. Remaining blockers
+9. Recommended next task
+
+**Stop after EXEC-009. Await review and authorization.**

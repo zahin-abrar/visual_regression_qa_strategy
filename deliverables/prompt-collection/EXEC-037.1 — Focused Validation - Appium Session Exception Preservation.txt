@@ -1,0 +1,83 @@
+EXEC-037 — Focused Validation: Appium Session Exception Preservation
+
+Context:
+EXEC-037 refactoring is complete and tests are passing, but we want to verify the exception-handling behavior of the newly introduced android_session() context manager before committing.
+
+Project:
+D:\Projects\visual_regression_qa_strategy
+
+Task:
+Investigate whether android_session() preserves the original test failure when diagnostic collection or Appium cleanup also fails.
+
+This is a READ-ONLY investigation. Do not modify source code, tests or documentation.
+
+1. Inspect:
+   - qa_visual/visualqa/android.py
+   - qa_visual/unit_tests/test_visual_check_unit.py
+   - save_diagnostics() and any relevant supporting functions.
+
+2. Review the existing parameterized test:
+   test_session_always_quits_and_preserves_failure
+
+   Determine what each case actually verifies:
+   - None
+   - body
+   - diagnostics
+   - termination
+
+3. Specifically investigate these scenarios:
+
+   A. Test body fails; diagnostics succeed.
+   B. Test body fails; diagnostics also fail.
+   C. Test body fails; terminate_app() also fails.
+   D. Test body fails; driver.quit() also fails.
+   E. Test body succeeds; terminate_app() fails.
+   F. Test body succeeds; driver.quit() fails.
+   G. make_driver() fails before yielding the driver.
+
+4. For each scenario, determine:
+   - Which exception ultimately propagates?
+   - Is the original test failure preserved?
+   - Is driver.quit() attempted?
+   - Are secondary failures visible in the exception chain or diagnostics?
+   - Is the behavior explicitly covered by an existing unit test?
+
+5. Run the existing focused unit tests:
+
+   python -m pytest unit_tests/test_visual_check_unit.py -k session_always_quits_and_preserves_failure -vv
+
+   Do not require Android, Metro or Appium services.
+
+6. If existing tests do not prove the required behavior, you may use temporary, untracked experiments or isolated Python snippets to reproduce it.
+
+   Do not modify committed or uncommitted repository files.
+
+7. Evaluate whether the current implementation satisfies these expectations:
+
+   - A genuine test failure remains the primary reported error.
+   - Secondary diagnostic and cleanup failures do not hide it.
+   - Driver cleanup is attempted reliably.
+   - Cleanup failures are not silently ignored when the test body succeeds.
+   - Driver creation failures are reported clearly.
+
+8. Report findings using this structure:
+
+   A. Current implementation behavior.
+   B. Existing unit-test coverage and assertion quality.
+   C. Scenario matrix (A–G): expected vs actual.
+   D. Exact commands and results.
+   E. Identified defects, if any.
+   F. Severity and potential impact on screenshot-test diagnostics.
+   G. Minimal recommended correction, if needed.
+   H. Additional unit tests recommended.
+   I. Whether EXEC-037 can be committed safely as-is.
+
+Important constraints:
+- Do not change code.
+- Do not change golden images.
+- Do not modify application or fixture data.
+- Do not stage, commit or push.
+- Do not start EXEC-038.
+- Preserve the existing working tree and unrelated untracked files.
+
+Stop after reporting findings for human review.

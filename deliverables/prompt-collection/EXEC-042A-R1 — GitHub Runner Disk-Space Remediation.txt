@@ -1,0 +1,180 @@
+EXEC-042A-R1 — GitHub Runner Disk-Space Remediation
+
+Project:
+D:\Projects\visual_regression_qa_strategy
+
+Branch: main
+Expected baseline commit: eca3aa4
+
+Remote:
+https://github.com/zahin-abrar/visual_regression_qa_strategy.git
+
+OBJECTIVE
+
+Remediate the disk-exhaustion failure observed in the
+first GitHub Actions Android APK build.
+
+Preserve the existing build architecture and add enough
+diagnostics to establish whether cleanup is effective.
+
+EVIDENCE
+
+The first manually triggered workflow:
+.github/workflows/android-build.yml
+
+Result: FAILED after approximately 25m 27s.
+
+Successful stages:
+- Repository checkout
+- Java 17 setup
+- Node/pnpm setup
+- pnpm install
+- Expo Android prebuild
+
+Failure stage:
+- Gradle assembleDebug (x86_64)
+
+Observed failures:
+- java.io.IOException: No space left on device
+  during Gradle/native compilation.
+- System.IO.IOException: No space left on device
+  while the GitHub Actions runner wrote its own
+  _diag/Worker log.
+
+The failure occurred during native Android compilation,
+including CMake/Ninja tasks.
+
+This is a confirmed disk-exhaustion event.
+The precise disk consumers have not yet been measured.
+
+TASK A — PREFLIGHT
+
+1. Read the current workflow and latest private handoff.
+2. Confirm branch, HEAD and Git status.
+3. Preserve the ten unrelated untracked app/ entries.
+4. Review the first-run failure evidence.
+5. Do not change the Android application or test code.
+
+TASK B — RESOURCE DIAGNOSTICS
+
+Add readable disk diagnostics at appropriate checkpoints:
+
+- At job startup, before cleanup
+- After cleanup
+- After pnpm installation and Expo prebuild
+- Immediately before Gradle
+- After Gradle, where execution permits
+
+Include:
+
+- df -h
+- df -i
+- Available space on the build filesystem
+- Sizes of major known toolchain directories
+- ~/.gradle
+- app/node_modules
+- app/android
+
+Avoid excessively expensive recursive scanning.
+
+Diagnostics must make it possible to compare available
+disk space before and after cleanup.
+
+TASK C — CONSERVATIVE CLEANUP
+
+Identify substantial preinstalled tools that are not
+needed for the Android build.
+
+Candidates for inspection include:
+- .NET SDK installations
+- Unused Haskell toolchains
+- Other unrelated preinstalled build toolchains
+
+Before removing anything:
+
+1. Verify the exact path exists.
+2. Measure its approximate size.
+3. Confirm it is not required by this workflow.
+4. Use narrowly specified cleanup paths.
+5. Record space reclaimed.
+
+DO NOT delete:
+- Android SDK, NDK, CMake or build tools
+- Java 17 required by the build
+- Node/pnpm required by the build
+- Gradle outputs needed for APK assembly
+- App source or generated Android project
+- GitHub runner internal files
+- Unrelated repository files
+
+Do not use a broad generic cleanup script that removes
+the entire Android toolchain or all hosted-tool caches.
+
+Do not introduce unnecessary third-party cleanup actions.
+
+TASK D — PRESERVE BUILD BEHAVIOR
+
+Keep:
+- ubuntu-24.04
+- workflow_dispatch trigger
+- Minimal GitHub permissions
+- Existing pinned actions
+- Node 24 / pnpm 12 / Java 17
+- Expo prebuild
+- Gradle x86_64 assembleDebug
+- APK artifact upload
+
+Do not:
+- Introduce EAS
+- Change app dependencies
+- Change Gradle or React Native architecture
+- Add an emulator
+- Add Appium
+- Add unit tests
+- Change fixtures or golden screenshots
+- Introduce mandatory PR checks
+
+Do not add caching solely as a speculative disk-space fix.
+Caching can be evaluated separately once the build succeeds.
+
+TASK E — LOCAL VERIFICATION
+
+- Validate YAML.
+- Verify workflow structure and step ordering.
+- Check cleanup paths and safety conditions.
+- Run git diff --check.
+- Verify existing build commands are unchanged.
+- Confirm no golden files changed.
+
+Do not claim the disk issue is fixed without a
+successful GitHub-hosted execution.
+
+TASK F — COMMIT
+
+If local checks pass, create one local commit:
+
+ci(android): mitigate GitHub runner disk exhaustion
+
+Stage only the workflow and any necessary documentation.
+
+Do not use git add -A.
+Do not tag, push or rewrite history.
+
+TASK G — REPORT
+
+Provide:
+
+1. Exact files modified.
+2. Diagnosed resource constraints.
+3. Cleanup paths and justification.
+4. Disk diagnostics added.
+5. Local verification results.
+6. Commit hash.
+7. Known risks and remaining uncertainty.
+8. Instructions to push and manually rerun the workflow.
+
+Update the private handoff and AI prompt log.
+
+STOP.
+
+Do not begin emulator/Appium CI implementation.

@@ -1,0 +1,426 @@
+# EXEC-037 — Framework Organization and Maintainability
+
+**Phase:** EXECUTION  
+**Project:** `D:\Projects\visual_regression_qa_strategy`  
+**Scope:** Unit-test organization, coding consistency and targeted duplication removal  
+**Starting point:** Latest verified EXEC-036 commit on local `main`
+
+## Objective
+
+Improve the maintainability and developer experience of the existing `qa_visual/` framework without changing its functionality, screenshot comparison behavior, fixture selection or approved references.
+
+This execution addresses:
+
+1. Separation of Python unit tests from Appium visual tests.
+2. Consistent coding conventions across work developed with Codex and Claude.
+3. Removal of genuinely duplicated test setup, screenshot and cleanup logic.
+
+The result should be easier for a QA engineer to navigate, extend and debug.
+
+This is a **behavior-preserving refactor**. Avoid broad architectural redesign.
+
+## Established working baseline
+
+The latest reported state is:
+
+- EXEC-036 is committed on local `main`.
+- All five Android visual scenarios pass with zero changed pixels.
+- Forty-one Python unit tests pass.
+- Default pytest suite: 46 passed, one intentionally failing test deselected.
+- All five visual tests launch their own deterministic scenarios.
+- Direct execution from PyCharm's test-function Run icon is verified by the human reviewer.
+- Golden candidate regeneration and safe human-controlled promotion are documented and verified.
+- The intentional-failure demonstration is working.
+- Six protected reference images are unchanged.
+- Ten unrelated upstream scaffolding entries remain untracked.
+
+The previously verified EXEC-035 checkpoint is:
+
+`2bc313e63d9026cdd8cb448136c7746758fbce94`
+
+The new EXEC-036 commit SHA has not been supplied in this instruction. Retrieve and record the actual SHA from Git. Do not assume that the EXEC-035 checkpoint remains HEAD.
+
+## Phase A — Preflight and baseline verification
+
+1. Read the repository's `AGENTS.md`, `CLAUDE.md` and applicable local instructions.
+2. Read the latest local private decisions, handoff and relevant execution records.
+3. Verify the Git branch, HEAD, latest EXEC-036 commit and current working-tree status.
+4. Inspect the files changed by EXEC-036.
+5. Preserve all untracked upstream scaffolding.
+6. Record hashes for all five approved goldens and the intentional mismatch reference.
+
+Run the existing test suite before modifying code:
+
+```powershell
+cd D:\Projects\visual_regression_qa_strategy\qa_visual
+.\.venv\Scripts\python.exe -m pytest tests -v
+```
+
+Expected starting state:
+
+- 46 passed.
+- One intentional-failure test deselected.
+- Five visual scenarios pass with zero changed pixels.
+
+If the environment is unavailable, record this honestly and continue only with verification that does not require Android.
+
+Do not silently start or repair infrastructure as part of this task.
+
+## Phase B — Investigate code organization and duplication
+
+Inspect all relevant files under `qa_visual/`, particularly:
+
+- `pytest.ini`
+- `conftest.py`
+- `tests/`
+- `visualqa/android.py`
+- `visualqa/scenario_launch.py`
+- `visualqa/image_diff.py`
+- `visualqa/screens/`
+- Other existing framework modules
+- Current README and Python dependency configuration
+
+Create a concise internal inventory describing:
+
+- Unit-test modules and their current test counts.
+- Native Appium visual-test modules.
+- Shared pytest fixtures.
+- Duplicated code fragments.
+- Coding-style inconsistencies.
+- Existing conventions worth preserving.
+- Existing test discovery and marker behavior.
+
+Pay particular attention to PyCharm's duplicated-code observation in `test_dark_article.py` and related visual tests.
+
+Determine whether the repetition represents:
+
+1. Reusable setup or cleanup logic.
+2. Reusable screenshot comparison and artifact handling.
+3. Necessary, scenario-specific assertions that should remain explicit.
+
+Do not assume that every duplicated fragment should be removed.
+
+Document the proposed refactor briefly before implementing it.
+
+## Phase C — Separate unit tests from Appium tests
+
+Preferred target organization, subject to investigation:
+
+```text
+qa_visual/
+├── tests/
+│   ├── test_long_headline.py
+│   ├── test_breaking_news.py
+│   ├── test_dark_article.py
+│   ├── test_no_image.py
+│   ├── test_empty_feed.py
+│   └── test_intentional_visual_failure.py
+├── unit_tests/
+│   └── existing unit-test modules
+├── visualqa/
+├── conftest.py
+└── pytest.ini
+```
+
+Move existing unit tests; do not delete or replace them.
+
+Preserve all test assertions and relevant fixtures.
+
+Adjust pytest discovery and import paths so the following behaviors hold:
+
+| Command | Expected behavior |
+|---|---|
+| `python -m pytest` | Run unit and normal visual tests |
+| `python -m pytest tests/` | Run only the five normal Appium visual tests |
+| `python -m pytest unit_tests/` | Run only Python unit tests |
+| `python -m pytest -m unit` | Select all unit tests |
+| `python -m pytest -m visual` | Select the five normal visual tests |
+| `python -m pytest -m intentional_failure` | Select only the intentional failure demonstration |
+
+The intentional-failure demonstration must remain excluded from normal execution.
+
+Preserve working pytest execution from both `qa_visual/` and the repository root.
+
+Preserve direct right-click execution of individual tests in PyCharm.
+
+Prefer standard pytest discovery and marker configuration over custom discovery scripts.
+
+Do not create a new runner merely to support the folder change.
+
+## Phase D — Coding-style audit and consistency
+
+Review coding conventions across the Python implementation and tests.
+
+Evaluate:
+
+- Import ordering and placement.
+- Naming conventions.
+- Function and variable clarity.
+- Type annotations.
+- Function length and responsibilities.
+- Exception handling.
+- Logging versus printing.
+- Path handling.
+- Consistent fixtures and markers.
+- Test arrangement and assertion readability.
+- Comments and docstrings.
+- Consistent cleanup behavior.
+- Appropriate separation between test intent and framework infrastructure.
+
+Consider using Ruff for automated linting and formatting, provided the change is appropriately limited.
+
+First inspect existing project tooling and conventions.
+
+If Ruff is introduced:
+
+- Explain the benefit and dependency impact.
+- Use a small, documented configuration.
+- Pin or consistently manage the tool version.
+- Avoid large unrelated formatting changes.
+- Ensure the documented checks can be reproduced locally and later in CI.
+
+A linting tool is not mandatory if the current codebase can be made consistent with a smaller change.
+
+Do not introduce a complex configuration or multiple overlapping quality tools.
+
+Avoid formatting files merely to make the diff larger or satisfy subjective preferences.
+
+All meaningful behavioral changes require justification and relevant tests.
+
+## Phase E — Targeted duplication reduction
+
+After inspecting actual repeated code, implement the smallest sensible abstraction.
+
+Potential candidates include:
+
+- Artifact directory preparation.
+- Golden path resolution.
+- Native screenshot capture and metadata saving.
+- Comparison and metrics output.
+- Diagnostic collection.
+- Driver lifecycle cleanup.
+- Common screenshot readiness verification.
+
+These are candidates, not a mandate to create a single large abstraction.
+
+### Design principles
+
+1. Keep each test's scenario selection explicit.
+2. Preserve scenario-specific assertions in the test file.
+3. Make tests readable without requiring developers to navigate many helpers.
+4. Use shared fixtures or helpers for genuine infrastructure responsibilities.
+5. Avoid highly parameterized generic test engines for only five scenarios.
+6. Avoid new inheritance layers or unnecessary page-object restructuring.
+7. Preserve precise error messages and diagnostic artifacts.
+8. Keep the intentional-failure test's special reference selection explicit.
+
+The intentional-failure test must still compare a real application screenshot against its deliberately incorrect reference and fail with a genuine assertion.
+
+Do not replace its failure with `xfail`, `skip`, a mocked comparator or an inverted passing assertion.
+
+### Behavioral invariants
+
+Preserve:
+
+- Appium UiAutomator2 driver/session creation.
+- Pre-render scenario selection and cold-launch isolation.
+- Scenario identity checks.
+- UI readiness checks.
+- Native element screenshot capture.
+- Scenario-specific assertions.
+- Comparison thresholds.
+- Golden profile selection.
+- Screenshot dimensions and crop behavior.
+- Actual, context, diff, JSON and diagnostic artifact generation.
+- Session termination and driver cleanup.
+- Configuration overrides and validation behavior.
+
+Investigate the known difference in tolerance-override handling between `breaking_news` and the other four tests.
+
+Report whether it is deliberate or accidental.
+
+Do **not** change effective comparison thresholds or comparison policy during this refactor. If consistency would require behavioral changes, document the recommendation separately.
+
+## Phase F — Verification
+
+### F1. Test discovery
+
+Verify the new folder arrangement and marker behavior.
+
+The expected normal test inventory remains:
+
+- 41 unit tests.
+- 5 visual tests.
+- 1 intentional-failure demonstration excluded by default.
+
+Total: 46 selected by default, one deselected.
+
+Record actual collection results.
+
+### F2. Unit tests
+
+Run:
+
+```powershell
+python -m pytest unit_tests/ -v
+python -m pytest -m unit -q
+```
+
+Expected: all 41 existing unit tests pass, plus any new tests added for refactored helpers.
+
+If the number changes because new tests are added, explain the difference.
+
+### F3. Native visual tests
+
+With the existing Android prerequisites running:
+
+```powershell
+python -m pytest tests/ -v
+```
+
+Expected:
+
+- Five normal visual tests pass.
+- Each uses its declared scenario.
+- Each performs its own cold launch.
+- Every comparison reports zero changed pixels.
+- The intentional-failure demo is deselected.
+
+Also execute at least one normal visual test individually to verify independent execution.
+
+### F4. Default discovery
+
+Run:
+
+```powershell
+python -m pytest -v
+```
+
+Expected: all normal unit and visual tests pass.
+
+Verify that the intentional-failure demonstration is not included.
+
+### F5. Intentional failure
+
+Run:
+
+```powershell
+python -m pytest tests/test_intentional_visual_failure.py -m intentional_failure -v -s
+```
+
+Expected:
+
+- The correct `breaking_news` scenario is selected.
+- A real native screenshot is captured.
+- Comparison against the deliberately incorrect reference fails.
+- The comparator reports a substantial mismatch.
+- Actual, diff, context and JSON artifacts are generated.
+- Pytest exits 1 due to the visual comparison assertion.
+
+Previously observed mismatch: 468,349 of 506,804 pixels, approximately 92.41%.
+
+Do not claim identical metrics unless observed during the new run.
+
+### F6. Compatibility and safety
+
+Verify:
+
+- Tests can be discovered from the repository root.
+- `qa_visual/` remains usable as the PyCharm project root.
+- No new requirement for per-test `VVP_QA_LAUNCH_URL`.
+- No approved golden has changed.
+- The intentional mismatch reference is unchanged.
+- No application fixture, React Native component or app source changed.
+- No comparator threshold changed.
+- No unintended artifact naming or output path changes.
+- No private files or generated artifacts are included in the Git diff.
+- `git diff --check` passes.
+
+If any visual comparison changes after refactoring, investigate and correct the cause. Do not regenerate goldens to make the test pass.
+
+## Phase G — Documentation and maintainability
+
+Update `qa_visual/README.md` and the root `README.md` as needed.
+
+Document:
+
+1. New test directory structure.
+2. How to run all normal tests.
+3. How to run unit tests without Android services.
+4. How to run visual tests.
+5. How to run one test directly from PyCharm.
+6. How to explicitly run the intentional-failure demonstration.
+7. Linting or formatting commands, if introduced.
+8. The responsibilities of any new shared helpers.
+
+Preserve the verified EXEC-036 golden-regeneration and configuration guidance.
+
+Review existing scripts, documentation links and commands for references to the former unit-test paths.
+
+Update those references rather than leaving stale instructions.
+
+Review strategy documentation for changes that affect factual descriptions. Do not alter the strategy unnecessarily.
+
+If no strategy change is needed, leave its Markdown and PDF untouched.
+
+Update the public AI prompt disclosure and the latest private decisions, handoff and prompt logs.
+
+## Explicit exclusions
+
+Do not:
+
+- Add Allure reporting. That belongs to EXEC-038.
+- Implement automatic environment startup.
+- Add an `.env` loader.
+- Add CI workflows or claim CI execution.
+- Implement iOS tests.
+- Add new visual scenarios.
+- Regenerate or promote goldens.
+- Modify the deliberately incorrect reference image.
+- Change screenshot thresholds.
+- Change deterministic fixture data.
+- Modify the application UI.
+- Fix the unrelated `FIXTUR` spelling issue in application source.
+- Revisit the unresolved one-pixel layout difference.
+- Add donation-card coverage.
+- Restructure the entire repository.
+- Change Git remotes or branch strategy.
+- Stage, commit, tag or push.
+
+Preserve unrelated untracked scaffolding.
+
+## Acceptance criteria
+
+EXEC-037 is complete when:
+
+1. Unit tests are located separately from Appium visual tests.
+2. Pytest discovery and all existing markers work correctly.
+3. The default pytest suite remains green.
+4. All five Android visual tests pass with unchanged references.
+5. Direct PyCharm execution remains supported.
+6. The intentional-failure demonstration still produces a genuine comparator failure.
+7. A consistent, documented Python coding style is established.
+8. Worthwhile duplicate code is reduced without hiding test intent.
+9. All approved golden hashes remain unchanged.
+10. No application or fixture behavior changes.
+11. Documentation reflects the final structure and verified commands.
+12. The final Git diff is limited, understandable and suitable for human review.
+
+If a broad refactor becomes necessary to eliminate duplication, stop and report the trade-off rather than proceeding automatically.
+
+## Required agent report
+
+**A.** Starting Git SHA and preflight status.  
+**B.** Code-organization and duplication findings.  
+**C.** Final folder structure and files moved.  
+**D.** Coding-style conventions and tooling decision.  
+**E.** Duplicated code removed and abstractions introduced.  
+**F.** Exact files changed and reasons.  
+**G.** Pytest discovery and unit-test results.  
+**H.** Five-scenario native visual test results.  
+**I.** Intentional-failure verification and artifact evidence.  
+**J.** Golden hash verification and behavioral invariants.  
+**K.** Documentation changes.  
+**L.** Final Git status, remaining risks and recommendations.
+
+**Stop after EXEC-037. Do not stage or commit. Return the results for human review before proceeding to EXEC-038.**

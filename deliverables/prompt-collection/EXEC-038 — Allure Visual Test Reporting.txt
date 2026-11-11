@@ -1,0 +1,248 @@
+EXEC-038 — Allure Visual Test Reporting
+
+Project: D:\Projects\visual_regression_qa_strategy
+Phase: EXECUTION
+Starting point: Latest committed EXEC-037 checkpoint on local main.
+
+OBJECTIVE
+
+Integrate Allure reporting into the existing pytest/Appium framework.
+
+The report should help developers and reviewers understand:
+- Which visual tests passed or failed.
+- What application scenario was tested.
+- Which approved golden was used.
+- What screenshot was captured.
+- What differences were detected.
+- Why a visual comparison failed.
+
+Keep the existing pytest behavior and screenshot comparison implementation unchanged.
+
+A. PREFLIGHT
+
+1. Read repository instructions and latest decisions/handoff.
+2. Verify branch, HEAD, Git status and EXEC-037 commit.
+3. Inspect:
+   - pytest.ini
+   - qa_visual/conftest.py
+   - qa_visual/tests/
+   - qa_visual/unit_tests/
+   - qa_visual/visualqa/visual_check.py
+   - qa_visual/visualqa/android.py
+   - qa_visual/visualqa/image_diff.py
+   - Existing dependency and README files.
+4. Preserve unrelated untracked scaffolding.
+
+Expected starting state:
+- 68 Python unit tests passing.
+- 5 Android visual tests passing with zero changed pixels.
+- 1 intentional-failure demonstration excluded by default.
+- Normal pytest execution and PyCharm direct execution working.
+- Approved goldens and existing artifacts unchanged.
+
+B. ALLURE INTEGRATION
+
+1. Verify the current official Allure pytest integration and CLI
+   instructions. Distinguish Allure Report 2 and 3 commands.
+
+2. Add allure-pytest to the project's managed Python dependencies,
+   using an appropriate reproducible version specification.
+
+3. Keep Allure reporting optional for normal execution:
+   - Existing pytest commands must continue working.
+   - PyCharm right-click execution must not require an Allure CLI.
+   - Do not make report generation part of every test run.
+
+4. Prefer existing pytest and Allure integration mechanisms.
+   Avoid a custom reporting framework or unnecessary abstractions.
+
+5. Configure ignored report output directories.
+   Generated HTML, JSON results and attachments must not enter Git.
+
+C. REPORT CONTENT
+
+For each normal visual test, include where available:
+
+- Human-readable test name.
+- Scenario identifier.
+- Android/device profile.
+- Approved golden screenshot.
+- Actual native element screenshot.
+- Full-screen context screenshot.
+- Generated visual diff.
+- Comparison JSON.
+- Changed pixel count and ratio.
+- Allowed threshold.
+- Pass/fail status.
+
+Preserve the existing native screenshot boundaries.
+
+Use correct attachment types, such as PNG and JSON.
+
+A successful test should provide useful visual evidence, not merely
+a green status.
+
+For a visual mismatch, attach the evidence before raising the final
+comparison assertion whenever possible.
+
+For errors occurring before capture or comparison, attach only
+diagnostics genuinely produced during the current execution.
+
+Do not accidentally attach stale artifacts from previous runs.
+
+D. INTENTIONAL-FAILURE REPORTING
+
+Integrate the existing intentional-failure demonstration.
+
+It must:
+- Remain excluded from normal pytest execution.
+- Be selectable explicitly using -m intentional_failure.
+- Capture the real breaking_news UI.
+- Compare against its deliberately incorrect reference.
+- Fail at the actual visual comparison assertion.
+- Include the incorrect reference, actual screenshot, diff and
+  comparison metrics in Allure.
+
+Clearly label this as an intentional reference-mismatch demonstration,
+not an application regression.
+
+Do not convert it into xfail, skip or a passing assertion.
+
+Do not mix intentional-failure results into the normal green report.
+
+E. LOCAL REPORT GENERATION
+
+Provide reproducible commands to:
+
+1. Run all normal tests with Allure results.
+2. Run the five visual tests with Allure results.
+3. Run the intentional-failure demonstration separately.
+4. Generate an HTML report from a specified results directory.
+5. Open the generated report.
+
+Keep normal and intentional-failure results in separate directories.
+
+Avoid accumulating stale results from older test runs.
+Use explicit cleanup or fresh output directories.
+
+Verify which Allure CLI version is actually installed before
+documenting specific generate/serve commands.
+
+If report generation requires additional system software, document
+the prerequisites accurately.
+
+F. CI READINESS
+
+Design report generation so a future CI pipeline can:
+- Run pytest non-interactively.
+- Collect machine-readable test results.
+- Publish Allure results and HTML as build artifacts.
+- Retain actual screenshots and visual diffs when tests fail.
+- Keep intentionally failing demonstrations outside PR quality gates.
+
+Consider supporting JUnit XML alongside Allure for CI compatibility.
+
+Do not implement a CI workflow in this task.
+
+Do not claim that CI has passed.
+
+G. VERIFICATION
+
+Run:
+
+1. All unit tests.
+2. All five native visual tests.
+3. Default pytest discovery/execution.
+4. One visual test individually.
+5. Explicit intentional-failure demonstration.
+
+Verify:
+- Normal tests still pass.
+- Five visual comparisons show zero changed pixels.
+- Intentional-failure test still fails genuinely.
+- Allure result files are generated.
+- Correct attachments are associated with correct test cases.
+- No stale screenshots are attached.
+- Normal and intentional-failure reports remain separate.
+- Existing PyCharm execution remains compatible.
+
+Generate an actual HTML report and verify that it opens and displays
+the expected tests, statuses, screenshots, diffs and metrics.
+
+If the Allure CLI cannot be installed or run, report that limitation.
+Do not claim the HTML report is verified based only on raw result files.
+
+Also verify:
+- All six protected reference hashes unchanged.
+- No app source or fixture changes.
+- No comparison threshold changes.
+- No changes to scenario launching or cold-launch isolation.
+- No changes to golden regeneration and approval procedures.
+- git diff --check passes.
+
+H. DOCUMENTATION
+
+Update qa_visual/README.md and root README.md with:
+
+- Allure dependency/setup instructions.
+- Commands for generating normal test results.
+- Commands for generating the intentional-failure report.
+- Commands for opening the HTML report.
+- Report output locations.
+- Attachment descriptions.
+- CI artifact-publishing considerations.
+- Known limitations.
+
+Update the public AI prompt disclosure and private
+handoff/decision/prompt records.
+
+Do not modify the strategy PDF unless the implementation makes
+an existing statement factually incorrect.
+
+I. EXCLUSIONS
+
+Do not:
+- Reorganize test folders again.
+- Refactor unrelated test or framework code.
+- Implement automatic emulator, Metro or Appium startup.
+- Introduce .env loading.
+- Implement CI workflows or iOS tests.
+- Add visual scenarios.
+- Modify approved goldens or demo references.
+- Change comparison thresholds.
+- Change application source or fixture data.
+- Address unrelated spelling or layout issues.
+- Stage, commit, tag or push.
+
+J. ACCEPTANCE CRITERIA
+
+EXEC-038 passes when:
+
+1. Allure pytest integration works.
+2. Normal pytest/PyCharm workflows remain functional.
+3. Five visual tests pass with unchanged goldens.
+4. Allure results contain correct per-test evidence.
+5. An actual HTML report is generated and inspected.
+6. The intentional-failure report shows a genuine visual mismatch.
+7. Intentional-failure results are excluded from normal reports.
+8. Reports and attachments are ignored by Git.
+9. Reporting can be reused by a future CI pipeline.
+10. Documentation contains tested commands and accurate results.
+
+K. REQUIRED REPORT
+
+A. Starting commit and Git state.
+B. Dependencies and Allure version selected.
+C. Implementation approach and files modified.
+D. Normal pytest/unit/visual results.
+E. Intentional-failure results.
+F. Attachment inventory and correctness.
+G. HTML report generation and inspection evidence.
+H. CI compatibility considerations.
+I. Golden hash and behavioral verification.
+J. Documentation changes.
+K. Final Git status and limitations.
+
+Stop after EXEC-038.
+Do not stage or commit.
+Return results for human review.

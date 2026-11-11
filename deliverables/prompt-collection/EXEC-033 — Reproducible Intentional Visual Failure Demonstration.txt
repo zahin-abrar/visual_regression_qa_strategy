@@ -1,0 +1,177 @@
+EXEC-033 — Marker-Controlled Intentional Visual Failure Demonstration
+
+Objective:
+Implement a permanent, reproducible pytest demonstration that intentionally FAILS because a real Android screenshot differs from a deliberately incorrect reference PNG.
+
+The demo must be independently executable from PyCharm or PowerShell without an AI agent, source edits or application styling changes.
+
+Project root:
+D:\Projects\visual_regression_qa_strategy
+
+Expected HEAD:
+bcc56b24dbe67472e178ce27fbab54a442bce482
+
+HUMAN-APPROVED DESIGN:
+
+Use a dedicated pytest marker named intentional_failure.
+
+Keep the test inside the existing qa_visual/tests/ structure, but exclude it from normal pytest execution by default.
+
+An explicitly selected intentional_failure run must execute the test and produce a genuine pytest FAIL at the visual comparison assertion.
+
+Do NOT use xfail, skip, or an inverted assertion to make the intentional failure appear as a passing test.
+
+Reference image:
+
+Create a separate deliberately incorrect PNG, derived deterministically from the approved breaking_news golden.
+
+Suggested path:
+qa_visual/demo_assets/intentional_mismatch_breaking_news.png
+
+Requirements:
+- Same dimensions as the approved banner reference.
+- Visibly modified banner colors or another meaningful visual region.
+- Deterministic PNG, included as a versioned demonstration asset.
+- Never stored in baselines/ or treated as an approved golden.
+- Original approved breaking_news.png remains unchanged.
+
+Test:
+
+Create:
+qa_visual/tests/test_intentional_visual_failure.py
+
+Mark the test ONLY with:
+@pytest.mark.intentional_failure
+
+Reuse the existing:
+- Runtime scenario launcher (qa_scenario=breaking_news)
+- BreakingBanner Page Object
+- Identity/readiness/title assertions
+- Native element screenshot capture
+- Pillow comparator
+- Actual/diff/JSON reporting conventions
+
+Use a clear constant pointing to the deliberately incorrect reference.
+
+The comparator must perform the real comparison, produce failure artifacts, and fail the pytest assertion.
+
+Pytest configuration:
+
+1. Inspect the existing qa_visual/pytest.ini and current test-marker conventions.
+
+2. Register intentional_failure as a custom marker.
+
+3. Preserve all existing pytest settings and markers.
+
+4. Configure default execution to exclude intentional_failure, preferably through addopts:
+
+   -m "not intentional_failure"
+
+5. Ensure explicit invocation with -m intentional_failure overrides the default exclusion.
+
+6. Ensure the existing -m unit and -m visual commands continue selecting their intended tests.
+
+7. Do not mark the intentional-failure test as visual or unit.
+
+Verify the actual collection behavior rather than assuming the marker configuration works.
+
+Required execution modes:
+
+A. Normal visual test:
+python -m pytest tests/test_breaking_news.py -m visual -v -s
+
+Expected: PASS against the approved golden.
+
+B. Intentional failure:
+python -m pytest tests/test_intentional_visual_failure.py -m intentional_failure -v -s
+
+Expected:
+- Scenario identity PASS
+- Banner readiness PASS
+- Native screenshot captured
+- Visual comparator detects a meaningful mismatch
+- Actual/diff/JSON artifacts generated
+- Pytest assertion FAIL
+- Exit code 1
+
+C. Normal visual test again:
+python -m pytest tests/test_breaking_news.py -m visual -v -s
+
+Expected: PASS.
+
+All commands run from qa_visual/ using its existing .venv interpreter and the documented breaking_news launch environment.
+
+Tasks:
+
+1. Record initial Git status and verify all five approved golden hashes.
+
+2. Implement the separate incorrect reference PNG and marked demonstration test.
+
+3. Configure pytest's default marker exclusion without disrupting existing test discovery.
+
+4. Verify collection:
+   - Default pytest collection discovers but deselects the intentional-failure test.
+   - -m visual excludes the demonstration.
+   - -m unit excludes the demonstration.
+   - -m intentional_failure selects exactly the intended demonstration test.
+
+5. Execute and document PASS → INTENTIONAL FAIL → PASS.
+
+6. Confirm the FAIL originates from pixel comparison, not an Appium, locator, network, fixture or missing-file failure.
+
+7. Preserve genuine comparator-generated actual, diff and JSON evidence.
+
+8. Execute the ordinary five-scenario Android visual suite and verify all five PASS.
+
+9. Verify all approved golden hashes remain unchanged.
+
+10. Document independent execution from PyCharm:
+    - Existing project interpreter
+    - Working directory qa_visual/
+    - Test target
+    - Additional argument -m intentional_failure
+    - Required emulator, Metro and Appium setup
+    - Expected exit code 1
+    - Artifact locations and how to inspect the diff
+
+11. Document the equivalent PowerShell commands for normal PASS, intentional FAIL and normal PASS again.
+
+12. Explain explicitly that this is an intentional reference mismatch demonstration, not an actual application UI regression.
+
+13. Update the sanitized AI disclosure and ignored private handoff/prompt records with real execution results.
+
+Constraints:
+- No application source or styling changes.
+- No runtime regression toggle.
+- No changes to the five approved goldens.
+- No comparator threshold modifications.
+- No new visual scenarios.
+- No CI workflow or native iOS implementation.
+- No unrelated bug fixes.
+- Do not stage, commit or push.
+- Preserve unrelated upstream scaffolding.
+
+Acceptance:
+- Ordinary pytest discovery excludes the demonstration.
+- Existing visual and unit marker selections remain correct.
+- Explicit intentional_failure invocation runs exactly the intended test.
+- Test genuinely FAILS at the visual comparison assertion.
+- Actual/diff/JSON artifacts are generated.
+- Normal breaking_news passes before and after.
+- All five normal visual tests PASS.
+- All approved golden hashes remain unchanged.
+- The demonstration works from PyCharm and PowerShell without source changes.
+
+Required report:
+A. New demo files and reference PNG hash.
+B. Pytest marker/configuration changes.
+C. Verified collection and exclusion behavior.
+D. PASS → FAIL → PASS execution evidence.
+E. Actual/diff/JSON artifact paths and mismatch metrics.
+F. Five-scenario regression results.
+G. PyCharm and PowerShell reproduction instructions.
+H. Final Git status and limitations.
+
+Stop after EXEC-033 verification.
+
+Do not begin EXEC-034 or commit changes without human review.
